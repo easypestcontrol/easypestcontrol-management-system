@@ -30,33 +30,43 @@ is not. Do not go further until this returns 401.
 
 1. vercel.com → **Add New** → **Project**
 2. **Import** `easypestcontrol/easypestcontrol-management-system`
-3. Vercel will guess the settings. All three guesses are wrong for a workspace
-   monorepo — set them by hand in the next step.
+3. Vercel detects Next.js correctly. The only thing it cannot guess is which
+   folder of the monorepo to build — set that in the next step.
 
 ---
 
-## 3. Settings that matter
-
-This repository is npm workspaces: `apps/*` and `packages/*`. The web app
-imports `shared`, which is TypeScript that has to be compiled before Next can
-build. So the build runs from the **workspace root**, not from the app folder.
+## 3. Settings
 
 | Setting | Value |
 |---|---|
-| Framework Preset | **Next.js** |
-| Root Directory | **`v2`** |
-| Build Command | `npm run build --workspace shared && npm run build --workspace web` |
-| Output Directory | `apps/web/.next` |
-| Install Command | `npm install` |
+| Framework Preset | **Next.js** (detected) |
+| Root Directory | **`v2/apps/web`** |
+| Build Command | *leave default* |
+| Output Directory | *leave default* |
+| Install Command | *leave default* |
 | Node.js Version | 20.x or later |
 
-> **Why root `v2` and not `v2/apps/web`.** Point Vercel at the app folder and
-> `npm install` runs there, where `shared` is not a published package and
-> cannot resolve. From `v2` the workspace links it, and the build command
-> compiles it first. Setting the root any deeper trades a two-line build
-> command for a broken install.
+Set the root directory. Leave everything else alone.
 
----
+> **Why there is no custom build command.** The web app imports `shared`, which
+> is TypeScript in this repository and is consumed as compiled `dist/`. Nothing
+> compiles it on a fresh checkout, so the first Vercel build failed with
+> `Module not found: Can't resolve 'shared'` five times over.
+>
+> The fix is a `prebuild` script in `apps/web/package.json`:
+>
+> ```json
+> "prebuild": "tsc -p ../../packages/shared/tsconfig.json"
+> ```
+>
+> npm runs `prebuild` before `build` automatically, so `shared` is compiled
+> whichever directory the build server chooses to run from. A build that only
+> works when a dashboard field is filled in correctly is a build waiting to
+> break — better that the repository knows how to build itself.
+
+If the install fails to resolve `shared` at all, turn on **Include source files
+outside of the Root Directory** in the project settings: `shared` lives at
+`v2/packages/shared`, above the root you just set.
 
 ## 4. The one environment variable
 
@@ -79,6 +89,9 @@ not in everybody's browser.
 Click **Deploy**. When it finishes:
 
 1. Open the Vercel URL. The sign-in page should render.
+   *Build log check:* it should show `> web@2.0.0 prebuild` then `> next build`.
+   If `prebuild` is missing, the checkout predates the fix — redeploy from the
+   latest `main`.
 2. Sign in. If the page loads but sign-in fails, the front end is fine and the
    join is not — the rewrite cannot reach the API. Check `API_URL` for a typo
    or a trailing slash, and that step 1's `curl` still returns 401.
