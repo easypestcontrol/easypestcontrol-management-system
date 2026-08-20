@@ -249,7 +249,6 @@ export default function Invoices() {
               <th className="text-right!">Amount</th>
               <th className="text-right!">Paid</th>
               <th className="text-right!">Balance</th>
-              <th>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -262,7 +261,12 @@ export default function Invoices() {
                       className="w-4 h-4 accent-[#FF0000] align-middle" />
                   </td>
                   <td>
-                    <span className="block font-semibold text-navy">{i.id}</span>
+                    {/* The tag rides on the LEFT beside the number, so an
+                        overdue invoice jumps out while scanning down. */}
+                    <span className="flex items-center gap-2">
+                      <span className="font-semibold text-navy">{i.id}</span>
+                      <span className={pillClass(i.status)}>{STATUS_LABEL[i.status]}</span>
+                    </span>
                     <span className="block text-[11.5px] text-muted">{fmtDate(i.date)}</span>
                   </td>
                   <td className="font-medium">{i.clientName}</td>
@@ -276,7 +280,6 @@ export default function Invoices() {
                   <td className={'text-right font-bold ' + (i.balance > 0 ? 'text-accent' : 'text-muted')}>
                     {money(i.balance)}
                   </td>
-                  <td><span className={pillClass(i.status)}>{STATUS_LABEL[i.status]}</span></td>
                 </tr>
               );
             })}

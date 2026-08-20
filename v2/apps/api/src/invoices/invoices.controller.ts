@@ -116,7 +116,7 @@ export class InvoicesController {
   }
 
   /** The full document payload — items, client, contract, totals, payments. */
-  private async detail(id: string) {
+  private async detail(id: string, role?: string) {
     const inv = await this.prisma.invoice.findUnique({
       where: { id },
       include: { payments: { orderBy: [{ date: 'desc' }, { id: 'desc' }] } },
@@ -174,11 +174,18 @@ export class InvoicesController {
         : null,
       totals,
       payments: await (async () => {
-        const users = await this.prisma.user.findMany({ select: { id: true, name: true } });
+        // WHO collected each rupee is the admin's eyes only — everyone else
+        // sees the money and the mode, never the person.
+        const admin = role === 'admin';
+        const users = admin
+          ? await this.prisma.user.findMany({ select: { id: true, name: true } })
+          : [];
         const nameOf = new Map(users.map((u) => [u.id, u.name]));
         return inv.payments.map((p) => ({
           id: p.id, date: p.date, amount: p.amount, mode: p.mode, ref: p.ref,
-          at: p.at, by: p.by, byName: p.by ? nameOf.get(p.by) || p.by : '',
+          at: p.at,
+          by: admin ? p.by : '',
+          byName: admin && p.by ? nameOf.get(p.by) || p.by : '',
         }));
       })(),
       kind: (inv as { kind?: string }).kind || 'manual',
@@ -349,7 +356,7 @@ export class InvoicesController {
     if (row && !inScope(await branchScope(this.prisma, req.user), row.branch)) {
       throw new NotFoundException('No such invoice');
     }
-    return this.detail(id);
+    return this.detail(id, req.user?.role);
   }
 
   /* -------------------------------------------------------------- writes */
@@ -791,7 +798,11 @@ export class InvoicesController {
 
   @Patch(':id')
   @Roles('admin', 'accounts')
-  async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
+  async update(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+    @Req() req?: { user?: { role?: string } },
+  ) {
     const exists = await this.prisma.invoice.findUnique({ where: { id } });
     if (!exists) throw new NotFoundException('No such invoice');
 
@@ -810,6 +821,6 @@ export class InvoicesController {
     if (body.status === 'draft' || body.status === 'sent') data.status = body.status;
 
     await this.prisma.invoice.update({ where: { id }, data: data as never });
-    return this.detail(id); // re-derives and persists the true status
+    return this.detail(id, req?.user?.role); // re-derives and persists the true status
   }
 }

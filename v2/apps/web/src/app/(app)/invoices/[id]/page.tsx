@@ -69,6 +69,11 @@ export default function InvoicePage() {
   const t = inv.totals;
   const canBill = !!me && (me.role === 'admin' || me.role === 'accounts');
   const lastPay = inv.payments[0]; // newest first
+  // The server sends byName only to the admin — for everyone else this
+  // stays empty and the "collected by" line simply never renders.
+  const collectors = Array.from(
+    new Set(inv.payments.map((p) => p.byName).filter(Boolean)),
+  ).join(', ');
   // v1 hardcodes 'Tamil Nadu (33)' — keep the state code for the home case
   const placeLabel = t.place + (t.place === 'Tamil Nadu' ? ' (33)' : '');
   const stamp =
@@ -151,6 +156,12 @@ export default function InvoicePage() {
           <p className="text-[13px] text-muted mt-0.5">
             Settled on {fmtDate(lastPay?.date)} via {lastPay?.mode || '—'}.
           </p>
+          {collectors && (
+            <p className="text-[13px] mt-1">
+              Collected by <b>{collectors}</b>
+              <span className="text-[11.5px] text-muted"> — visible only to you (admin).</span>
+            </p>
+          )}
         </div>
       )}
 
