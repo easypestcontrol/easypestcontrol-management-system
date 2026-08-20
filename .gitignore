@@ -60,3 +60,7 @@ backups/
 # Built APKs — build artefacts, not source.
 *.apk
 v2/apps/mobile/android/local.properties
+
+# Downloaded Firebase configs land here with browser suffixes; the one that
+# matters is v2/apps/mobile/android/app/google-services.json.
+google-services*(*).json
