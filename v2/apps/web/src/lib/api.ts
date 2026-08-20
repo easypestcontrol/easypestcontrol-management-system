@@ -60,6 +60,7 @@ export interface Company {
   gstRate: number; logo: string; hoursFrom: string; hoursTo: string;
   hoursDays: number[]; terms: string[];
   docTerms?: { quotation?: string[]; invoice?: string[]; contract?: string[]; service?: string[] };
+  roleAccess?: Record<string, Record<string, boolean>>;
 }
 
 export interface Bootstrap {

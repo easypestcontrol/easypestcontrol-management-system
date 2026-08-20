@@ -120,6 +120,26 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     api.get<Bootstrap>('/org/bootstrap').then(setBoot).catch(() => {});
   }, [router]);
 
+  /* ---------------------------------------------- per-role page visibility
+     Overrides set in Settings → User roles: true = shown, false = hidden,
+     absent = the role's built-in default. The admin is never restricted. */
+  const overrides: Record<string, boolean> =
+    (me && me.role !== 'admin' ? boot?.company?.roleAccess?.[me.role] : undefined) || {};
+  const allowed = (href: string): boolean | undefined => overrides[href];
+
+  // A hidden page is not just unlisted — navigating to it bounces off.
+  useEffect(() => {
+    if (!me || me.role === 'admin' || !boot) return;
+    const blocked = Object.entries(overrides).some(([href, on]) =>
+      on === false && (path === href || path.startsWith(href + '/')));
+    if (blocked) {
+      const fallback = ['/dashboard', '/tasks', '/jobs', '/trip', '/wallet']
+        .find((h) => overrides[h] !== false) || '/dashboard';
+      router.replace(fallback);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, me, boot]);
+
   /* --------------------------------------------------------- global search */
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<Record<string, Hit[]> | null>(null);
@@ -226,7 +246,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
         <nav className="flex-1 overflow-y-auto py-2">
           {(() => {
-            const visible = (n: NavItem) => !n.roles || !me || n.roles.includes(me.role);
+            const visible = (n: NavItem) => allowed(n.href)
+              ?? (!n.roles || !me || n.roles.includes(me.role));
             const isActive = (n: NavItem) => path === n.href || path.startsWith(n.href + '/');
             const item = (n: NavItem, indent = false) => {
               const active = isActive(n);
@@ -247,13 +268,13 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             };
 
             if (isFieldTech(me?.role)) {
-              return <>{[TECH_NAV[0], TASKS, ...TECH_NAV.slice(1)].map((n) => item(n))}</>;
+              return <>{[TECH_NAV[0], TASKS, ...TECH_NAV.slice(1)].filter(visible).map((n) => item(n))}</>;
             }
 
             return (
               <>
-                {item(HOME)}
-                {item(TASKS)}
+                {visible(HOME) && item(HOME)}
+                {visible(TASKS) && item(TASKS)}
                 {GROUPS.map((g) => {
                   const items = g.items.filter(visible);
                   if (!items.length) return null;
@@ -431,9 +452,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             The phone's way around the app — replaces the sidebar entirely. */}
         {me && (() => {
           const visibleAll = [HOME, TASKS, ...GROUPS.flatMap((g) => g.items), SETTINGS, CREDENTIALS]
-            .filter((n) => !n.roles || n.roles.includes(me.role));
+            .filter((n) => allowed(n.href) ?? (!n.roles || n.roles.includes(me.role)));
           const primary = isFieldTech(me.role)
-            ? TECH_NAV
+            ? TECH_NAV.filter((n) => allowed(n.href) !== false)
             : visibleAll
                 .filter((n) => ['/dashboard', '/leads', '/contracts', '/jobs'].includes(n.href))
                 .slice(0, 4);

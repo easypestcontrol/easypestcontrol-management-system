@@ -15,11 +15,47 @@ import Link from 'next/link';
 import { api, type Bootstrap, type Company } from '@/lib/api';
 import { Icon } from '@/components/icons';
 
-type SectionId = 'org' | 'terms';
+type SectionId = 'org' | 'terms' | 'roles';
 
 const SECTIONS: Array<{ id: SectionId; label: string; sub: string }> = [
   { id: 'org', label: 'Organisation', sub: 'Name, logo, address, GSTIN' },
   { id: 'terms', label: 'Document terms', sub: 'Per quotation, invoice, contract, service' },
+  { id: 'roles', label: 'User roles', sub: 'Which pages each role can open' },
+];
+
+/* Every page the checklist can grant or hide, with each role's built-in
+   default — unticking hides the page AND blocks navigating to it. */
+const PAGES: Array<{ href: string; label: string; def: string[] }> = [
+  { href: '/dashboard', label: 'Home', def: ['ops', 'sales', 'accounts', 'tech', 'senior_tech'] },
+  { href: '/tasks', label: 'Tasks', def: ['ops', 'sales', 'accounts', 'tech', 'senior_tech'] },
+  { href: '/leads', label: 'Leads', def: ['ops', 'sales'] },
+  { href: '/quotations', label: 'Quotations', def: ['ops', 'sales'] },
+  { href: '/customers', label: 'Customers', def: ['ops', 'sales', 'accounts'] },
+  { href: '/contracts', label: 'Contracts', def: ['ops', 'sales', 'accounts'] },
+  { href: '/board', label: 'Dispatch', def: ['ops', 'sales'] },
+  { href: '/schedule', label: 'Schedule', def: ['ops', 'sales'] },
+  { href: '/jobs', label: 'Services', def: ['ops', 'sales', 'tech', 'senior_tech'] },
+  { href: '/trip', label: 'Trips', def: ['ops', 'sales', 'accounts', 'tech', 'senior_tech'] },
+  { href: '/audits', label: 'Audits', def: ['ops'] },
+  { href: '/invoices', label: 'Invoices', def: ['ops', 'accounts'] },
+  { href: '/reports', label: 'Reports', def: ['ops', 'accounts'] },
+  { href: '/wallet', label: 'Collections / Wallet', def: ['ops', 'accounts', 'tech', 'senior_tech'] },
+  { href: '/purchase-orders', label: 'Purchase orders', def: ['ops', 'accounts'] },
+  { href: '/vendors', label: 'Vendors', def: ['ops', 'accounts'] },
+  { href: '/inventory', label: 'Inventory', def: ['ops'] },
+  { href: '/chemicals', label: 'Chemicals', def: ['ops'] },
+  { href: '/services', label: 'Service Catalogue', def: ['ops'] },
+  { href: '/branches', label: 'Branches', def: ['ops'] },
+  { href: '/team', label: 'Team', def: ['ops'] },
+  { href: '/training', label: 'Training', def: ['ops', 'sales', 'accounts', 'tech', 'senior_tech'] },
+];
+
+const ROLE_LIST: Array<{ id: string; label: string }> = [
+  { id: 'ops', label: 'Operations' },
+  { id: 'sales', label: 'Sales' },
+  { id: 'accounts', label: 'Accounts' },
+  { id: 'senior_tech', label: 'Senior Technician' },
+  { id: 'tech', label: 'Technician' },
 ];
 
 const DOCS = [
@@ -182,6 +218,46 @@ export default function Settings() {
                 </div>
               </section>
             </>
+          )}
+
+          {section === 'roles' && (
+            <div className="flex flex-col gap-5">
+              <p className="text-[12.5px] text-muted -mb-1">
+                Tick what each role may open; untick to hide the page from their
+                sidebar AND block the address. The administrator always sees everything.
+                Save changes applies it — people see it on their next page load.
+              </p>
+              {ROLE_LIST.map((r) => {
+                const ov = (co.roleAccess || {})[r.id] || {};
+                const isOn = (href: string, def: string[]) => ov[href] ?? def.includes(r.id);
+                const flip = (href: string, def: string[]) => {
+                  const next = { ...(co.roleAccess || {}) };
+                  next[r.id] = { ...ov, [href]: !isOn(href, def) };
+                  set('roleAccess', next as never);
+                };
+                return (
+                  <section key={r.id} className="rounded-md border border-line p-5">
+                    <h2 className="text-[14px] font-semibold mb-1">{r.label}</h2>
+                    <p className="text-muted text-[12px] mb-3.5">
+                      {PAGES.filter((p) => isOn(p.href, p.def)).length} of {PAGES.length} pages visible
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
+                      {PAGES.map((p) => (
+                        <label key={p.href}
+                          className="flex items-center gap-2 text-[12.5px] cursor-pointer select-none">
+                          <input type="checkbox" checked={isOn(p.href, p.def)}
+                            onChange={() => flip(p.href, p.def)}
+                            className="w-4 h-4 accent-[#FF0000]" />
+                          <span className={isOn(p.href, p.def) ? '' : 'text-muted line-through'}>
+                            {p.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
           )}
 
           {section === 'terms' && (

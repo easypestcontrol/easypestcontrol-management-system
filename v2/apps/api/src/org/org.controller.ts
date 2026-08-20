@@ -85,7 +85,7 @@ export class OrgController {
   updateCompany(@Body() body: Record<string, unknown>) {
     const allowed = [
       'name', 'tagline', 'phone', 'email', 'gstin', 'addr', 'city', 'state', 'pin',
-      'gstRate', 'logo', 'hoursFrom', 'hoursTo', 'hoursDays', 'terms', 'docTerms',
+      'gstRate', 'logo', 'hoursFrom', 'hoursTo', 'hoursDays', 'terms', 'docTerms', 'roleAccess',
     ];
     const data: Record<string, unknown> = {};
     for (const k of allowed) if (k in body) data[k] = body[k];

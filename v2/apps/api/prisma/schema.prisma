@@ -107,6 +107,9 @@ model Company {
   terms        String[] @default([]) // default quotation terms
   // Per-document terms: { quotation, invoice, contract, service } → string[]
   docTerms     Json     @default("{}")
+  // Per-role page visibility overrides: { role: { "/href": true|false } }.
+  // Absent href = the role's built-in default. Admin is never restricted.
+  roleAccess   Json     @default("{}")
   integrations Json     @default("{}") // { olaKey, rzpKeyId, rzpKeySecret }
 }
 
