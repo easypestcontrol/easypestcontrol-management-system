@@ -22,6 +22,27 @@ interface AuthedReq { user?: { sub?: string; role?: string } }
 
 const PRIORITIES = ['low', 'normal', 'high'];
 
+/** Reference photos and one voice note ride on the task as data URLs —
+    shrunk client-side; these caps keep a task from becoming a media store. */
+const MAX_IMAGES = 6;
+const MAX_IMAGE_B = 900 * 1024;
+const MAX_VOICE_B = 3 * 1024 * 1024;
+
+function cleanImages(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((v) => String(v || ''))
+    .filter((v) => v.startsWith('data:image/') && v.length <= MAX_IMAGE_B * 1.4)
+    .slice(0, MAX_IMAGES);
+}
+function cleanVoice(raw: unknown): string {
+  const v = String(raw || '');
+  if (!v) return '';
+  if (!v.startsWith('data:audio/')) return '';
+  if (v.length > MAX_VOICE_B * 1.4) return '';
+  return v;
+}
+
 const pad2 = (n: number) => String(n).padStart(2, '0');
 function nowStamp(): string {
   const d = new Date();
@@ -69,13 +90,45 @@ export class TasksController {
     ]);
     const uOf = new Map(users.map((u) => [u.id, u]));
     return {
-      rows: rows.map((t) => ({
-        ...t,
-        assigneeName: uOf.get(t.assignee)?.name || t.assignee || '—',
-        assigneeColor: uOf.get(t.assignee)?.color || '#141414',
-        createdByName: uOf.get(t.createdBy)?.name || t.createdBy || '—',
-      })),
+      // The list stays lean: attachment FLAGS ride here, the payloads come
+      // from the detail endpoint when a task is opened.
+      rows: rows.map((t) => {
+        const { images, voice, ...lean } = t;
+        return {
+          ...lean,
+          imageCount: Array.isArray(images) ? images.length : 0,
+          hasVoice: !!voice,
+          assigneeName: uOf.get(t.assignee)?.name || t.assignee || '—',
+          assigneeColor: uOf.get(t.assignee)?.color || '#141414',
+          createdByName: uOf.get(t.createdBy)?.name || t.createdBy || '—',
+        };
+      }),
       canManage: manage,
+    };
+  }
+
+  /** One task in full — attachments included. Scope: manager, or its assignee. */
+  @Get(':id')
+  async one(@Param('id') id: string, @Req() req: AuthedReq) {
+    const t = await this.prisma.task.findUnique({ where: { id } });
+    if (!t) throw new NotFoundException('No such task');
+    if (this.canManage(req.user?.role)) {
+      if (!inScope(await branchScope(this.prisma, req.user), t.branch)) {
+        throw new NotFoundException('No such task');
+      }
+    } else if (t.assignee !== (req.user?.sub || '')) {
+      throw new NotFoundException('No such task');
+    }
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: [t.assignee, t.createdBy].filter(Boolean) } },
+      select: { id: true, name: true, color: true },
+    });
+    const uOf = new Map(users.map((u) => [u.id, u]));
+    return {
+      ...t,
+      assigneeName: uOf.get(t.assignee)?.name || t.assignee || '—',
+      assigneeColor: uOf.get(t.assignee)?.color || '#141414',
+      createdByName: uOf.get(t.createdBy)?.name || t.createdBy || '—',
     };
   }
 
@@ -89,12 +142,11 @@ export class TasksController {
     const person = await this.prisma.user.findUnique({ where: { id: assignee } });
     if (!person) throw new BadRequestException('No such person');
 
-    // The branch: picked, or the assignee's own, or the scheduler's.
+    // The branch leads: it is picked first and the person must belong to it.
     let branch = String(body.branch || '').trim();
     if (!branch) branch = person.branches[0] || '';
-    if (!branch && req.user?.sub) {
-      const me = await this.prisma.user.findUnique({ where: { id: req.user.sub } });
-      branch = me?.branches[0] || '';
+    if (branch && person.branches.length && !person.branches.includes(branch)) {
+      throw new BadRequestException(person.name + ' is not in that branch');
     }
     // A scoped scheduler cannot plant tasks in another branch.
     if (!inScope(await branchScope(this.prisma, req.user), branch)) {
@@ -112,6 +164,8 @@ export class TasksController {
         due: String(body.due || '').trim(),
         dueTime: String(body.dueTime || '').trim(),
         priority: PRIORITIES.includes(String(body.priority)) ? String(body.priority) : 'normal',
+        images: cleanImages(body.images) as never,
+        voice: cleanVoice(body.voice),
       },
     });
 
@@ -156,6 +210,8 @@ export class TasksController {
       if ('priority' in body && PRIORITIES.includes(String(body.priority))) {
         data.priority = String(body.priority);
       }
+      if ('images' in body) data.images = cleanImages(body.images);
+      if ('voice' in body) data.voice = cleanVoice(body.voice);
       if ('assignee' in body) {
         const a = String(body.assignee || '').trim();
         if (a && !(await this.prisma.user.findUnique({ where: { id: a } }))) {

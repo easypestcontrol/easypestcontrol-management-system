@@ -1,35 +1,43 @@
 'use client';
 
 /* ============================================================================
-   Tasks — the team's to-do list, its own module below Home.
-   The admin (or ops) schedules a task for anyone — sales, operations, a
-   technician — with what has to be done, a deadline date AND time, and a
-   priority. Everyone else opens this page and sees exactly their own list,
-   ticks things done, nothing else. Branch-scoped like everything now.
+   Tasks — the team's work list, laid out the way a task manager should be:
+   a real table (cards on phones), a detail view per task, and a scheduling
+   form where the BRANCH is picked first and only that branch's people appear.
+   A task can carry reference photos and one voice note — recorded right in
+   the form where the microphone is available, or attached as an audio file
+   where it is not.
    ========================================================================== */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, type Bootstrap } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { useBranchFilter } from '@/components/branch-filter';
 import { usePager } from '@/components/pager';
 
-interface Task {
+/* ------------------------------------------------------------------ types */
+
+interface Row {
   id: string; title: string; notes: string; assignee: string; createdBy: string;
   branch: string; due: string; dueTime: string; priority: string; status: string;
-  doneAt: string;
+  doneAt: string; imageCount: number; hasVoice: boolean;
   assigneeName: string; assigneeColor: string; createdByName: string;
 }
-interface Payload { rows: Task[]; canManage: boolean }
+interface Full extends Row { images: string[]; voice: string }
+interface Payload { rows: Row[]; canManage: boolean }
 
 interface Draft {
-  title: string; notes: string; assignee: string; due: string;
-  dueTime: string; priority: string; branch: string;
+  title: string; notes: string; branch: string; assignee: string;
+  due: string; dueTime: string; priority: string;
+  images: string[]; voice: string;
 }
 
 const blank = (): Draft => ({
-  title: '', notes: '', assignee: '', due: '', dueTime: '', priority: 'normal', branch: '',
+  title: '', notes: '', branch: '', assignee: '',
+  due: '', dueTime: '', priority: 'normal', images: [], voice: '',
 });
+
+/* ---------------------------------------------------------------- helpers */
 
 const fmtD = (iso: string) => {
   const p = String(iso || '').split('-');
@@ -44,6 +52,29 @@ const todayISO = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+const initials = (n: string) => n.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+
+/** Downscale a photo so six of them never bloat a row. */
+function shrinkImage(file: File, max: number): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = String(reader.result || '');
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const cv = document.createElement('canvas');
+        cv.width = Math.round(img.width * scale);
+        cv.height = Math.round(img.height * scale);
+        cv.getContext('2d')!.drawImage(img, 0, 0, cv.width, cv.height);
+        try { resolve(cv.toDataURL('image/jpeg', 0.72)); } catch { resolve(src); }
+      };
+      img.onerror = () => resolve(src);
+      img.src = src;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 const PRIO: Record<string, { label: string; cls: string }> = {
   high: { label: 'High', cls: 'zpill red' },
@@ -52,6 +83,9 @@ const PRIO: Record<string, { label: string; cls: string }> = {
 };
 
 const inputCls = 'w-full h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy bg-white';
+const labelCls = 'block text-[12px] font-semibold text-ink-2 mb-1.5';
+
+/* ==================================================================== page */
 
 export default function TasksPage() {
   const [data, setData] = useState<Payload | null>(null);
@@ -59,8 +93,8 @@ export default function TasksPage() {
   const [tab, setTab] = useState<'open' | 'done'>('open');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [editing, setEditing] = useState('');
+  const [openTask, setOpenTask] = useState<Full | null>(null);
   const [err, setErr] = useState('');
-  const [busy, setBusy] = useState(false);
   const bf = useBranchFilter();
 
   const load = useCallback(() => {
@@ -81,38 +115,57 @@ export default function TasksPage() {
   const openN = (data?.rows || []).filter((t) => t.status !== 'done').length;
   const doneN = (data?.rows || []).length - openN;
   const today = todayISO();
-  const overdue = (t: Task) => t.status !== 'done' && !!t.due && t.due < today;
-  const dueToday = (t: Task) => t.status !== 'done' && t.due === today;
+  const overdue = (t: Row) => t.status !== 'done' && !!t.due && t.due < today;
+  const canManage = !!data?.canManage;
 
-  // The people the scheduler can pick — everyone active, filtered by the
-  // chosen branch when one is set on the draft.
-  const staff = (boot?.users || []).filter((u) => u.role !== 'client');
-
-  async function toggle(t: Task) {
+  async function toggle(t: Row) {
     try {
       await api.patch('/tasks/' + t.id, { status: t.status === 'done' ? 'open' : 'done' });
       load();
     } catch (e) { setErr(e instanceof Error ? e.message : 'Could not update'); }
   }
 
-  async function save() {
-    if (!draft) return;
-    setBusy(true); setErr('');
-    try {
-      if (editing) await api.patch('/tasks/' + editing, draft);
-      else await api.post('/tasks', draft);
-      setDraft(null); setEditing(''); load();
-    } catch (e) { setErr(e instanceof Error ? e.message : 'Could not save'); }
-    setBusy(false);
+  async function openDetail(id: string) {
+    try { setOpenTask(await api.get<Full>('/tasks/' + id)); }
+    catch { /* row stays */ }
   }
 
   async function remove(id: string) {
     if (!confirm('Remove this task?')) return;
-    try { await api.del('/tasks/' + id); load(); }
+    try { await api.del('/tasks/' + id); setOpenTask(null); load(); }
     catch (e) { setErr(e instanceof Error ? e.message : 'Could not remove'); }
   }
 
-  const canManage = !!data?.canManage;
+  async function editFrom(t: Full) {
+    setOpenTask(null);
+    setEditing(t.id);
+    setDraft({
+      title: t.title, notes: t.notes, branch: t.branch, assignee: t.assignee,
+      due: t.due, dueTime: t.dueTime, priority: t.priority,
+      images: t.images || [], voice: t.voice || '',
+    });
+  }
+
+  const dueCell = (t: Row) => (
+    !t.due ? <span className="text-muted-2">—</span> : (
+      <span className={overdue(t) ? 'text-accent font-bold'
+        : t.due === today && t.status !== 'done' ? 'text-accent font-semibold' : ''}>
+        {overdue(t) ? 'Overdue · ' : t.due === today && t.status !== 'done' ? 'Today · ' : ''}
+        {fmtD(t.due)}{t.dueTime ? ' · ' + fmtT(t.dueTime) : ''}
+      </span>
+    )
+  );
+
+  const attachIcons = (t: Row) => (
+    <>
+      {t.imageCount > 0 && (
+        <span className="inline-flex items-center gap-0.5 text-[10.5px] text-muted" title={t.imageCount + ' photo(s)'}>
+          <Icon name="upload" size={11} />{t.imageCount}
+        </span>
+      )}
+      {t.hasVoice && <span className="text-[10.5px] text-muted" title="Voice note">🎙</span>}
+    </>
+  );
 
   return (
     <div>
@@ -129,7 +182,7 @@ export default function TasksPage() {
         <span className="flex items-center gap-3">
           {canManage && bf.el}
           {canManage && (
-            <button onClick={() => { setDraft(blank()); setEditing(''); }}
+            <button onClick={() => { setDraft(blank()); setEditing(''); setErr(''); }}
               className="flex items-center gap-1.5 h-10 lg:h-8 px-3.5 shrink-0 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90">
               <Icon name="plus" size={14} /> New task
             </button>
@@ -139,7 +192,7 @@ export default function TasksPage() {
 
       {/* --------------------------------------------------------- tabs */}
       <div className="flex items-center gap-1 px-4 lg:px-6 border-b border-line-soft">
-        {([['open', 'Open', openN], ['done', 'Done', doneN]] as const).map(([id, label, n]) => (
+        {([['open', 'Open', openN], ['done', 'Completed', doneN]] as const).map(([id, label, n]) => (
           <button key={id} onClick={() => setTab(id)}
             className={'relative h-12 lg:h-10 px-3 text-[13px] font-medium '
               + (tab === id ? 'text-navy' : 'text-muted hover:text-ink')}>
@@ -152,13 +205,15 @@ export default function TasksPage() {
         ))}
       </div>
 
-      {/* --------------------------------------------------------- rows */}
+      {err && <p className="px-4 lg:px-6 py-2 text-[12.5px] font-medium text-accent">{err}</p>}
+
+      {/* --------------------------------------------------------- list */}
       {!data ? (
         <p className="p-6 text-muted text-[13px]">Loading…</p>
       ) : rows.length === 0 ? (
         <div className="p-16 text-center">
           <p className="text-[15px] font-medium">
-            {tab === 'open' ? 'Nothing to do' : 'Nothing finished yet'}
+            {tab === 'open' ? 'Nothing to do' : 'Nothing completed yet'}
           </p>
           <p className="text-muted text-[13px] mt-1">
             {canManage
@@ -168,162 +223,463 @@ export default function TasksPage() {
         </div>
       ) : (
         <>
-          <div className="flex flex-col divide-y divide-line-soft">
+          {/* phones: cards */}
+          <div className="lg:hidden flex flex-col gap-2.5 p-3">
             {pg.pageRows.map((t) => (
               <div key={t.id}
-                className={'flex items-start gap-3 px-4 lg:px-6 py-3 ' + (t.status === 'done' ? 'opacity-55' : '')}>
-                {/* the tick — the assignee's one verb */}
-                <button onClick={() => toggle(t)} aria-label={t.status === 'done' ? 'Reopen' : 'Mark done'}
-                  className={'mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors '
-                    + (t.status === 'done'
-                      ? 'bg-navy border-navy text-white'
-                      : 'border-line hover:border-navy')}>
-                  {t.status === 'done' && <Icon name="check" size={13} />}
-                </button>
-
-                <div className="flex-1 min-w-0">
-                  <p className={'text-[13.5px] font-semibold ' + (t.status === 'done' ? 'line-through' : '')}>
-                    {t.title}
-                  </p>
-                  {t.notes && <p className="text-[12.5px] text-muted mt-0.5 whitespace-pre-wrap">{t.notes}</p>}
-                  <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[11.5px]">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full text-white text-[8.5px] font-bold flex items-center justify-center"
-                        style={{ background: t.assigneeColor }}>
-                        {t.assigneeName.split(' ').map((w) => w[0]).slice(0, 2).join('')}
+                className={'rounded-xl border border-line bg-white p-4 shadow-card '
+                  + (t.status === 'done' ? 'opacity-60' : '')}>
+                <div className="flex items-start gap-3">
+                  <button onClick={() => toggle(t)}
+                    className={'mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 '
+                      + (t.status === 'done' ? 'bg-navy border-navy text-white' : 'border-line')}>
+                    {t.status === 'done' && <Icon name="check" size={13} />}
+                  </button>
+                  <button className="flex-1 min-w-0 text-left" onClick={() => openDetail(t.id)}>
+                    <p className={'text-[14px] font-semibold ' + (t.status === 'done' ? 'line-through' : '')}>
+                      {t.title}
+                    </p>
+                    {t.notes && <p className="text-[12px] text-muted truncate mt-0.5">{t.notes}</p>}
+                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-2 text-[11.5px]">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-full text-white text-[8.5px] font-bold flex items-center justify-center"
+                          style={{ background: t.assigneeColor }}>{initials(t.assigneeName)}</span>
+                        {t.assigneeName}
                       </span>
-                      <span className="text-ink-2 font-medium">{t.assigneeName}</span>
-                    </span>
-                    {t.due && (
-                      <span className={overdue(t) ? 'text-accent font-bold'
-                        : dueToday(t) ? 'text-accent font-semibold' : 'text-muted'}>
-                        {overdue(t) ? 'Overdue — ' : dueToday(t) ? 'Today — ' : 'Due '}
-                        {fmtD(t.due)}{t.dueTime ? ' · ' + fmtT(t.dueTime) : ''}
-                      </span>
-                    )}
-                    <span className={PRIO[t.priority]?.cls || 'zpill outline'}>
-                      {PRIO[t.priority]?.label || t.priority}
-                    </span>
-                    {canManage && (
-                      <span className="text-muted-2 font-mono text-[10.5px]">{t.id}</span>
-                    )}
-                    {t.status === 'done' && t.doneAt && (
-                      <span className="text-muted-2">done {t.doneAt.slice(0, 16)}</span>
-                    )}
-                  </div>
+                      {dueCell(t)}
+                      <span className={PRIO[t.priority]?.cls}>{PRIO[t.priority]?.label}</span>
+                      {attachIcons(t)}
+                    </div>
+                  </button>
                 </div>
-
-                {canManage && (
-                  <span className="flex items-center gap-1.5 shrink-0">
-                    <button onClick={() => {
-                      setEditing(t.id);
-                      setDraft({
-                        title: t.title, notes: t.notes, assignee: t.assignee,
-                        due: t.due, dueTime: t.dueTime, priority: t.priority, branch: t.branch,
-                      });
-                    }}
-                      className="h-8 px-2.5 rounded border border-line text-[12px] font-medium hover:bg-wash">
-                      Edit
-                    </button>
-                    <button onClick={() => remove(t.id)} aria-label="Remove"
-                      className="w-8 h-8 rounded flex items-center justify-center text-muted hover:text-accent hover:bg-red-wash">
-                      <Icon name="x" size={13} />
-                    </button>
-                  </span>
-                )}
               </div>
             ))}
           </div>
+
+          {/* desk: the table */}
+          <table className="ztable max-lg:hidden">
+            <thead>
+              <tr>
+                <th style={{ width: 44 }}></th>
+                <th>Task</th><th>Assigned to</th><th>Deadline</th>
+                <th>Priority</th><th>Branch</th>
+                {canManage && <th style={{ width: 96 }}></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {pg.pageRows.map((t) => (
+                <tr key={t.id} className={'zrow ' + (t.status === 'done' ? 'opacity-60' : '')}
+                  onClick={() => openDetail(t.id)}>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => toggle(t)} title={t.status === 'done' ? 'Reopen' : 'Mark done'}
+                      className={'w-6 h-6 rounded-full border-2 flex items-center justify-center '
+                        + (t.status === 'done' ? 'bg-navy border-navy text-white' : 'border-line hover:border-navy')}>
+                      {t.status === 'done' && <Icon name="check" size={13} />}
+                    </button>
+                  </td>
+                  <td>
+                    <span className={'block font-semibold text-navy max-w-[340px] truncate '
+                      + (t.status === 'done' ? 'line-through' : '')}>{t.title}</span>
+                    <span className="flex items-center gap-2 text-[11px] text-muted-2">
+                      <span className="font-mono">{t.id}</span>
+                      {t.notes && <span className="truncate max-w-[260px]">{t.notes}</span>}
+                      {attachIcons(t)}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full text-white text-[9px] font-bold flex items-center justify-center"
+                        style={{ background: t.assigneeColor }}>{initials(t.assigneeName)}</span>
+                      {t.assigneeName}
+                    </span>
+                  </td>
+                  <td className="text-[12.5px]">{dueCell(t)}</td>
+                  <td><span className={PRIO[t.priority]?.cls}>{PRIO[t.priority]?.label}</span></td>
+                  <td className="text-[12px] text-muted">
+                    {boot?.branches.find((b) => b.id === t.branch)?.name || t.branch || '—'}
+                  </td>
+                  {canManage && (
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <span className="flex items-center gap-1.5">
+                        <button onClick={() => openDetail(t.id).then(() => {})}
+                          className="h-7 px-2.5 rounded border border-line text-[12px] hover:bg-wash">Open</button>
+                        <button onClick={() => remove(t.id)} title="Remove"
+                          className="w-7 h-7 rounded flex items-center justify-center text-muted hover:text-accent hover:bg-red-wash">
+                          <Icon name="x" size={13} />
+                        </button>
+                      </span>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
           {pg.el}
         </>
       )}
 
-      {err && !draft && (
-        <p className="px-4 lg:px-6 py-2 text-[12.5px] font-medium text-accent">{err}</p>
+      {/* ------------------------------------------------------- detail */}
+      {openTask && (
+        <TaskDetail t={openTask} canManage={canManage}
+          branchName={boot?.branches.find((b) => b.id === openTask.branch)?.name || openTask.branch}
+          onClose={() => setOpenTask(null)}
+          onToggle={async () => {
+            await api.patch('/tasks/' + openTask.id,
+              { status: openTask.status === 'done' ? 'open' : 'done' }).catch(() => {});
+            setOpenTask(null); load();
+          }}
+          onEdit={() => editFrom(openTask)}
+          onRemove={() => remove(openTask.id)} />
       )}
 
       {/* --------------------------------------------------- new / edit */}
-      {draft && (
-        <div className="fixed inset-0 z-50 bg-navy/40 flex items-center justify-center p-4 sm:p-6"
-          onClick={() => { setDraft(null); setEditing(''); }}>
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-[480px] max-h-[92vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-line">
-              <h2 className="text-[15px] font-semibold">{editing ? 'Edit task' : 'New task'}</h2>
-              <button onClick={() => { setDraft(null); setEditing(''); }}
-                className="text-muted hover:text-ink p-1"><Icon name="x" size={16} /></button>
+      {draft && boot && (
+        <TaskForm draft={draft} setDraft={setDraft} boot={boot} editing={editing}
+          onClose={() => { setDraft(null); setEditing(''); }}
+          onSaved={() => { setDraft(null); setEditing(''); load(); }} />
+      )}
+    </div>
+  );
+}
+
+/* ============================================================ detail sheet */
+
+function TaskDetail({ t, canManage, branchName, onClose, onToggle, onEdit, onRemove }: {
+  t: Full; canManage: boolean; branchName: string;
+  onClose: () => void; onToggle: () => void; onEdit: () => void; onRemove: () => void;
+}) {
+  const [zoom, setZoom] = useState('');
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/40 flex items-end sm:items-center justify-center sm:p-6"
+      onClick={onClose}>
+      <div className="bg-white w-full sm:max-w-[560px] rounded-t-xl sm:rounded-lg shadow-xl max-h-[92vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-line sticky top-0 bg-white">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={PRIO[t.priority]?.cls}>{PRIO[t.priority]?.label}</span>
+              {t.status === 'done'
+                ? <span className="zpill navy">Completed</span>
+                : <span className="zpill outline">Open</span>}
+              <span className="font-mono text-[11px] text-muted-2">{t.id}</span>
             </div>
-            <div className="p-5 flex flex-col gap-4">
-              <label className="block">
-                <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">Task *</span>
-                <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-                  placeholder="e.g. Collect renewal cheque from Medlife Hospital" className={inputCls} />
-              </label>
-              <label className="block">
-                <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">What has to be done</span>
-                <textarea value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
-                  placeholder="The details the person needs — spell it out"
-                  className="w-full min-h-[76px] px-3 py-2 rounded border border-line text-[13px] outline-none focus:border-navy" />
-              </label>
-              <label className="block">
-                <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">For *</span>
-                <select value={draft.assignee}
-                  onChange={(e) => setDraft({ ...draft, assignee: e.target.value })}
-                  className={inputCls}>
-                  <option value="">Pick a person…</option>
-                  {staff.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name} — {u.title || u.role}</option>
-                  ))}
-                </select>
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">Deadline</span>
-                  <input type="date" value={draft.due}
-                    onChange={(e) => setDraft({ ...draft, due: e.target.value })} className={inputCls} />
-                </label>
-                <label className="block">
-                  <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">Time</span>
-                  <input type="time" value={draft.dueTime}
-                    onChange={(e) => setDraft({ ...draft, dueTime: e.target.value })} className={inputCls} />
-                </label>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">Priority</span>
-                  <select value={draft.priority}
-                    onChange={(e) => setDraft({ ...draft, priority: e.target.value })} className={inputCls}>
-                    <option value="low">Low</option>
-                    <option value="normal">Normal</option>
-                    <option value="high">High</option>
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">Branch</span>
-                  <select value={draft.branch}
-                    onChange={(e) => setDraft({ ...draft, branch: e.target.value })} className={inputCls}>
-                    <option value="">Assignee&rsquo;s own branch</option>
-                    {(boot?.branches || []).map((b) => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              {err && <p className="text-accent text-[12.5px]">{err}</p>}
+            <h2 className="text-[16px] font-bold mt-1.5 leading-snug">{t.title}</h2>
+          </div>
+          <button onClick={onClose} className="text-muted hover:text-ink p-1 shrink-0">
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+
+        <div className="p-5 flex flex-col gap-4">
+          {t.notes && (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1">What has to be done</p>
+              <p className="text-[13.5px] text-ink-2 leading-relaxed whitespace-pre-wrap">{t.notes}</p>
             </div>
-            <div className="flex justify-end gap-2 px-5 py-4 border-t border-line">
-              <button onClick={() => { setDraft(null); setEditing(''); }}
-                className="h-9 px-4 rounded border border-line text-[13px] font-medium hover:bg-wash">
-                Cancel
-              </button>
-              <button onClick={save} disabled={busy || !draft.title.trim() || !draft.assignee}
-                className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-50">
-                {busy ? 'Saving…' : editing ? 'Save' : 'Schedule task'}
-              </button>
+          )}
+
+          <div className="grid grid-cols-2 gap-3 text-[12.5px]">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1">Assigned to</p>
+              <span className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full text-white text-[9px] font-bold flex items-center justify-center"
+                  style={{ background: t.assigneeColor }}>{initials(t.assigneeName)}</span>
+                {t.assigneeName}
+              </span>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1">Deadline</p>
+              {t.due ? `${fmtD(t.due)}${t.dueTime ? ' · ' + fmtT(t.dueTime) : ''}` : '—'}
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1">Branch</p>
+              {branchName || '—'}
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1">Scheduled by</p>
+              {t.createdByName}
             </div>
           </div>
+
+          {(t.images || []).length > 0 && (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1.5">Photos</p>
+              <div className="flex flex-wrap gap-2">
+                {t.images.map((src, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={i} src={src} alt="" onClick={() => setZoom(src)}
+                    className="w-[96px] h-[72px] object-cover rounded border border-line cursor-zoom-in" />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {t.voice && (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1.5">Voice note</p>
+              <audio controls src={t.voice} className="w-full h-10" />
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-4 border-t border-line flex gap-2 flex-wrap
+          pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <button onClick={onToggle}
+            className={'h-10 px-4 rounded text-[13px] font-semibold '
+              + (t.status === 'done'
+                ? 'border border-line hover:bg-wash'
+                : 'bg-navy text-white hover:brightness-110')}>
+            {t.status === 'done' ? 'Reopen' : 'Mark completed'}
+          </button>
+          <span className="flex-1" />
+          {canManage && (
+            <>
+              <button onClick={onEdit}
+                className="h-10 px-4 rounded border border-line text-[13px] font-semibold hover:bg-wash">
+                Edit
+              </button>
+              <button onClick={onRemove}
+                className="h-10 px-3.5 rounded border border-line text-[13px] text-muted hover:text-accent">
+                Remove
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {zoom && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4"
+          onClick={(e) => { e.stopPropagation(); setZoom(''); }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={zoom} alt="" className="max-w-full max-h-full rounded" />
         </div>
       )}
+    </div>
+  );
+}
+
+/* ============================================================== the form */
+
+function TaskForm({ draft, setDraft, boot, editing, onClose, onSaved }: {
+  draft: Draft; setDraft: (d: Draft | null) => void; boot: Bootstrap;
+  editing: string; onClose: () => void; onSaved: () => void;
+}) {
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const d = draft;
+  const set = (patch: Partial<Draft>) => setDraft({ ...d, ...patch });
+
+  // The branch decides who can be picked — nobody shows until it is chosen.
+  const people = useMemo(
+    () => (boot.users || []).filter((u) =>
+      u.role !== 'client' && d.branch && u.branches.includes(d.branch)),
+    [boot, d.branch],
+  );
+
+  /* --------------------------------------------------- voice recording */
+  const [recState, setRecState] = useState<'idle' | 'recording' | 'nomic'>('idle');
+  const recRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  async function startRec() {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setRecState('nomic'); return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
+      rec.onstop = () => {
+        stream.getTracks().forEach((tr) => tr.stop());
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
+        const reader = new FileReader();
+        reader.onload = () => set({ voice: String(reader.result || '') });
+        reader.readAsDataURL(blob);
+      };
+      rec.start();
+      recRef.current = rec;
+      setRecState('recording');
+    } catch { setRecState('nomic'); }
+  }
+  function stopRec() {
+    recRef.current?.stop();
+    recRef.current = null;
+    setRecState('idle');
+  }
+  function onVoiceFile(f: File) {
+    const reader = new FileReader();
+    reader.onload = () => set({ voice: String(reader.result || '') });
+    reader.readAsDataURL(f);
+  }
+
+  async function addImages(files: FileList) {
+    const room = 6 - d.images.length;
+    const picked = Array.from(files).slice(0, room);
+    const shrunk = await Promise.all(picked.map((f) => shrinkImage(f, 900)));
+    set({ images: [...d.images, ...shrunk] });
+  }
+
+  async function save() {
+    setBusy(true); setErr('');
+    try {
+      if (editing) await api.patch('/tasks/' + editing, d);
+      else await api.post('/tasks', d);
+      onSaved();
+    } catch (e) { setErr(e instanceof Error ? e.message : 'Could not save'); }
+    setBusy(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/40 flex items-end sm:items-center justify-center sm:p-6"
+      onClick={onClose}>
+      <div className="bg-white w-full sm:max-w-[520px] rounded-t-xl sm:rounded-lg shadow-xl max-h-[94vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line sticky top-0 bg-white z-10">
+          <h2 className="text-[15px] font-semibold">{editing ? 'Edit task' : 'New task'}</h2>
+          <button onClick={onClose} className="text-muted hover:text-ink p-1"><Icon name="x" size={16} /></button>
+        </div>
+
+        <div className="p-5 flex flex-col gap-4">
+          <label className="block">
+            <span className={labelCls}>Task *</span>
+            <input value={d.title} onChange={(e) => set({ title: e.target.value })}
+              placeholder="e.g. Collect renewal cheque from Medlife Hospital" className={inputCls} />
+          </label>
+
+          <label className="block">
+            <span className={labelCls}>What has to be done</span>
+            <textarea value={d.notes} onChange={(e) => set({ notes: e.target.value })}
+              placeholder="The details the person needs — spell it out"
+              className="w-full min-h-[76px] px-3 py-2 rounded border border-line text-[13px] outline-none focus:border-navy" />
+          </label>
+
+          {/* ------------------------------------------------ attachments */}
+          <div className="rounded border border-line p-3.5">
+            <p className="text-[12px] font-semibold text-ink-2 mb-2.5">Attachments</p>
+            <div className="flex flex-wrap gap-2 mb-2.5">
+              {d.images.map((src, i) => (
+                <span key={i} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt="" className="w-[72px] h-[56px] object-cover rounded border border-line" />
+                  <button onClick={() => set({ images: d.images.filter((_, j) => j !== i) })}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-accent text-white
+                      flex items-center justify-center" aria-label="Remove photo">
+                    <Icon name="x" size={10} />
+                  </button>
+                </span>
+              ))}
+              {d.images.length < 6 && (
+                <label className="w-[72px] h-[56px] rounded border border-dashed border-line flex flex-col
+                  items-center justify-center text-muted hover:border-navy cursor-pointer">
+                  <Icon name="plus" size={14} />
+                  <span className="text-[9.5px] mt-0.5">Photo</span>
+                  <input type="file" accept="image/*" multiple hidden
+                    onChange={(e) => { if (e.target.files?.length) addImages(e.target.files); e.target.value = ''; }} />
+                </label>
+              )}
+            </div>
+
+            {d.voice ? (
+              <div className="flex items-center gap-2">
+                <audio controls src={d.voice} className="flex-1 h-9" />
+                <button onClick={() => set({ voice: '' })}
+                  className="w-8 h-8 rounded border border-line flex items-center justify-center
+                    text-muted hover:text-accent shrink-0" aria-label="Remove voice note">
+                  <Icon name="x" size={13} />
+                </button>
+              </div>
+            ) : recState === 'recording' ? (
+              <button onClick={stopRec}
+                className="w-full h-10 rounded bg-accent text-white text-[13px] font-semibold animate-pulse">
+                ● Recording… tap to stop
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <button onClick={startRec}
+                  className="flex-1 h-10 rounded border border-navy text-navy text-[13px] font-semibold hover:bg-wash">
+                  🎙 Record a voice note
+                </button>
+                <label className="h-10 px-3 rounded border border-line text-[12.5px] font-medium
+                  hover:bg-wash cursor-pointer flex items-center">
+                  Attach audio
+                  <input type="file" accept="audio/*" hidden
+                    onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onVoiceFile(f); }} />
+                </label>
+              </div>
+            )}
+            {recState === 'nomic' && (
+              <p className="text-[11.5px] text-muted mt-1.5">
+                The microphone is not available here — record on the phone and use Attach audio.
+              </p>
+            )}
+          </div>
+
+          {/* ------------------------------------- branch first, then who */}
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className={labelCls}>Branch *</span>
+              <select value={d.branch}
+                onChange={(e) => set({ branch: e.target.value, assignee: '' })}
+                className={inputCls}>
+                <option value="">Pick a branch…</option>
+                {(boot.branches || []).map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className={labelCls}>For *</span>
+              <select value={d.assignee} disabled={!d.branch}
+                onChange={(e) => set({ assignee: e.target.value })}
+                className={inputCls + (d.branch ? '' : ' opacity-50')}>
+                <option value="">
+                  {d.branch ? (people.length ? 'Pick a person…' : 'Nobody in this branch') : 'Pick the branch first'}
+                </option>
+                {people.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name} — {u.title || u.role}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <label className="block">
+              <span className={labelCls}>Deadline</span>
+              <input type="date" value={d.due} onChange={(e) => set({ due: e.target.value })}
+                className={inputCls} />
+            </label>
+            <label className="block">
+              <span className={labelCls}>Time</span>
+              <input type="time" value={d.dueTime} onChange={(e) => set({ dueTime: e.target.value })}
+                className={inputCls} />
+            </label>
+            <label className="block">
+              <span className={labelCls}>Priority</span>
+              <select value={d.priority} onChange={(e) => set({ priority: e.target.value })}
+                className={inputCls}>
+                <option value="low">Low</option>
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+              </select>
+            </label>
+          </div>
+
+          {err && <p className="text-accent text-[12.5px]">{err}</p>}
+        </div>
+
+        <div className="flex justify-end gap-2 px-5 py-4 border-t border-line sticky bottom-0 bg-white
+          pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <button onClick={onClose}
+            className="h-10 px-4 rounded border border-line text-[13px] font-medium hover:bg-wash">
+            Cancel
+          </button>
+          <button onClick={save} disabled={busy || !d.title.trim() || !d.assignee}
+            className="h-10 px-5 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-50">
+            {busy ? 'Saving…' : editing ? 'Save changes' : 'Schedule task'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

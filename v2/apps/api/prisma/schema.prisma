@@ -547,6 +547,8 @@ model Task {
   priority  String   @default("normal") // low | normal | high
   status    String   @default("open") // open | done
   doneAt    String   @default("")
+  images    Json     @default("[]") // reference photos, data URLs, shrunk client-side
+  voice     String   @default("") // one voice note, data URL (audio/webm or picked file)
   createdAt DateTime @default(now())
 }
 
