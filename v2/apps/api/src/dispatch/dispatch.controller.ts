@@ -11,10 +11,11 @@
    ========================================================================== */
 
 import {
-  BadRequestException, Body, Controller, Get, NotFoundException, Post, Query, UseGuards,
+  BadRequestException, Body, Controller, Get, NotFoundException, Post, Query, Req, UseGuards,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
+import { branchScope, branchWhere, inScope } from '../branch.util';
 import {
   autoAssignPlan, balancePlan, dropCheck, freeGaps, suggestTechs, workHours,
   addDays, dayOfWeek, toISO, toMin, toHHMM,
@@ -65,12 +66,24 @@ export class DispatchController {
    * roster with load + free gaps, jobs enriched with names/crew/branch, and
    * the maps the engine calls need.
    */
-  private async loadDay(date: string) {
+  private async loadDay(date: string, scope: string[] | null) {
+    /*
+     * The board obeys the same wall as every list: a Madurai dispatcher paints
+     * Madurai. Jobs filter on their stamped branch, and the roster narrows to
+     * technicians posted to a branch in view — an unpostable name on the board
+     * is worse than no name, because it can be dragged onto.
+     */
     const [company, branches, users, services, jobs] = await Promise.all([
       this.prisma.company.findFirst(),
-      this.prisma.branch.findMany({ orderBy: { id: 'asc' } }),
+      this.prisma.branch.findMany({
+        where: scope === null ? {} : { id: { in: scope } },
+        orderBy: { id: 'asc' },
+      }),
       this.prisma.user.findMany({
-        where: { role: { in: ['tech', 'senior_tech'] }, active: true },
+        where: {
+          role: { in: ['tech', 'senior_tech'] }, active: true,
+          ...(scope === null ? {} : { branches: { hasSome: scope } }),
+        },
         orderBy: { id: 'asc' },
         select: {
           id: true, name: true, color: true, title: true, skills: true,
@@ -79,7 +92,7 @@ export class DispatchController {
       }),
       this.prisma.service.findMany({ select: { id: true, name: true } }),
       this.prisma.job.findMany({
-        where: { date, status: { not: 'cancelled' } },
+        where: { date, status: { not: 'cancelled' }, ...branchWhere(scope) },
         orderBy: { slot: 'asc' },
       }),
     ]);
@@ -197,16 +210,20 @@ export class DispatchController {
 
   /** The whole board in one call: roster grouped by branch, jobs, queue, week. */
   @Get('day')
-  async day(@Query('date') dateQ?: string) {
+  // The board is an office tool. A technician has his own day screen; letting
+  // him pull this one would hand him every customer address in the company.
+  @Roles('admin', 'ops', 'sales')
+  async day(@Req() req: { user?: { sub?: string; role?: string } }, @Query('date') dateQ?: string) {
     const date = dateQ || toISO(new Date());
-    const c = await this.loadDay(date);
+    const scope = await branchScope(this.prisma, req?.user);
+    const c = await this.loadDay(date, scope);
 
     // The 7-day strip: counts for the surrounding days (v1 board.js:184-201).
     const weekDates: string[] = [];
     for (let i = -3; i <= 3; i++) weekDates.push(addDays(date, i));
     const others = weekDates.filter((d) => d !== date);
     const windowJobs = await this.prisma.job.findMany({
-      where: { date: { in: others }, status: { not: 'cancelled' } },
+      where: { date: { in: others }, status: { not: 'cancelled' }, ...branchWhere(scope) },
       select: { date: true, techIds: true },
     });
     const week = weekDates.map((d) => {
@@ -276,7 +293,9 @@ export class DispatchController {
 
   /** Advisory drop warnings for the drag tooltip — never a refusal. */
   @Post('check')
+  @Roles('admin', 'ops', 'sales')
   async check(
+    @Req() req: { user?: { sub?: string; role?: string } },
     @Body() body: { jobId?: string; techId?: string; startMin?: number; date?: string },
   ): Promise<DropWarning[]> {
     const jobId = String(body.jobId || '');
@@ -285,10 +304,13 @@ export class DispatchController {
     if (!jobId || !techId || !Number.isFinite(startMin)) {
       throw new BadRequestException('jobId, techId and startMin are required');
     }
+    const scope = await branchScope(this.prisma, req?.user);
     const job = await this.prisma.job.findUnique({ where: { id: jobId } });
-    if (!job) throw new NotFoundException('No such job');
+    // Outside the wall reads as absent, not as refused — a 403 would confirm
+    // the job exists to somebody with no business knowing it.
+    if (!job || !inScope(scope, job.branch)) throw new NotFoundException('No such job');
     const date = String(body.date || job.date);
-    const c = await this.loadDay(date);
+    const c = await this.loadDay(date, scope);
     const tech = c.users.find((u) => u.id === techId);
     if (!tech) throw new NotFoundException('No such technician');
 
@@ -302,16 +324,19 @@ export class DispatchController {
 
   /** Rank everybody for one job, reasoning shown (v1 suggest modal). */
   @Get('suggest')
+  @Roles('admin', 'ops', 'sales')
   async suggest(
+    @Req() req: { user?: { sub?: string; role?: string } },
     @Query('jobId') jobId?: string,
     @Query('date') dateQ?: string,
     @Query('limit') limitQ?: string,
   ) {
     if (!jobId) throw new BadRequestException('jobId is required');
+    const scope = await branchScope(this.prisma, req?.user);
     const job = await this.prisma.job.findUnique({ where: { id: jobId } });
-    if (!job) throw new NotFoundException('No such job');
+    if (!job || !inScope(scope, job.branch)) throw new NotFoundException('No such job');
     const date = dateQ || job.date;
-    const c = await this.loadDay(date);
+    const c = await this.loadDay(date, scope);
 
     const jl = c.jobLike(job);
     if (job.date !== date || (job.contractId && !c.planLines.some((l) => l.contractId === job.contractId))) {
@@ -416,9 +441,12 @@ export class DispatchController {
    */
   @Post('auto')
   @Roles('admin', 'ops', 'sales')
-  async auto(@Body() body: { date?: string }) {
+  async auto(
+    @Req() req: { user?: { sub?: string; role?: string } },
+    @Body() body: { date?: string },
+  ) {
     const date = String(body.date || '') || toISO(new Date());
-    const c = await this.loadDay(date);
+    const c = await this.loadDay(date, await branchScope(this.prisma, req?.user));
     const queue = c.jobLikes.filter((j) => !j.techIds.length);
     if (!queue.length) return { placed: [], skipped: [] };
 
@@ -442,9 +470,12 @@ export class DispatchController {
    */
   @Post('balance')
   @Roles('admin', 'ops', 'sales')
-  async balance(@Body() body: { date?: string }) {
+  async balance(
+    @Req() req: { user?: { sub?: string; role?: string } },
+    @Body() body: { date?: string },
+  ) {
     const date = String(body.date || '') || toISO(new Date());
-    const c = await this.loadDay(date);
+    const c = await this.loadDay(date, await branchScope(this.prisma, req?.user));
     const plan = balancePlan(c.users as TechLike[], c.co, date, c.jobLikes);
 
     const moved: Array<{ jobId: string; techIds: string[]; startMin: number; before: BeforeState }> = [];

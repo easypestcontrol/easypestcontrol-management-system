@@ -19,13 +19,30 @@ import {
   BadRequestException, Body, Controller, Get, NotFoundException, Param, Patch,
   Post, Query, Req, UseGuards,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { isFieldTech } from 'shared';
 import { branchScope, clampScope } from '../branch.util';
 
-const DEFAULT_PASSWORD = 'pestops123';
+/**
+ * A fresh password for a new member, shown to the admin once and never stored
+ * in the clear.
+ *
+ * It used to be a constant every account shared, which is fine for a demo and
+ * indefensible in production: the value sits in the source, so knowing one
+ * person's email is knowing their password. Random per member closes that, and
+ * because nobody can read it back afterwards, a forgotten password is reset
+ * rather than looked up.
+ *
+ * No l/1/I or O/0 — this gets read off a screen and typed on a phone.
+ */
+const PW_ALPHABET = 'abcdefghijkmnpqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ23456789';
+function freshPassword(): string {
+  const bytes = crypto.randomBytes(12);
+  return Array.from(bytes, (b) => PW_ALPHABET[b % PW_ALPHABET.length]).join('');
+}
 
 /** v1 team.js:10 — designation defaults per role. */
 const DEFAULT_TITLE: Record<string, string> = {
@@ -217,6 +234,7 @@ export class TeamController {
     }
 
     const role = DEFAULT_TITLE[String(body.role || '')] ? String(body.role) : 'tech';
+    const tempPassword = freshPassword();
 
     // Mint the next free U-id. Seeded ids were not counted into the sequence,
     // so scan past collisions the way v1's nextBranchId did (masterdata.js:21-26).
@@ -245,7 +263,7 @@ export class TeamController {
         email,
         role: role as never,
         title: String(body.title || '').trim() || DEFAULT_TITLE[role] || 'Team member',
-        password: await bcrypt.hash(DEFAULT_PASSWORD, 10),
+        password: await bcrypt.hash(tempPassword, 10),
         color: PALETTE[(n - 1) % PALETTE.length],
         joined: String(body.joined || '').trim() || todayISO(),
         dob: String(body.dob || ''),
@@ -264,7 +282,10 @@ export class TeamController {
         rating: 0,
         jobsDone: 0,
       } as never,
-    }).then(sansPassword);
+    }).then(sansPassword)
+      // The one moment this is readable. It is not stored anywhere in the
+      // clear, so if the admin loses it the answer is to set a new one.
+      .then((u) => ({ ...u, tempPassword }));
   }
 
   /* ---------------------------------------------------------------- update */

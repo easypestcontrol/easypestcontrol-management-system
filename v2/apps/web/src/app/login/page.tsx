@@ -1,29 +1,24 @@
 'use client';
 
 /* ============================================================================
-   Sign in — the v2 version of v1's index.html.
+   Sign in.
 
-   Same anatomy: brand panel left, entry right. And the same one-click demo
-   experience — "choose a role to explore" — each card signs straight in as
-   that person, because every seeded account shares the demo password. The
-   classic email/password form sits below for real use.
+   There is one way in: the email and password the administrator issued. No
+   role cards, no one-click anything. The demo build shipped a shared password
+   in this file so a visitor could look around as any of six people — which
+   also meant the password was readable by anyone who opened the page source.
+   In production that is not a convenience, it is the front door left open.
+
+   Who you are decides where you land and what you can see: homeFor() sends a
+   technician to his day rather than the office dashboard, and the branch on
+   the account scopes the data behind every screen. Both are decided from the
+   signed token on the server, never from anything typed here.
    ========================================================================== */
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { api, setToken, type SessionUser } from '@/lib/api';
 import { homeFor } from 'shared';
-
-const DEMO_PASSWORD = 'pestops123';
-
-const ROLES = [
-  { email: 'rajesh@shieldpest.in', name: 'Rajesh Kumar', role: 'Administrator', who: 'Founder & Director', blurb: 'Everything — pipeline, contracts, dispatch, money', color: '#FF0000' },
-  { email: 'priya@shieldpest.in', name: 'Priya Sharma', role: 'Operations', who: 'Operations Manager', blurb: 'Contracts, the dispatch board, the day-to-day', color: '#141414' },
-  { email: 'arun@shieldpest.in', name: 'Arun Prakash', role: 'Sales', who: 'Sales Executive', blurb: 'Leads, quotations, follow-ups', color: '#141414' },
-  { email: 'karthik@shieldpest.in', name: 'Karthik R', role: 'Senior Technician', who: 'Senior Technician', blurb: "Today's services, execution, customer signatures", color: '#141414' },
-  { email: 'suresh@shieldpest.in', name: 'Suresh M', role: 'Technician', who: 'Technician', blurb: 'The field view — services, trips, wallet', color: '#0B7454' },
-  { email: 'deepa@shieldpest.in', name: 'Deepa Nair', role: 'Accounts', who: 'Accounts & Billing', blurb: 'Invoices, payments, outstanding', color: '#141414' },
-];
 
 const FEATURES = [
   'Lead pipeline with follow-ups',
@@ -39,19 +34,27 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
-  const [busy, setBusy] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  async function signIn(mail: string, pass: string) {
-    setErr(''); setBusy(mail);
+  async function signIn(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(''); setBusy(true);
     try {
-      const r = await api.post<{ token: string; user: SessionUser }>('/auth/login', { email: mail, password: pass });
+      const r = await api.post<{ token: string; user: SessionUser }>(
+        '/auth/login', { email: email.trim(), password },
+      );
       setToken(r.token);
       // A technician has no business on the office dashboard — send him to his day.
       router.replace(homeFor(r.user?.role));
     } catch (ex) {
-      setErr(ex instanceof Error ? ex.message : 'Could not sign in');
+      /* Never say which half was wrong: that turns the form into a way of
+         finding out who has an account here. */
+      setErr(ex instanceof Error && /network|failed to fetch/i.test(ex.message)
+        ? 'Could not reach the server. Check your connection and try again.'
+        : 'That email and password do not match.');
+      setPassword('');
     } finally {
-      setBusy('');
+      setBusy(false);
     }
   }
 
@@ -87,78 +90,58 @@ export default function Login() {
               </li>
             ))}
           </ul>
-
-          <div className="mt-10 flex gap-8">
-            {[['6', 'User roles'], ['14', 'Modules'], ['100%', 'Feature parity']].map(([v, k]) => (
-              <div key={k}>
-                <div className="text-[22px] font-bold">{v}</div>
-                <div className="text-[10.5px] uppercase tracking-wide text-white/45 font-semibold">{k}</div>
-              </div>
-            ))}
-          </div>
         </div>
 
         <p className="mt-auto pt-10 text-white/35 text-[12px]">© {new Date().getFullYear()} PestOps</p>
       </div>
 
       {/* ------------------------------------------------ entry */}
-      <div className="flex-1 flex items-start justify-center overflow-y-auto p-5 lg:p-8">
-        <div className="w-full max-w-[430px] py-4">
-          <span className="zpill red">Interactive demo — one click, no typing</span>
-          <h2 className="mt-4 text-[22px] font-semibold">Choose a role to explore</h2>
-          <p className="text-muted text-[13px] mt-1 leading-relaxed">
-            Each role opens the exact screens that person uses day to day. Everything is
-            live — raise a quotation, generate an AMC, dispatch a visit, complete it as
-            the technician, then bill it.
+      <div className="flex-1 flex items-center justify-center overflow-y-auto p-5 lg:p-8">
+        <div className="w-full max-w-[380px] py-4">
+          {/* The brand panel is hidden on a phone, so the mark comes along. */}
+          <div className="flex items-center gap-3 lg:hidden mb-8">
+            <span className="w-10 h-10 rounded bg-accent flex items-center justify-center font-bold text-lg text-white">P</span>
+            <span>
+              <span className="block text-[17px] font-bold leading-tight">PestOps</span>
+              <span className="block text-[10px] tracking-[0.1em] uppercase text-muted-2 font-semibold">Operations Platform</span>
+            </span>
+          </div>
+
+          <h2 className="text-[22px] font-semibold">Sign in</h2>
+          <p className="text-muted text-[13px] mt-1.5 leading-relaxed">
+            Use the email and password your administrator issued you.
           </p>
 
-          <div className="mt-5 space-y-2.5">
-            {ROLES.map((r) => (
-              <button key={r.email} onClick={() => signIn(r.email, DEMO_PASSWORD)} disabled={!!busy}
-                className="w-full flex items-center gap-3.5 rounded-md border border-line bg-white p-3.5 text-left hover:border-navy/50 hover:shadow-card transition-all disabled:opacity-60 group">
-                <span className="w-10 h-10 rounded-full text-white text-[12px] font-bold flex items-center justify-center shrink-0"
-                  style={{ background: r.color }}>
-                  {r.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-baseline gap-2">
-                    <span className="font-semibold text-[13.5px]">{r.role}</span>
-                    <span className="text-muted-2 text-[11.5px]">{r.name} · {r.who}</span>
-                  </span>
-                  <span className="block text-muted text-[12px] mt-0.5 truncate">{r.blurb}</span>
-                </span>
-                <span className="text-muted-2 group-hover:text-accent transition-colors">
-                  {busy === r.email
-                    ? <span className="text-[11px] font-semibold">Signing in…</span>
-                    : <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m9 6 6 6-6 6" /></svg>}
-                </span>
-              </button>
-            ))}
-          </div>
+          <form onSubmit={signIn} className="mt-6 space-y-3.5">
+            <label className="block">
+              <span className="block text-[12.5px] font-medium mb-1.5">Email</span>
+              <input value={email} onChange={(e) => setEmail(e.target.value)}
+                type="email" required autoComplete="username" autoFocus
+                className="w-full h-11 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy" />
+            </label>
 
-          {err && <p className="mt-3 text-accent text-[13px]">{err}</p>}
+            <label className="block">
+              <span className="block text-[12.5px] font-medium mb-1.5">Password</span>
+              <input value={password} onChange={(e) => setPassword(e.target.value)}
+                type="password" required autoComplete="current-password"
+                className="w-full h-11 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy" />
+            </label>
 
-          {/* ------------------------------------ the classic form */}
-          <div className="mt-7 pt-6 border-t border-line-soft">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-2 mb-3">
-              Or sign in with credentials
-            </p>
-            {/* Three fields on one line needs 420px. A phone has 390px minus
-                padding, so the row wraps rather than pushing Go off the edge. */}
-            <form onSubmit={(e) => { e.preventDefault(); signIn(email, password); }}
-              className="flex flex-wrap gap-2">
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required
-                placeholder="Email"
-                className="max-lg:w-full lg:flex-1 h-11 lg:h-9 px-3 rounded border border-line text-[13px] outline-none focus:border-navy" />
-              <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required
-                placeholder="Password"
-                className="flex-1 lg:flex-none lg:w-[130px] h-11 lg:h-9 px-3 rounded border border-line text-[13px] outline-none focus:border-navy" />
-              <button disabled={!!busy}
-                className="h-11 lg:h-9 px-5 rounded bg-accent text-white font-semibold text-[13px] hover:brightness-90 disabled:opacity-60">
-                Go
-              </button>
-            </form>
-          </div>
+            {/* Reserve the line so the button does not jump when it appears. */}
+            {err && (
+              <p role="alert" className="text-accent text-[12.5px] leading-relaxed">{err}</p>
+            )}
+
+            <button disabled={busy}
+              className="w-full h-11 rounded bg-accent text-white font-semibold text-[13.5px] hover:brightness-90 disabled:opacity-60">
+              {busy ? 'Signing in…' : 'Sign in'}
+            </button>
+          </form>
+
+          <p className="mt-6 text-muted-2 text-[12px] leading-relaxed">
+            Lost your password? Ask your administrator to set a new one — for
+            security, nobody here can read the one you had.
+          </p>
         </div>
       </div>
     </div>

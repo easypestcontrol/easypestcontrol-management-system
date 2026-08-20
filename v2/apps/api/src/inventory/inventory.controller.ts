@@ -1,10 +1,11 @@
 import {
   BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param,
-  Patch, Post, Query, UseGuards,
+  Patch, Post, Query, Req, UseGuards,
 } from '@nestjs/common';
 import { toISO } from 'shared';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
+import { branchScope } from '../branch.util';
 
 /*
  * Inventory — chemicals, equipment and consumables, plus the stock ledger.
@@ -53,7 +54,12 @@ export class InventoryController {
   constructor(private prisma: PrismaService) {}
 
   @Get()
-  async list(@Query('cat') cat?: string, @Query('q') q?: string, @Query('branchId') branchId?: string) {
+  async list(
+    @Req() req: { user?: { sub?: string; role?: string } },
+    @Query('cat') cat?: string,
+    @Query('q') q?: string,
+    @Query('branchId') branchId?: string,
+  ) {
     const where = {
       ...(cat ? { cat } : {}),
       ...(q
@@ -91,8 +97,16 @@ export class InventoryController {
       }
     }
 
+    /*
+     * The per-branch breakdown is behind the same wall as everything else: a
+     * Madurai storekeeper counts Madurai's shelves. `stock` stays the company
+     * total — it is what the reorder level is set against, and it reveals no
+     * one branch's position.
+     */
+    const scope = await branchScope(this.prisma, req?.user);
     return items.map((i) => {
-      const branches = byItem.get(i.id) || [];
+      const all = byItem.get(i.id) || [];
+      const branches = scope === null ? all : all.filter((b) => scope.includes(b.branchId));
       const here = branchId ? (branches.find((b) => b.branchId === branchId)?.qty ?? 0) : null;
       return {
         ...i,

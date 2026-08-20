@@ -4,8 +4,8 @@
    Team member — the employee record HR actually needs, and the editor that
    maintains it. Ported from v1 team.js (memberEditor + V.teamDetail).
 
-   /team/new  → blank editor, POST /team (server mints the U-id and hashes
-                the default password 'pestops123')
+   /team/new  → blank editor, POST /team (server mints the U-id and a random
+                first password, handed back once and never readable again)
    /team/U04  → record view; Edit flips the same form into PATCH mode.
 
    The signature upload matters: it is placed on every quotation and contract
@@ -186,6 +186,12 @@ export default function TeamMember() {
     });
   }
 
+  /* The generated password, readable for exactly as long as this dialog is
+     open. Navigating to the new member happens after it is dismissed, so it
+     cannot be lost to a redirect. */
+  const [issued, setIssued] = useState<{ id: string; name: string; pw: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
   async function save() {
     setErr('');
     if (!draft.name.trim() || !draft.phone.trim()) {
@@ -219,8 +225,12 @@ export default function TeamMember() {
     setSaving(true);
     try {
       if (isNew) {
-        const created = await api.post<Member>('/team', body);
-        router.replace('/team/' + created.id);
+        const created = await api.post<Member & { tempPassword?: string }>('/team', body);
+        if (created.tempPassword) {
+          setIssued({ id: created.id, name: draft.name.trim(), pw: created.tempPassword });
+        } else {
+          router.replace('/team/' + created.id);
+        }
       } else {
         const updated = await api.patch<Member>('/team/' + id, body);
         setMember((m) => (m ? { ...m, ...updated } : m));
@@ -267,6 +277,47 @@ export default function TeamMember() {
   if (editing) {
     return (
       <div className="p-6 max-w-[860px]">
+        {/* The first password, shown once. There is no second chance to read
+            it — the database holds only the bcrypt hash — so the dialog does
+            not close on a stray click, and the redirect waits for it. */}
+        {issued && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-5">
+            <div className="w-full max-w-[420px] rounded-xl bg-white p-6 shadow-xl">
+              <h2 className="text-[17px] font-semibold">{issued.name} can now sign in</h2>
+              <p className="text-muted text-[13px] mt-1.5 leading-relaxed">
+                Give them this password. It is not stored anywhere you can read it
+                again — if it is lost, set a new one from their record.
+              </p>
+
+              <div className="mt-4 flex items-center gap-2">
+                <code className="flex-1 h-11 px-3 rounded border border-line bg-wash font-mono text-[15px] tracking-wide flex items-center select-all">
+                  {issued.pw}
+                </code>
+                <button
+                  onClick={() => {
+                    navigator.clipboard?.writeText(issued.pw).then(
+                      () => { setCopied(true); setTimeout(() => setCopied(false), 2000); },
+                      () => { /* clipboard refused — it is selectable above */ },
+                    );
+                  }}
+                  className="h-11 px-3.5 rounded border border-line text-[13px] font-semibold hover:bg-wash">
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+
+              <p className="text-muted-2 text-[12px] mt-3">
+                Signs in with <span className="font-medium">{draft.email.trim() || 'their email'}</span>.
+              </p>
+
+              <button
+                onClick={() => { const to = issued.id; setIssued(null); router.replace('/team/' + to); }}
+                className="mt-5 w-full h-11 rounded bg-accent text-white font-semibold text-[13.5px] hover:brightness-90">
+                I have saved it
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h1 className="text-[20px] font-semibold">
@@ -274,7 +325,7 @@ export default function TeamMember() {
             </h1>
             <p className="text-muted text-[13px] mt-0.5">
               Employee record, posting and access in PestOps.
-              {isNew && ' They sign in with the default password pestops123.'}
+              {isNew && ' A first password is generated when you save it.'}
             </p>
           </div>
           <div className="flex items-center gap-2">
