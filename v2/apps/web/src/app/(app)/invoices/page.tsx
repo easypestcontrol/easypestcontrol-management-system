@@ -241,9 +241,10 @@ export default function Invoices() {
         <table className="ztable">
           <thead>
             <tr>
-              <th style={{ width: 36 }}>
-                <input type="checkbox" checked={allOnPage} onChange={toggleAll}
-                  className="w-4 h-4 accent-[#FF0000] align-middle" title="Select everything on this page" />
+              <th style={{ width: 46 }} onClick={toggleAll} title="Select everything on this page"
+                className="cursor-pointer">
+                <input type="checkbox" checked={allOnPage} readOnly
+                  className="w-4 h-4 accent-[#FF0000] align-middle pointer-events-none" />
               </th>
               <th>Invoice</th><th>Customer</th><th>Period</th><th>Due</th>
               <th className="text-right!">Amount</th>
@@ -256,9 +257,13 @@ export default function Invoices() {
               const late = i.daysLate > 0 && i.status !== 'paid';
               return (
                 <tr key={i.id} className="zrow" onClick={() => router.push('/invoices/' + i.id)}>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <input type="checkbox" checked={sel.has(i.id)} onChange={() => toggleOne(i.id)}
-                      className="w-4 h-4 accent-[#FF0000] align-middle" />
+                  {/* The whole cell is the target — anywhere in the space
+                      BEFORE the invoice number selects; the rest of the row
+                      still opens the invoice. */}
+                  <td onClick={(e) => { e.stopPropagation(); toggleOne(i.id); }}
+                    className="cursor-pointer">
+                    <input type="checkbox" checked={sel.has(i.id)} readOnly
+                      className="w-4 h-4 accent-[#FF0000] align-middle pointer-events-none" />
                   </td>
                   <td>
                     {/* The tag rides on the LEFT beside the number, so an

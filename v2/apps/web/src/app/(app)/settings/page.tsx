@@ -87,10 +87,15 @@ export default function Settings() {
       ...co,
       terms: Array.isArray(co.docTerms?.quotation) ? co.docTerms!.quotation! : co.terms,
     };
-    await api.patch('/org/company', body);
-    setCo(body);
-    setSaved('Saved');
-    setTimeout(() => setSaved(''), 3000);
+    try {
+      await api.patch('/org/company', body);
+      setCo(body);
+      setSaved('Saved ✓');
+    } catch {
+      // Without this a dead server looked exactly like a successful save.
+      setSaved('Could not save — check the connection and try again');
+    }
+    setTimeout(() => setSaved(''), 4000);
   }
 
   // One hidden file input serves all three images; this remembers which
@@ -151,7 +156,11 @@ export default function Settings() {
           <p className="text-muted text-[13px] mt-0.5">Pick a section, change it, save.</p>
         </div>
         <div className="flex items-center gap-3">
-          {saved && <span className="text-[12.5px] font-semibold text-navy">{saved} ✓</span>}
+          {saved && (
+            <span className={'text-[12.5px] font-semibold ' + (saved.startsWith('Saved') ? 'text-navy' : 'text-accent')}>
+              {saved}
+            </span>
+          )}
           <button onClick={save}
             className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90">
             Save changes
