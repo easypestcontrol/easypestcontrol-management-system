@@ -35,12 +35,54 @@ import { open, seal } from '../secrets.util';
  * out of date the moment they stop typing, and the only reason to look at this
  * page is to trust what it says.
  */
+// `service` is not here: it is built in and renaming it would only
+// disconnect the row from the reader that knows how to measure it.
 const FIELDS = [
-  'service', 'provider', 'account', 'plan', 'cycle', 'renewsOn',
+  'provider', 'account', 'plan', 'cycle', 'renewsOn',
   'console', 'note',
 ] as const;
 
 /** Written in, never read back. The list returns `hasKey`, not the key. */
+/**
+ * The services this app runs on. Fixed, because the app knows what it uses.
+ *
+ * Asking somebody to add them by hand only lets the list drift from reality,
+ * and a page describing services you are not running is worse than no page.
+ * Rows appear on first read and are never deleted. What a person edits is what
+ * only they know — whose account it is, what it costs, when it renews — and the
+ * tokens, where a token is genuinely needed.
+ */
+const BUILT_IN = [
+  {
+    id: 'CR-01',
+    service: 'VPS',
+    provider: '',
+    console: '',
+    note: 'Runs the API and PostgreSQL. Disk, memory and bandwidth are read off the machine itself.',
+  },
+  {
+    id: 'CR-02',
+    service: 'Cloudflare R2',
+    provider: 'Cloudflare',
+    console: 'https://dash.cloudflare.com',
+    note: 'Stores every job photograph and signature. Measured with the same keys that store them.',
+  },
+  {
+    id: 'CR-03',
+    service: 'Ola Maps',
+    provider: 'Ola Krutrim',
+    console: 'https://maps.olakrutrim.com',
+    note: 'Geocoding and routing for trips and navigation. Calls are counted by this app.',
+  },
+  {
+    id: 'CR-04',
+    service: 'Razorpay',
+    provider: 'Razorpay',
+    console: 'https://dashboard.razorpay.com',
+    note: 'UPI QR collection. Uses the keys from Settings → Integrations.',
+  },
+];
+
 const SECRETS = ['apiKey', 'apiSecret', 'accountRef', 'resourceRef'] as const;
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -82,8 +124,26 @@ export class CredentialsController {
     return 'CR-' + String(n + 1).padStart(2, '0');
   }
 
+  /**
+   * Make sure every built-in service has a row. Called on read, so a fresh
+   * deployment has the page populated the first time anybody opens it, and
+   * nobody has to describe their own infrastructure to the app.
+   */
+  private async ensure() {
+    const have = new Set(
+      (await this.prisma.credential.findMany({ select: { service: true } })).map((c) => c.service),
+    );
+    for (const b of BUILT_IN) {
+      if (have.has(b.service)) continue;
+      await this.prisma.credential
+        .create({ data: { id: b.id, service: b.service, provider: b.provider, console: b.console, note: b.note } })
+        .catch(() => { /* a parallel request got there first */ });
+    }
+  }
+
   @Get()
   async list() {
+    await this.ensure();
     const rows = await this.prisma.credential.findMany({
       include: { quotas: { orderBy: { order: 'asc' } } },
       orderBy: { id: 'asc' },
@@ -149,19 +209,6 @@ export class CredentialsController {
         accounts: [...new Set(live.map((c) => c.account).filter(Boolean))],
       },
     };
-  }
-
-  @Post()
-  async create(@Body() body: Record<string, unknown>) {
-    const data = pick(body);
-    if (!data.service) throw new BadRequestException('Which service is this?');
-    const made = await this.prisma.credential.create({
-      data: { id: await this.nextId(), ...data } as never,
-    });
-    // Fetch the figures straight away, so a service added with a key is
-    // useful before anyone has to press anything.
-    await this.sync(made.id).catch(() => { /* reported on the row */ });
-    return { id: made.id };
   }
 
   @Patch(':id')
@@ -256,11 +303,14 @@ export class CredentialsController {
     return { done, failed };
   }
 
-  @Delete(':id')
-  async remove(@Param('id') id: string) {
-    await this.prisma.credential.delete({ where: { id } });
-    return { ok: true };
-  }
+  /*
+   * There is no create and no delete.
+   *
+   * The four services are what this app runs on — they are not a list somebody
+   * curates. Adding one would create a row nothing knows how to measure;
+   * deleting one would only make the page lie by omission about a bill that
+   * still arrives every month.
+   */
 
   /**
    * The stored secrets, decrypted — fetched only when the admin presses the

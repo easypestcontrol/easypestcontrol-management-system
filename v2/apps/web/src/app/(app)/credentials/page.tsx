@@ -23,7 +23,6 @@
    ========================================================================== */
 
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { Modal, Field, inputCls, selectCls } from '../jobs/ui';
@@ -41,6 +40,8 @@ interface Credential {
   /** Whether a key is on file — never the key itself. */
   hasKey: boolean; hasSecret: boolean; hasAccountRef: boolean; hasResourceRef: boolean;
   canSync: boolean;
+  /** The traffic light: green = stable, orange = watch, red = warning. */
+  health: 'green' | 'orange' | 'red';
   /** What still has to be filled in before a sync can work. */
   needs: string[];
   daysToRenewal: number | null;
@@ -107,13 +108,6 @@ const PRESETS: Record<string, {
 const money = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const num = (n: number) => n.toLocaleString('en-IN');
 
-function blank(): Draft {
-  return {
-    service: '', provider: '', account: '', plan: '', cost: 0, cycle: 'Monthly',
-    renewsOn: '', autoRenew: false, console: '', note: '', active: true,
-    apiKey: '', apiSecret: '', accountRef: '', resourceRef: '',
-  };
-}
 
 function toDraft(c: Credential): Draft {
   return {
@@ -191,10 +185,7 @@ export default function Credentials() {
     } finally { setBusy(false); }
   }
 
-  async function remove(id: string) {
-    try { await api.del('/credentials/' + id); load(); }
-    catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not remove'); }
-  }
+
 
   if (!data) {
     return <p className="p-6 text-muted text-[13px]">{err || 'Loading…'}</p>;
@@ -208,14 +199,14 @@ export default function Credentials() {
       <div>
         <h1 className="text-[19px] lg:text-[20px] font-semibold">Credentials</h1>
         <p className="text-muted text-[13px] mt-0.5">
-          What the business runs on, what it costs and when it runs out.
-          API keys stay in{' '}
-          <Link href="/settings" className="text-navy underline decoration-line hover:text-accent">
-            Settings → Integrations
-          </Link>{' '}
-          — nothing secret is shown here.
+          Every key the business runs on, stored encrypted — masked here, revealed
+          only when you press the eye. Green is stable, orange is worth a look,
+          red needs you.
         </p>
       </div>
+
+      {/* --------------------------------------------- the operational keys */}
+      <OperationalKeys />
 
       {/* ------------------------------------------------------- the money */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 lg:gap-4">
@@ -261,24 +252,20 @@ export default function Credentials() {
 
       <div className="flex items-center justify-between">
         <h2 className="text-[14px] font-bold">Every service</h2>
-        <span className="flex items-center gap-2">
-          <button onClick={syncAll} disabled={!!syncing}
-            className="h-10 lg:h-9 px-3.5 rounded border border-line text-[13px] font-semibold hover:bg-wash disabled:opacity-60">
-            {syncing === 'all' ? 'Reading…' : 'Refresh all'}
-          </button>
-          <button onClick={() => { setDraft(blank()); setEditing(''); }}
-            className="flex items-center gap-1.5 h-10 lg:h-9 px-3.5 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90">
-            <Icon name="plus" size={14} /> Add service
-          </button>
-        </span>
+        {/* No "add". The four services are what this app runs on — the app
+            knows them, and a list somebody curates by hand only drifts from
+            what is actually being paid for. */}
+        <button onClick={syncAll} disabled={!!syncing}
+          className="h-10 lg:h-9 px-3.5 rounded border border-line text-[13px] font-semibold hover:bg-wash disabled:opacity-60">
+          {syncing === 'all' ? 'Reading…' : 'Refresh all'}
+        </button>
       </div>
 
       {data.items.length === 0 ? (
         <div className="rounded-xl border border-line bg-white p-10 text-center">
-          <p className="text-[15px] font-medium">Nothing recorded yet</p>
+          <p className="text-[15px] font-medium">Loading the services…</p>
           <p className="text-muted text-[13px] mt-1">
-            Add the VPS, Cloudflare R2, Ola Maps, Razorpay — anything that renews or
-            has a limit.
+            VPS, Cloudflare R2, Ola Maps and Razorpay appear by themselves.
           </p>
         </div>
       ) : (
@@ -292,6 +279,7 @@ export default function Credentials() {
                 <header className="px-4 py-3 border-b border-line-soft flex items-start justify-between gap-3">
                   <span className="min-w-0">
                     <span className="flex items-center gap-2 flex-wrap">
+                      <HealthDot health={c.health} />
                       <span className="text-[15px] font-bold text-navy">{c.service}</span>
                       {c.provider && <span className="zpill">{c.provider}</span>}
                       {!c.active && <span className="zpill">Not in use</span>}
@@ -318,7 +306,7 @@ export default function Credentials() {
                   {c.checkedOn
                     ? <span className="text-muted-2">figures read {c.checkedOn}</span>
                     : c.canSync && <span className="text-muted-2">never read</span>}
-                  {c.hasKey && <span className="text-muted-2">key on file</span>}
+                  {c.hasKey && <RevealKey id={c.id} />}
                   {c.console && (
                     <a href={c.console} target="_blank" rel="noreferrer"
                       className="text-navy underline decoration-line hover:text-accent">
@@ -380,11 +368,6 @@ export default function Credentials() {
                       {syncing === c.id ? 'Reading…' : 'Refresh figures'}
                     </button>
                   )}
-                  <span className="flex-1" />
-                  <button onClick={() => remove(c.id)}
-                    className="h-9 px-3 rounded border border-line text-[12.5px] text-muted hover:text-accent">
-                    Remove
-                  </button>
                 </div>
               </section>
             );
@@ -395,7 +378,7 @@ export default function Credentials() {
       {err && !draft && <p className="text-[12.5px] text-accent">{err}</p>}
 
       {draft && (
-        <Modal title={editing ? 'Edit service' : 'Add service'}
+        <Modal title={'Edit ' + (current?.service || 'service')}
           sub={editing || 'What it costs and what it meters'}
           onClose={() => { setDraft(null); setEditing(''); setErr(''); }}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -538,11 +521,179 @@ export default function Credentials() {
             </button>
             <button onClick={save} disabled={busy || !draft.service.trim()}
               className="h-10 px-5 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-50">
-              {busy ? 'Saving…' : editing ? 'Save' : 'Add service'}
+              {busy ? 'Saving…' : 'Save'}
             </button>
           </div>
         </Modal>
       )}
     </div>
+  );
+}
+
+/* ----------------------------------------------------------- traffic light */
+
+function HealthDot({ health }: { health: 'green' | 'orange' | 'red' }) {
+  const meta = {
+    green: { color: '#0B7454', label: 'Stable' },
+    orange: { color: '#E8890C', label: 'Watch' },
+    red: { color: '#FF0000', label: 'Warning' },
+  }[health] || { color: '#0B7454', label: 'Stable' };
+  return (
+    <span className="inline-flex items-center gap-1.5" title={meta.label}>
+      <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: meta.color }} />
+      <span className="text-[10.5px] font-bold uppercase tracking-wide" style={{ color: meta.color }}>
+        {meta.label}
+      </span>
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------- reveal key */
+
+/**
+ * The stored key, masked as dots. The eye fetches it — decrypted server-side,
+ * admin-only — and a second press hides it again. The list itself never
+ * carries a secret.
+ */
+function RevealKey({ id }: { id: string }) {
+  const [shown, setShown] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function toggle() {
+    if (shown !== null) { setShown(null); return; }
+    setBusy(true);
+    try {
+      const r = await api.get<{ apiKey: string; apiSecret: string }>('/credentials/' + id + '/reveal');
+      setShown([r.apiKey, r.apiSecret].filter(Boolean).join('  ·  ') || '(empty)');
+    } catch { setShown('(could not read)'); }
+    setBusy(false);
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 font-mono text-[11.5px] text-muted">
+      {shown !== null ? <span className="break-all select-all">{shown}</span> : '••••••••••••'}
+      <button onClick={toggle} disabled={busy} title={shown !== null ? 'Hide the key' : 'Reveal the key'}
+        className="w-6 h-6 rounded border border-line flex items-center justify-center hover:bg-wash text-[11px]">
+        {busy ? '…' : shown !== null ? '🙈' : '👁'}
+      </button>
+    </span>
+  );
+}
+
+/* -------------------------------------------------------- operational keys */
+
+/**
+ * The keys the app RUNS with — Ola Maps drives the live map and navigation,
+ * Razorpay drives every UPI QR. Stored encrypted alongside everything else
+ * here; masked until the eye is pressed; pasting a new value replaces the
+ * old on Save.
+ */
+function OperationalKeys() {
+  const [flags, setFlags] = useState<{ ola: boolean; razorpay: boolean } | null>(null);
+  const [revealed, setRevealed] = useState<{ olaKey: string; rzpKeyId: string; rzpKeySecret: string } | null>(null);
+  const [olaKey, setOlaKey] = useState('');
+  const [rzpKeyId, setRzpKeyId] = useState('');
+  const [rzpKeySecret, setRzpKeySecret] = useState('');
+  const [msg, setMsg] = useState('');
+  const [editing, setEditing] = useState(false);
+
+  const load = () => api.get<{ ola: boolean; razorpay: boolean }>('/org/integrations')
+    .then(setFlags).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  async function toggleReveal() {
+    if (revealed) { setRevealed(null); return; }
+    try { setRevealed(await api.get('/org/integrations/reveal')); }
+    catch { setMsg('Only the admin can reveal the keys'); }
+  }
+
+  async function save() {
+    setMsg('');
+    try {
+      const r = await api.patch<{ ola: boolean; razorpay: boolean }>('/org/integrations', {
+        olaKey: olaKey.trim(), rzpKeyId: rzpKeyId.trim(), rzpKeySecret: rzpKeySecret.trim(),
+      });
+      setFlags(r);
+      setOlaKey(''); setRzpKeyId(''); setRzpKeySecret('');
+      setRevealed(null); setEditing(false);
+      setMsg('Saved — stored encrypted.');
+    } catch (e) { setMsg(e instanceof ApiError ? e.message : 'Could not save'); }
+  }
+
+  const input = 'w-full h-9 px-3 rounded border border-line text-[13px] font-mono outline-none focus:border-navy';
+  const dot = (on: boolean) => (
+    <span className="w-2.5 h-2.5 rounded-full inline-block"
+      style={{ background: on ? '#0B7454' : '#FF0000' }} />
+  );
+  const masked = (v: string | undefined, on: boolean) =>
+    revealed ? (
+      <span className="font-mono text-[11.5px] break-all select-all">{v || '(not set)'}</span>
+    ) : (
+      <span className="font-mono text-[11.5px] text-muted">{on ? '••••••••••••••••' : 'not set'}</span>
+    );
+
+  return (
+    <section className="rounded-xl border border-line bg-white shadow-card overflow-hidden">
+      <header className="px-4 py-3 border-b border-line-soft flex items-center justify-between gap-3">
+        <span>
+          <span className="text-[14px] font-bold text-navy">Operational keys</span>
+          <span className="block text-[11.5px] text-muted">
+            What the app itself runs with — encrypted at rest, masked here.
+          </span>
+        </span>
+        <span className="flex items-center gap-2">
+          <button onClick={toggleReveal} title={revealed ? 'Hide' : 'Reveal'}
+            className="w-8 h-8 rounded border border-line flex items-center justify-center hover:bg-wash">
+            {revealed ? '🙈' : '👁'}
+          </button>
+          <button onClick={() => setEditing((v) => !v)}
+            className="h-8 px-3 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">
+            {editing ? 'Close' : 'Edit'}
+          </button>
+        </span>
+      </header>
+
+      <div className="px-4 py-3 flex flex-col gap-2.5 text-[12.5px]">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {flags && dot(flags.ola)}
+          <span className="font-semibold w-[90px]">Ola Maps</span>
+          {masked(revealed?.olaKey, !!flags?.ola)}
+          <span className="text-[11px] text-muted-2">— live map & navigation</span>
+        </div>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {flags && dot(flags.razorpay)}
+          <span className="font-semibold w-[90px]">Razorpay</span>
+          {masked(revealed ? revealed.rzpKeyId + (revealed.rzpKeySecret ? '  ·  ' + revealed.rzpKeySecret : '') : '', !!flags?.razorpay)}
+          <span className="text-[11px] text-muted-2">— UPI QR collections</span>
+        </div>
+      </div>
+
+      {editing && (
+        <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-line-soft pt-3">
+          <label className="block">
+            <span className="block text-[11.5px] font-semibold text-ink-2 mb-1">Ola Maps API key</span>
+            <input value={olaKey} onChange={(e) => setOlaKey(e.target.value)}
+              placeholder="paste to replace" className={input} />
+          </label>
+          <label className="block">
+            <span className="block text-[11.5px] font-semibold text-ink-2 mb-1">Razorpay key id</span>
+            <input value={rzpKeyId} onChange={(e) => setRzpKeyId(e.target.value)}
+              placeholder="rzp_live_…" className={input} />
+          </label>
+          <label className="block">
+            <span className="block text-[11.5px] font-semibold text-ink-2 mb-1">Razorpay key secret</span>
+            <input type="password" value={rzpKeySecret} onChange={(e) => setRzpKeySecret(e.target.value)}
+              placeholder="secret" className={input} />
+          </label>
+          <div className="sm:col-span-3">
+            <button onClick={save}
+              className="h-9 px-4 rounded bg-navy text-white text-[13px] font-semibold hover:brightness-110">
+              Save keys
+            </button>
+          </div>
+        </div>
+      )}
+      {msg && <p className="px-4 pb-3 text-[12px] text-muted">{msg}</p>}
+    </section>
   );
 }

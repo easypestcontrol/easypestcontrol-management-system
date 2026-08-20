@@ -1,28 +1,25 @@
 /* ============================================================================
-   Reading real usage off the providers.
+   Reading real usage off the services this app runs on.
 
-   Nobody types a usage figure. A number somebody typed is out of date the
-   moment they stop typing, and the whole reason to look at this page is to
-   trust what it says. So each service knows how to fetch its own.
+   Nobody types a usage figure, and nobody types a credential either. Every
+   service here is one the app already talks to, with keys it already holds:
 
-   What is actually possible differs by provider, and pretending otherwise
-   would be worse than saying so:
+     VPS            the API runs on it, so it reads its own disk, memory and
+                    network. No credential exists to configure.
+     Cloudflare R2  the same keys the app stores photographs with, from the
+                    server environment. Usage is measured by listing the bucket
+                    — no second analytics token to create and rotate.
+     Ola Maps       no usage endpoint exists, so the app counts its own calls.
+                    The key in Settings → Integrations is the one being metered.
+     Razorpay       the keys from Settings → Integrations, reporting the
+                    month's captured payments.
 
-     Cloudflare R2  real. The GraphQL analytics API reports stored bytes and
-                    operation counts against an account id.
-     VPS            real, and better than an API — *provided the app is
-                    actually running on the VPS*. It reads the machine it is
-                    on, so on a development laptop it would report the laptop.
-                    It refuses rather than doing that, because a real number
-                    about the wrong machine is worse than no number.
-     Ola Maps       no usage endpoint exists. We count our own calls instead —
-                    every geocode and route this app makes, per month. That is
-                    the number that matters anyway, since it is what they bill.
-     Razorpay       no quota to run out of. We report the month's captured
-                    payments so the transaction fee is predictable.
+   That is the whole point of the page: a credential you have to re-enter here
+   is a credential that will drift from the one actually in use, and then the
+   figures describe a service you are not running.
 
-   A sync that cannot work says why, in `syncError`, rather than leaving a
-   stale figure looking current.
+   A sync that cannot work says why rather than leaving a stale figure looking
+   current.
    ========================================================================== */
 import { statfs } from 'node:fs/promises';
 import { readFile } from 'node:fs/promises';
@@ -64,60 +61,54 @@ const round1 = (n: number) => Math.round(n * 10) / 10;
 
 /* ------------------------------------------------------------ Cloudflare R2 */
 
+/**
+ * Measured with the same keys the app stores photographs with.
+ *
+ * Cloudflare's analytics API would need a second token, created by hand and
+ * rotated separately — and a token nobody remembers to rotate is worse than no
+ * token. Listing the bucket needs nothing the app does not already have, and it
+ * counts exactly what is there rather than what a dashboard thought yesterday.
+ */
 async function cloudflareR2(i: SyncInput): Promise<QuotaReading[]> {
-  if (!i.apiKey) throw new UsageUnavailable('Add a Cloudflare API token with Account Analytics read access');
-  if (!i.accountRef) throw new UsageUnavailable('Add the Cloudflare account id');
+  const account = process.env.R2_ACCOUNT_ID || '';
+  const bucket = process.env.R2_BUCKET || '';
+  const key = process.env.R2_ACCESS_KEY_ID || '';
+  const secret = process.env.R2_SECRET_ACCESS_KEY || '';
 
-  const since = new Date();
-  since.setDate(1);
-  const from = since.toISOString().slice(0, 10);
-
-  const query = `
-    query R2($account: String!, $from: Date!) {
-      viewer {
-        accounts(filter: { accountTag: $account }) {
-          storage: r2StorageAdaptiveGroups(
-            limit: 1, filter: { date_geq: $from },
-            orderBy: [date_DESC]
-          ) { max { payloadSize objectCount } }
-          ops: r2OperationsAdaptiveGroups(
-            limit: 100, filter: { date_geq: $from }
-          ) { sum { requests } dimensions { actionType } }
-        }
-      }
-    }`;
-
-  const r = await fetch('https://api.cloudflare.com/client/v4/graphql', {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + i.apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, variables: { account: i.accountRef, from } }),
-  });
-  const body = (await r.json()) as {
-    errors?: Array<{ message: string }>;
-    data?: { viewer?: { accounts?: Array<{
-      storage?: Array<{ max?: { payloadSize?: number; objectCount?: number } }>;
-      ops?: Array<{ sum?: { requests?: number }; dimensions?: { actionType?: string } }>;
-    }> } };
-  };
-  if (body.errors?.length) throw new Error('Cloudflare: ' + body.errors[0].message);
-
-  const acct = body.data?.viewer?.accounts?.[0];
-  if (!acct) throw new Error('Cloudflare returned no account — check the account id and the token scope');
-
-  const bytes = acct.storage?.[0]?.max?.payloadSize || 0;
-  // Class A is the expensive write-shaped set; everything else is Class B.
-  const CLASS_A = new Set(['PutObject', 'CopyObject', 'CompleteMultipartUpload', 'CreateMultipartUpload', 'UploadPart', 'ListObjects', 'ListBuckets', 'PutBucket']);
-  let a = 0;
-  let b = 0;
-  for (const row of acct.ops || []) {
-    const n = row.sum?.requests || 0;
-    if (CLASS_A.has(row.dimensions?.actionType || '')) a += n; else b += n;
+  if (!account || !bucket || !key || !secret) {
+    throw new UsageUnavailable(
+      'R2 is not configured on the server. Set R2_ACCOUNT_ID, R2_BUCKET, '
+      + 'R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY in deploy/.env and restart the API — '
+      + 'the same keys that store the photographs are the ones measured here.',
+    );
   }
 
+  const { ListObjectsV2Command, S3Client } = await import('@aws-sdk/client-s3');
+  const s3 = new S3Client({
+    region: 'auto',
+    endpoint: `https://${account}.r2.cloudflarestorage.com`,
+    credentials: { accessKeyId: key, secretAccessKey: secret },
+  });
+
+  let bytes = 0;
+  let objects = 0;
+  let token: string | undefined;
+  // Paginated: a thousand keys per call, and a busy bucket has more than that.
+  do {
+    const page = await s3.send(new ListObjectsV2Command({
+      Bucket: bucket, ContinuationToken: token,
+    }));
+    for (const o of page.Contents || []) {
+      bytes += o.Size || 0;
+      objects += 1;
+    }
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+
   return [
+    // Cloudflare's free tier is 10 GB stored; past that it is billed per GB.
     { label: 'Storage', used: round1(bytes / GB), limit: 10, unit: 'GB' },
-    { label: 'Class A operations', used: a, limit: 1000000, unit: 'ops / month' },
-    { label: 'Class B operations', used: b, limit: 10000000, unit: 'ops / month' },
+    { label: 'Objects', used: objects, unit: 'files stored' },
   ];
 }
 
@@ -207,8 +198,18 @@ function olaMaps(i: SyncInput): QuotaReading[] {
 
 /* --------------------------------------------------------------- Razorpay */
 
+/**
+ * The keys from Settings → Integrations — the same ones that raise the UPI QR
+ * codes. There is no quota to run out of; what matters is the month's volume,
+ * because the fee follows it.
+ */
 async function razorpay(i: SyncInput): Promise<QuotaReading[]> {
-  if (!i.apiKey || !i.apiSecret) throw new UsageUnavailable('Add the Razorpay key id and secret');
+  if (!i.apiKey || !i.apiSecret) {
+    throw new UsageUnavailable(
+      'Razorpay is not connected — add the key id and secret in Settings → Integrations. '
+      + 'The same keys collect the UPI payments.',
+    );
+  }
   const from = new Date();
   from.setDate(1);
   from.setHours(0, 0, 0, 0);
@@ -253,10 +254,13 @@ export async function readUsage(i: SyncInput): Promise<QuotaReading[]> {
 /** Which services can answer at all, so the screen only offers Sync where it works. */
 export const SYNCABLE = ['Cloudflare R2', 'VPS', 'Ola Maps', 'Razorpay'];
 
-/** What each one needs before a sync is worth attempting. */
+/**
+ * What each service needs before a sync is worth attempting — and where it
+ * comes from. Nothing on this list is entered on the Credentials page itself.
+ */
 export const NEEDS: Record<string, string[]> = {
-  'Cloudflare R2': ['apiKey', 'accountRef'],
-  Razorpay: ['apiKey', 'apiSecret'],
+  'Cloudflare R2': [],  // the server environment
+  Razorpay: ['apiKey', 'apiSecret'], // Settings → Integrations
   'Ola Maps': [],
   VPS: [],
 };
