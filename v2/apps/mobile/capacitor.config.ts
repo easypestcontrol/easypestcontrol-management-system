@@ -10,22 +10,20 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * no Play-Store redeploys.
  *
  * server.url:
- *   - Testing on the office Wi-Fi:  http://<this PC's LAN IP>:3050 — phone and
- *     PC must be on the same network. The IP comes from the router's DHCP and
- *     CAN DRIFT (it already moved .7 → .3); reserve it in the router, or wait
- *     for the VPS domain which ends this problem for good.
- *   - After the VPS goes live:      https://your-domain  (change and rebuild once)
+ *   Vercel, over HTTPS. That is where the field experience is served, and the
+ *   web app proxies /api to the VPS itself — so the phone never talks to a raw
+ *   IP address, needs no cleartext exception, and every server deploy reaches
+ *   every installed phone without a new APK.
+ *
+ *   When the custom domain exists, change this once to https://app.<domain>
+ *   and rebuild. Nothing else moves.
  */
 const config: CapacitorConfig = {
   appId: 'com.pestops.field',
   appName: 'PestOps Field',
   webDir: 'www',
   server: {
-    url: 'http://192.168.1.3:3050',
-    cleartext: true,
-  },
-  android: {
-    allowMixedContent: true,
+    url: 'https://easypestcontrol-management-system.vercel.app',
   },
 };
 
