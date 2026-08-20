@@ -132,7 +132,7 @@ export default function Dashboard() {
               {s.serviceMix.length === 0
                 ? <Empty text="No services booked yet." />
                 : <HBars rows={s.serviceMix.map((x) => ({ label: x.name, v: x.n }))}
-                    fmt={(v) => v + ' service' + (v === 1 ? 's' : '')} />}
+                    fmt={(v) => v + ' service' + (v === 1 ? '' : 's')} />}
             </Panel>
 
             {s.branchSplit.length > 1 && !bf.branch ? (
