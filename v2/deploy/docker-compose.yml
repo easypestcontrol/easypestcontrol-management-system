@@ -46,6 +46,11 @@ services:
       # than in the repository — a starting password in public source is not a
       # password. Unset means each new member gets a random one instead.
       DEFAULT_USER_PASSWORD: ${DEFAULT_USER_PASSWORD:-}
+    # Training videos are written to disk, not to the database and not to R2 —
+    # they stream with Range requests, which a data URL cannot do. Without this
+    # volume they live inside the container and every rebuild destroys them.
+    volumes:
+      - uploads:/app/apps/api/uploads
     # Bound to loopback: nginx is the only thing that may reach it, and it is
     # nginx that holds the certificate. Never publish 4000 to 0.0.0.0.
     ports:
@@ -68,3 +73,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:
