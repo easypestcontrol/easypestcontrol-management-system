@@ -51,3 +51,8 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Database dumps and account exports — hashes and personal data, never committed.
+*-user-backup.json
+*.sql.gz
+backups/
