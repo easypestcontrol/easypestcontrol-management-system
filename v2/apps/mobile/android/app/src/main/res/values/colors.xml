@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The launch screen's background.
+
+      Android 12 and later ignore a drawable here and paint this colour behind
+      the icon, so leaving it unset handed the screen to the system default —
+      which on a phone in dark mode is nearly black, and the mark was floating
+      on brown. The brand ground is white in every other place the logo
+      appears; it is white here too.
+    -->
+    <color name="splashBackground">#FFFFFF</color>
+</resources>

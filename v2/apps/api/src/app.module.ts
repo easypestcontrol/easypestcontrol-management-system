@@ -30,6 +30,7 @@ import { ReportsController } from './reports/reports.controller';
 import { TrainingController } from './training/training.controller';
 import { TripsController } from './trips/trips.controller';
 import { WalletController } from './wallet/wallet.controller';
+import { ExpensesController } from './expenses/expenses.controller';
 import { PayController } from './pay/pay.controller';
 
 @Module({
@@ -67,6 +68,7 @@ import { PayController } from './pay/pay.controller';
     TrainingController,
     TripsController,
     WalletController,
+    ExpensesController,
     PayController,
   ],
 })

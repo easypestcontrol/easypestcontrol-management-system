@@ -589,15 +589,16 @@ function RevealKey({ id }: { id: string }) {
  * old on Save.
  */
 function OperationalKeys() {
-  const [flags, setFlags] = useState<{ ola: boolean; razorpay: boolean } | null>(null);
-  const [revealed, setRevealed] = useState<{ olaKey: string; rzpKeyId: string; rzpKeySecret: string } | null>(null);
+  const [flags, setFlags] = useState<{ ola: boolean; razorpay: boolean; razorpayx?: boolean } | null>(null);
+  const [revealed, setRevealed] = useState<{ olaKey: string; rzpKeyId: string; rzpKeySecret: string; rzpxAccount?: string } | null>(null);
   const [olaKey, setOlaKey] = useState('');
   const [rzpKeyId, setRzpKeyId] = useState('');
   const [rzpKeySecret, setRzpKeySecret] = useState('');
+  const [rzpxAccount, setRzpxAccount] = useState('');
   const [msg, setMsg] = useState('');
   const [editing, setEditing] = useState(false);
 
-  const load = () => api.get<{ ola: boolean; razorpay: boolean }>('/org/integrations')
+  const load = () => api.get<{ ola: boolean; razorpay: boolean; razorpayx?: boolean }>('/org/integrations')
     .then(setFlags).catch(() => {});
   useEffect(() => { load(); }, []);
 
@@ -610,11 +611,12 @@ function OperationalKeys() {
   async function save() {
     setMsg('');
     try {
-      const r = await api.patch<{ ola: boolean; razorpay: boolean }>('/org/integrations', {
+      const r = await api.patch<{ ola: boolean; razorpay: boolean; razorpayx?: boolean }>('/org/integrations', {
         olaKey: olaKey.trim(), rzpKeyId: rzpKeyId.trim(), rzpKeySecret: rzpKeySecret.trim(),
+        rzpxAccount: rzpxAccount.trim(),
       });
       setFlags(r);
-      setOlaKey(''); setRzpKeyId(''); setRzpKeySecret('');
+      setOlaKey(''); setRzpKeyId(''); setRzpKeySecret(''); setRzpxAccount('');
       setRevealed(null); setEditing(false);
       setMsg('Saved — stored encrypted.');
     } catch (e) { setMsg(e instanceof ApiError ? e.message : 'Could not save'); }
@@ -666,6 +668,12 @@ function OperationalKeys() {
           {masked(revealed ? revealed.rzpKeyId + (revealed.rzpKeySecret ? '  ·  ' + revealed.rzpKeySecret : '') : '', !!flags?.razorpay)}
           <span className="text-[11px] text-muted-2">— UPI QR collections</span>
         </div>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {flags && dot(!!flags.razorpayx)}
+          <span className="font-semibold w-[90px]">RazorpayX</span>
+          {masked(revealed?.rzpxAccount, !!flags?.razorpayx)}
+          <span className="text-[11px] text-muted-2">— account no. for expense payouts</span>
+        </div>
       </div>
 
       {editing && (
@@ -684,6 +692,11 @@ function OperationalKeys() {
             <span className="block text-[11.5px] font-semibold text-ink-2 mb-1">Razorpay key secret</span>
             <input type="password" value={rzpKeySecret} onChange={(e) => setRzpKeySecret(e.target.value)}
               placeholder="secret" className={input} />
+          </label>
+          <label className="block">
+            <span className="block text-[11.5px] font-semibold text-ink-2 mb-1">RazorpayX account number</span>
+            <input value={rzpxAccount} onChange={(e) => setRzpxAccount(e.target.value)}
+              placeholder="the X current-account no." className={input} />
           </label>
           <div className="sm:col-span-3">
             <button onClick={save}

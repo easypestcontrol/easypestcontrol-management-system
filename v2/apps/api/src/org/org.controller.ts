@@ -38,7 +38,7 @@ export class OrgController {
   async integrations() {
     const co = await this.prisma.company.findFirst();
     const ig = (co?.integrations || {}) as Record<string, string>;
-    return { ola: !!ig.olaKey, razorpay: !!(ig.rzpKeyId && ig.rzpKeySecret) };
+    return { ola: !!ig.olaKey, razorpay: !!(ig.rzpKeyId && ig.rzpKeySecret), razorpayx: !!ig.rzpxAccount };
   }
 
   /** The map component needs the key client-side to fetch Ola tiles. */
@@ -57,13 +57,13 @@ export class OrgController {
     const co = await this.prisma.company.findFirst();
     if (!co) return { ok: false };
     const ig = { ...((co.integrations || {}) as Record<string, string>) };
-    for (const k of ['olaKey', 'olaClientId', 'olaClientSecret', 'rzpKeyId', 'rzpKeySecret'] as const) {
+    for (const k of ['olaKey', 'olaClientId', 'olaClientSecret', 'rzpKeyId', 'rzpKeySecret', 'rzpxAccount'] as const) {
       const v = String(body[k] ?? '').trim();
       if (v) ig[k] = seal(v);
       if (body[k] === null) delete ig[k]; // explicit null disconnects
     }
     await this.prisma.company.update({ where: { id: co.id }, data: { integrations: ig as never } });
-    return { ola: !!ig.olaKey, razorpay: !!(ig.rzpKeyId && ig.rzpKeySecret) };
+    return { ola: !!ig.olaKey, razorpay: !!(ig.rzpKeyId && ig.rzpKeySecret), razorpayx: !!ig.rzpxAccount };
   }
 
   /** The stored operational keys, decrypted — admin's eyes only, fetched only
@@ -77,6 +77,7 @@ export class OrgController {
       olaKey: open(ig.olaKey),
       rzpKeyId: open(ig.rzpKeyId),
       rzpKeySecret: open(ig.rzpKeySecret),
+      rzpxAccount: open(ig.rzpxAccount),
     };
   }
 
@@ -86,9 +87,12 @@ export class OrgController {
     const allowed = [
       'name', 'tagline', 'phone', 'email', 'gstin', 'addr', 'city', 'state', 'pin',
       'gstRate', 'logo', 'sign', 'seal', 'hoursFrom', 'hoursTo', 'hoursDays', 'terms', 'docTerms', 'roleAccess',
+      'kmRate',
     ];
     const data: Record<string, unknown> = {};
     for (const k of allowed) if (k in body) data[k] = body[k];
+    // Settings sends what the input held — a string. The rate is a number.
+    if ('kmRate' in data) data.kmRate = Math.max(0, Number(data.kmRate) || 0);
     return this.prisma.company.update({ where: { id: 'co' }, data });
   }
 }

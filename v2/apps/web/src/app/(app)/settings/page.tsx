@@ -40,6 +40,7 @@ const PAGES: Array<{ href: string; label: string; def: string[] }> = [
   { href: '/invoices', label: 'Invoices', def: ['ops', 'accounts'] },
   { href: '/reports', label: 'Reports', def: ['ops', 'accounts'] },
   { href: '/wallet', label: 'Collections / Wallet', def: ['ops', 'accounts', 'tech', 'senior_tech'] },
+  { href: '/expenses', label: 'Expenses', def: ['ops', 'sales', 'accounts', 'tech', 'senior_tech'] },
   { href: '/purchase-orders', label: 'Purchase orders', def: ['ops', 'accounts'] },
   { href: '/vendors', label: 'Vendors', def: ['ops', 'accounts'] },
   { href: '/inventory', label: 'Inventory', def: ['ops'] },
@@ -266,6 +267,7 @@ export default function Settings() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {field('Company name', 'name')}
                   {field('Phone', 'phone')}
+                  {field('Trip allowance (₹ per km, for expenses)', 'kmRate')}
                   {field('Email', 'email')}
                   {field('GSTIN', 'gstin')}
                   {field('Home state (decides CGST/SGST vs IGST)', 'state')}

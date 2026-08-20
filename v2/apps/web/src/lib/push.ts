@@ -28,6 +28,7 @@ function plugin(): CapPush | null {
 export function refToPath(ref: string): string {
   if (/^(JOB|SER)-/.test(ref)) return '/jobs/' + ref;
   if (/^TSK-/.test(ref)) return '/tasks';
+  if (/^EXR-/.test(ref)) return '/expenses/' + ref;
   if (/^INV-/.test(ref)) return '/invoices/' + ref;
   if (/^QUO-/.test(ref)) return '/quotations/' + ref;
   if (/^(AMC|CON)-/.test(ref)) return '/contracts/' + ref;

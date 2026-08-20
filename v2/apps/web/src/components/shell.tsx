@@ -53,6 +53,7 @@ const GROUPS: Array<{ id: string; label: string; items: NavItem[] }> = [
       { href: '/invoices', label: 'Invoices', icon: 'invoice', roles: ['admin', 'ops', 'accounts'] },
       { href: '/reports', label: 'Reports', icon: 'report', roles: ['admin', 'ops', 'accounts'] },
       { href: '/wallet', label: 'Collections', icon: 'invoice', roles: ['admin', 'ops', 'accounts'] },
+      { href: '/expenses', label: 'Expenses', icon: 'report', roles: ['admin', 'ops', 'sales', 'accounts'] },
     ],
   },
   {
@@ -86,6 +87,7 @@ const TECH_NAV: NavItem[] = [
   { href: '/trip', label: 'Trip', icon: 'branch' },
   { href: '/training', label: 'Training', icon: 'team' },
   { href: '/wallet', label: 'My Wallet', icon: 'invoice' },
+  { href: '/expenses', label: 'Expenses', icon: 'report' },
 ];
 
 const QUICK: Array<{ href: string; label: string; icon: IconName; roles?: string[] }> = [

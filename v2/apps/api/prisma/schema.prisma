@@ -114,7 +114,9 @@ model Company {
   // Per-role page visibility overrides: { role: { "/href": true|false } }.
   // Absent href = the role's built-in default. Admin is never restricted.
   roleAccess   Json     @default("{}")
-  integrations Json     @default("{}") // { olaKey, rzpKeyId, rzpKeySecret }
+  integrations Json     @default("{}") // { olaKey, rzpKeyId, rzpKeySecret, rzpxAccount }
+  // Trip allowance: rupees per kilometre for distance-based expenses.
+  kmRate       Float    @default(0)
 }
 
 model Branch {
@@ -152,6 +154,16 @@ model User {
   rating    Float    @default(0)
   jobsDone  Int      @default(0)
   active    Boolean  @default(true)
+  // Reimbursement rails: where this person's approved expenses are paid.
+  // The account number is SEALED (secrets.util) before it touches the row.
+  bankHolder   String @default("")
+  bankAcc      String @default("") // sealed
+  bankIfsc     String @default("")
+  // RazorpayX ids, cached after first payout. rzpFundKey remembers which
+  // bank details the fund account was made for, so an edit forces a new one.
+  rzpContactId String @default("")
+  rzpFundId    String @default("")
+  rzpFundKey   String @default("")
 }
 
 model Service {
@@ -418,6 +430,45 @@ model Payment {
   by        String  @default("") // user id of whoever collected it
   at        String  @default("") // HH:MM at the moment of collection
   settled   Boolean @default(false) // cash: true once deposited at the office
+}
+
+/// A day's expense folder — the Zoho-style "report" the client asked for.
+/// Expenses are recorded INSIDE a folder and the folder travels as one unit:
+/// open → submitted → approved | rejected → paid. Approval and payment are
+/// the admin's alone; the money goes out through RazorpayX or by hand.
+model ExpenseReport {
+  id         String    @id // EXR-1
+  title      String    @default("")
+  date       String
+  by         String // user id of whoever is claiming
+  branch     String    @default("")
+  status     String    @default("open") // open | submitted | approved | rejected | paid
+  note       String    @default("")
+  adminNote  String    @default("") // the reason on a rejection
+  approvedBy String    @default("")
+  paidAt     String    @default("")
+  payMode    String    @default("") // razorpayx | manual
+  payoutId   String    @default("") // RazorpayX payout id, for the audit trail
+  createdAt  DateTime  @default(now())
+  expenses   Expense[]
+}
+
+/// One line inside a folder. kind 'trip' is the distance allowance: the
+/// amount is km × the company's ₹/km rate, locked at entry time so a later
+/// rate change never rewrites old claims.
+model Expense {
+  id       String        @id // EXP-1
+  reportId String
+  report   ExpenseReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  kind     String        @default("expense") // expense | trip
+  date     String
+  category String        @default("")
+  merchant String        @default("")
+  note     String        @default("")
+  amount   Int
+  km       Float         @default(0)
+  rate     Float         @default(0)
+  images   Json          @default("[]") // receipt photos, data URLs
 }
 
 // ---------------------------------------------------------------- resources
