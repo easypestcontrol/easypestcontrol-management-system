@@ -9,6 +9,7 @@
     "start": "next start -p 3050"
   },
   "dependencies": {
+    "shared": "*",
     "maplibre-gl": "^4.7.1",
     "next": "^15.1.0",
     "pdfjs-dist": "^4.10.38",
