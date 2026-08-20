@@ -141,7 +141,7 @@ export default function WalletPage() {
                     </span>
                   </span>
                   <span className="text-[15px] font-bold text-accent shrink-0">{money(t.inHand)}</span>
-                  <Icon name="chevron" size={14}
+                  <Icon name="chevDown" size={14}
                     className={'text-muted-2 shrink-0 transition-transform ' + (openNow ? 'rotate-180' : '')} />
                 </button>
 
@@ -187,7 +187,7 @@ export default function WalletPage() {
                           style={{ background: t.color }}>{initials(t.name)}</span>
                         <span className="flex-1 text-[13px] font-medium truncate">{t.name}</span>
                         <span className="zpill navy shrink-0">all deposited</span>
-                        <Icon name="chevron" size={13}
+                        <Icon name="chevDown" size={13}
                           className={'text-muted-2 shrink-0 transition-transform ' + (openNow ? 'rotate-180' : '')} />
                       </button>
                       {openNow && <div className="border-t border-line-soft"><EntriesTable entries={t.entries} compact /></div>}

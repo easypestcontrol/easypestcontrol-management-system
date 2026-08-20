@@ -73,7 +73,8 @@ export class WalletController {
       kind: 'office',
       techs: Array.from(byTech.entries()).map(([id, list]) => ({
         techId: id,
-        name: userOf.get(id)?.name || id,
+        // A deleted account still owes its history a readable name.
+        name: userOf.get(id)?.name || 'Former staff (' + id + ')',
         color: userOf.get(id)?.color || '#888',
         inHand: list.filter((p) => !p.settled).reduce((a, b) => a + b.amount, 0),
         entries: list.slice(0, 30).map(entry),
