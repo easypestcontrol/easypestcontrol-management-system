@@ -118,13 +118,6 @@ export default function TasksPage() {
   const overdue = (t: Row) => t.status !== 'done' && !!t.due && t.due < today;
   const canManage = !!data?.canManage;
 
-  async function toggle(t: Row) {
-    try {
-      await api.patch('/tasks/' + t.id, { status: t.status === 'done' ? 'open' : 'done' });
-      load();
-    } catch (e) { setErr(e instanceof Error ? e.message : 'Could not update'); }
-  }
-
   async function openDetail(id: string) {
     try { setOpenTask(await api.get<Full>('/tasks/' + id)); }
     catch { /* row stays */ }
@@ -230,11 +223,6 @@ export default function TasksPage() {
                 className={'rounded-xl border border-line bg-white p-4 shadow-card '
                   + (t.status === 'done' ? 'opacity-60' : '')}>
                 <div className="flex items-start gap-3">
-                  <button onClick={() => toggle(t)}
-                    className={'mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 '
-                      + (t.status === 'done' ? 'bg-navy border-navy text-white' : 'border-line')}>
-                    {t.status === 'done' && <Icon name="check" size={13} />}
-                  </button>
                   <button className="flex-1 min-w-0 text-left" onClick={() => openDetail(t.id)}>
                     <p className={'text-[14px] font-semibold ' + (t.status === 'done' ? 'line-through' : '')}>
                       {t.title}
@@ -260,7 +248,6 @@ export default function TasksPage() {
           <table className="ztable max-lg:hidden">
             <thead>
               <tr>
-                <th style={{ width: 44 }}></th>
                 <th>Task</th><th>Assigned to</th><th>Deadline</th>
                 <th>Priority</th><th>Branch</th>
                 {canManage && <th style={{ width: 96 }}></th>}
@@ -270,13 +257,6 @@ export default function TasksPage() {
               {pg.pageRows.map((t) => (
                 <tr key={t.id} className={'zrow ' + (t.status === 'done' ? 'opacity-60' : '')}
                   onClick={() => openDetail(t.id)}>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => toggle(t)} title={t.status === 'done' ? 'Reopen' : 'Mark done'}
-                      className={'w-6 h-6 rounded-full border-2 flex items-center justify-center '
-                        + (t.status === 'done' ? 'bg-navy border-navy text-white' : 'border-line hover:border-navy')}>
-                      {t.status === 'done' && <Icon name="check" size={13} />}
-                    </button>
-                  </td>
                   <td>
                     <span className={'block font-semibold text-navy max-w-[340px] truncate '
                       + (t.status === 'done' ? 'line-through' : '')}>{t.title}</span>
