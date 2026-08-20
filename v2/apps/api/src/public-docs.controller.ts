@@ -25,15 +25,17 @@ export class PublicDocsController {
       phone: co?.phone || '', email: co?.email || '', gstin: co?.gstin || '',
       state: co?.state || 'Tamil Nadu', gstRate: co?.gstRate ?? 18,
       // Each document prints ITS OWN terms, set section-wise in Settings.
+      // A list that exists but is EMPTY was emptied on purpose — defaults
+      // apply only when a list was never set at all.
       docTerms: {
-        quotation: dt.quotation?.length ? dt.quotation : (co?.terms || []),
-        invoice: dt.invoice?.length ? dt.invoice : [
+        quotation: Array.isArray(dt.quotation) ? dt.quotation : (co?.terms || []),
+        invoice: Array.isArray(dt.invoice) ? dt.invoice : [
           'Payment due within 15 days of invoice date.',
           'Interest at 18% p.a. applies on overdue amounts.',
           'Subject to Chennai jurisdiction.',
         ],
-        contract: dt.contract?.length ? dt.contract : (co?.terms || []),
-        service: dt.service?.length ? dt.service : [
+        contract: Array.isArray(dt.contract) ? dt.contract : (co?.terms || []),
+        service: Array.isArray(dt.service) ? dt.service : [
           'Chemicals applied by licensed applicators as per CIB&RC guidelines.',
         ],
       },

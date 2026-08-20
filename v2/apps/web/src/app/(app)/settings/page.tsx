@@ -46,8 +46,11 @@ export default function Settings() {
   async function save() {
     if (!co) return;
     // The legacy shared list follows the quotation terms, so the builders
-    // that still read it keep working.
-    const body = { ...co, terms: co.docTerms?.quotation?.length ? co.docTerms.quotation : co.terms };
+    // that still read it keep working — including following it to empty.
+    const body = {
+      ...co,
+      terms: Array.isArray(co.docTerms?.quotation) ? co.docTerms!.quotation! : co.terms,
+    };
     await api.patch('/org/company', body);
     setCo(body);
     setSaved('Saved');
@@ -82,8 +85,13 @@ export default function Settings() {
   );
 
   const dt = co.docTerms || {};
+  // An emptied list is a DECISION, not an absence: only a list that was never
+  // set falls back to the legacy shared terms. Otherwise deleting the last
+  // term resurrects it, and quotation edits bleed into the contract list.
   const listOf = (key: (typeof DOCS)[number]['key']): string[] =>
-    dt[key]?.length ? dt[key]! : key === 'quotation' || key === 'contract' ? (co.terms || []) : [];
+    Array.isArray(dt[key])
+      ? dt[key]!
+      : key === 'quotation' || key === 'contract' ? (co.terms || []) : [];
   const setList = (key: string, rows: string[]) =>
     set('docTerms', { ...dt, [key]: rows } as never);
 

@@ -360,8 +360,8 @@ export default function InvoicePage() {
           {/* footer */}
           <div className="flex justify-between gap-8 flex-wrap">
             <p className="text-[10.5px] text-muted leading-relaxed max-w-[330px]">
-              {(co?.docTerms?.invoice?.length
-                ? co.docTerms.invoice
+              {(Array.isArray(co?.docTerms?.invoice)
+                ? co!.docTerms!.invoice!
                 : ['Payment due within 15 days of invoice date.',
                   'Interest at 18% p.a. applies on overdue amounts.',
                   'Subject to Chennai jurisdiction.']).join(' ')}

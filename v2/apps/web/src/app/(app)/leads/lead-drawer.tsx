@@ -127,7 +127,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
     const dial = phone.length === 10 ? '91' + phone : phone;
     const msg = 'Hello ' + (l?.name || '') + ',\n\nYour quotation ' + qid +
       ' is ready. Review and accept it here:\n' +
-      window.location.origin + '/approve/' + qid + '\n\nThank you,\nShield Pest Solutions';
+      window.location.origin + '/approve/' + qid + '\n\nThank you,\n' + (boot.company?.name || 'Easy Pest Control');
     window.open('https://wa.me/' + dial + '?text=' + encodeURIComponent(msg), '_blank');
   }
 
