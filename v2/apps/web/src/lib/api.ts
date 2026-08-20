@@ -97,4 +97,10 @@ export interface DashboardStats {
   clients: number; leads: number; quotes: number; contracts: number;
   jobsToday: number; doneToday: number; waiting: number;
   billed: number; collected: number; outstanding: number;
+  months: Array<{ label: string; invoiced: number; collected: number }>;
+  invoiceMix: Array<{ status: string; n: number; value: number }>;
+  serviceMix: Array<{ name: string; n: number }>;
+  branchSplit: Array<{ name: string; collected: number; outstanding: number }>;
+  upcoming: Array<{ id: string; date: string; slot: string; type: string; client: string; techs: string }>;
+  recentPayments: Array<{ id: string; date: string; amount: number; mode: string; invoiceId: string; client: string }>;
 }

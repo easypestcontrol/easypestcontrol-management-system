@@ -64,3 +64,8 @@ v2/apps/mobile/android/local.properties
 # Downloaded Firebase configs land here with browser suffixes; the one that
 # matters is v2/apps/mobile/android/app/google-services.json.
 google-services*(*).json
+
+# Firebase service account — can send a notification to every user. Never commit.
+*firebase-adminsdk*.json
+firebase-sa.json
+secrets/
