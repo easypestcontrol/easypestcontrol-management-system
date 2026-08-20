@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B7454">
+<title>PestOps — Pest Control Operations Platform</title>
+<meta name="description" content="Leads, quotations, AMC contracts, technician dispatch, inventory and audits for pest control businesses.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B7454'/%3E%3Cpath d='M16 6l7 2.6v6.2C23 20 16 25 16 25S9 20 9 14.8V8.6z' fill='none' stroke='white' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M13 15.5l2 2 4-4' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body>
+
+<div class="login-wrap">
+
+  <!-- ============ Left: brand panel ============ -->
+  <aside class="login-aside">
+    <div class="lg-brand">
+      <div class="brandmark" id="lgMark"></div>
+      <div>
+        <div style="font-weight:700;font-size:17px;letter-spacing:-.02em">PestOps</div>
+        <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.6);font-weight:600;margin-top:-1px">Operations Platform</div>
+      </div>
+    </div>
+
+    <div style="margin-top:44px">
+      <h2>Run your whole pest control business from one screen.</h2>
+      <p class="lead">
+        Lead to quotation, quotation to AMC contract, contract to scheduled visits,
+        visits to photo-proof reports and invoices — no more WhatsApp threads and manual books.
+      </p>
+
+      <div class="login-feats" id="lgFeats"></div>
+
+      <div class="login-stats">
+        <div><div class="v">6</div><div class="k">User roles</div></div>
+        <div><div class="v">14</div><div class="k">Modules</div></div>
+        <div><div class="v">100%</div><div class="k">Mobile ready</div></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ Right: role picker ============ -->
+  <main class="login-main">
+    <div class="login-inner">
+
+      <div class="badge b-brand badge-lg mb-16">
+        <i class="pip"></i> Interactive demo — no login required
+      </div>
+
+      <h1 style="font-size:27px;letter-spacing:-.03em">Choose a role to explore</h1>
+      <p class="muted" style="font-size:14px;margin-top:7px;line-height:1.6">
+        Each role opens the exact screens that person uses day to day.
+        Everything is live — create a quotation, generate an AMC, dispatch a service,
+        complete it as a technician, then bill it.
+      </p>
+
+      <div class="col g-10 mt-24" id="roleList"></div>
+
+      <div class="divider mt-24 mb-16"></div>
+
+      <div class="row between wrap g-12">
+        <div class="row g-8 muted t-sm">
+          <span id="orgIco"></span>
+          <span>Demo tenant: <strong class="ink-2">Shield Pest Control Services</strong>, Chennai</span>
+        </div>
+        <button class="btn btn-quiet btn-sm" id="resetBtn">Reset demo data</button>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="assets/js/icons.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+  S.load();
+
+  document.getElementById('lgMark').innerHTML = ico('shieldcheck');
+  document.getElementById('orgIco').innerHTML = ico('building', '', 14);
+
+  /* ---- value props ---- */
+  var feats = [
+    ['filetext',  'Quotations generated in seconds, with GST and terms built in'],
+    ['shield',    'AMC contracts that auto-create every scheduled visit for the year'],
+    ['hardhat',   "Technician app — today's work, start/finish timing, photo proof"],
+    ['package',   'Inventory tracked down to the gram used on each service'],
+    ['clipcheck', 'Site, safety and pest-trend audits with scoring'],
+    ['whatsapp',  'Reports and reminders pushed to the customer automatically']
+  ];
+  document.getElementById('lgFeats').innerHTML = feats.map(function (f) {
+    return '<div class="login-feat"><div class="fi">' + ico(f[0]) + '</div><div>' + U.esc(f[1]) + '</div></div>';
+  }).join('');
+
+  /* ---- role cards ---- */
+  var ROLES = Seed.ROLES;
+  var order = ['admin', 'ops', 'sales', 'tech', 'accounts', 'client'];
+  var users = S.get().users;
+
+  document.getElementById('roleList').innerHTML = order.map(function (key) {
+    var r = ROLES[key];
+    var u = users.filter(function (x) { return x.role === key; })[0];
+    var techs = users.filter(function (x) { return x.role === 'tech'; });
+    var who = key === 'tech'
+      ? techs.length + ' technicians available'
+      : u.name + ' · ' + u.title;
+    return '' +
+      '<button class="rolecard" data-role="' + key + '">' +
+        '<div class="tile-ico" style="background:' + r.color + '18;color:' + r.color + '">' + ico(r.icon) + '</div>' +
+        '<div class="grow">' +
+          '<div class="rc-name">' + U.esc(r.label) + '</div>' +
+          '<div class="rc-desc">' + U.esc(r.desc) + '</div>' +
+          '<div class="rc-desc" style="color:var(--muted-2);margin-top:3px">' + U.esc(who) + '</div>' +
+        '</div>' +
+        '<span class="rc-go">' + ico('cright') + '</span>' +
+      '</button>';
+  }).join('');
+
+  /* ---- enter the app ---- */
+  function enter(userId) {
+    S.setSession(userId);
+    var u = S.user(userId);
+    var start = u.role === 'tech' ? '#/my-work' : u.role === 'client' ? '#/portal' : '#/dashboard';
+    // ?as= is carried in the URL too, so the demo still works when the folder is
+    // opened straight from disk and localStorage is unavailable to file:// pages.
+    location.href = 'app.html?as=' + encodeURIComponent(userId) + start;
+  }
+
+  document.getElementById('roleList').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-role]');
+    if (!b) return;
+    var key = b.getAttribute('data-role');
+
+    if (key === 'tech') {
+      var techs = S.get().users.filter(function (x) { return x.role === 'tech'; });
+      U.modal({
+        title: 'Sign in as a technician',
+        sub: 'Each one has a different day scheduled — pick any.',
+        body: '<div class="col g-8">' + techs.map(function (t) {
+          var todays = S.jobsOn(S.todayISO(), t.id);
+          var done = todays.filter(function (j) { return j.status === 'completed'; }).length;
+          return '<button class="rolecard" data-tech="' + t.id + '">' +
+            U.avatar(t, 'av-lg') +
+            '<div class="grow"><div class="rc-name">' + U.esc(t.name) + '</div>' +
+            '<div class="rc-desc">' + U.esc(t.title) + ' · ' + U.esc((t.skills || []).join(', ')) + '</div>' +
+            '<div class="rc-desc" style="color:var(--brand-600);font-weight:600;margin-top:3px">' +
+              todays.length + ' services today · ' + done + ' done</div></div>' +
+            '<span class="rc-go">' + ico('cright') + '</span></button>';
+        }).join('') + '</div>',
+        onMount: function (root) {
+          root.addEventListener('click', function (ev) {
+            var t = ev.target.closest('[data-tech]');
+            if (t) enter(t.getAttribute('data-tech'));
+          });
+        }
+      });
+      return;
+    }
+    var u = S.get().users.filter(function (x) { return x.role === key; })[0];
+    enter(u.id);
+  });
+
+  /* ---- reset ---- */
+  document.getElementById('resetBtn').addEventListener('click', function () {
+    U.confirm({
+      title: 'Reset demo data?',
+      message: 'Everything you created or changed in the demo will be wiped and the original sample business restored.',
+      confirmText: 'Reset everything', tone: 'danger'
+    }).then(function (ok) {
+      if (!ok) return;
+      S.reset();
+      U.toast('Demo data restored', { sub: 'All modules are back to the sample business' });
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+/* ============================================================================
+   PestOps design system — the Zoho Books idiom in exactly three colors.
+
+     navy   rgb(27 46 101)   #1B2E65 — chrome and ink
+     red    rgb(255 0 0)     #FF0000 — action and alert
+     white  rgb(255 255 255)           — surface
+
+   Every neutral is the navy at reduced opacity, so nothing off-palette can
+   creep in: text is navy, muted text is navy/62, borders navy/14, hover
+   washes navy/4. The sidebar is solid navy with white text; primary buttons
+   and the active-nav rail are the red.
+   ========================================================================== */
+@import "tailwindcss";
+
+@theme {
+  --color-navy: #1B2E65;
+  --color-accent: #FF0000;
+
+  --color-ink: #1B2E65;
+  --color-ink-2: rgb(27 46 101 / 0.78);
+  --color-muted: rgb(27 46 101 / 0.62);
+  --color-muted-2: rgb(27 46 101 / 0.42);
+  --color-line: rgb(27 46 101 / 0.14);
+  --color-line-soft: rgb(27 46 101 / 0.08);
+  --color-wash: rgb(27 46 101 / 0.04);
+  --color-wash-2: rgb(27 46 101 / 0.07);
+
+  --color-red-wash: rgb(255 0 0 / 0.07);
+  --color-red-line: rgb(255 0 0 / 0.28);
+
+  /* the sidebar's internal palette */
+  --color-side-text: rgb(255 255 255 / 0.82);
+  --color-side-muted: rgb(255 255 255 / 0.5);
+  --color-side-hover: rgb(255 255 255 / 0.08);
+  --color-side-active: rgb(255 255 255 / 0.12);
+  --color-side-line: rgb(255 255 255 / 0.12);
+
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  --shadow-pop: 0 6px 24px rgb(27 46 101 / 0.14);
+  --shadow-card: 0 1px 2px rgb(27 46 101 / 0.05);
+}
+
+html, body {
+  height: 100%;
+  background: #fff;
+  color: var(--color-ink);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Zoho-density tables: 13px, tight rows, hairline separators */
+.ztable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ztable th {
+  text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--color-muted);
+  padding: 8px 14px; border-bottom: 1px solid var(--color-line);
+  background: var(--color-wash);
+  white-space: nowrap;
+}
+.ztable td {
+  padding: 10px 14px; border-bottom: 1px solid var(--color-line-soft);
+  vertical-align: middle;
+}
+.ztable tr.zrow { cursor: pointer; }
+.ztable tr.zrow:hover td { background: var(--color-wash); }
+
+/* ------------------------------------------------- a table on a phone
+   Under lg every row becomes a card: the header row disappears and the cells
+   stack. Six columns in a 390px window is 700px of table, and columns four to
+   six are simply unreachable — a technician holding the phone in one hand is
+   not going to scroll sideways to find out who the customer is. The first cell
+   is the reference, so it leads; anything the page right-aligns for a desktop
+   column reads left here. */
+@media (max-width: 1023px) {
+  .ztable, .ztable tbody, .ztable tr, .ztable td { display: block; width: auto; }
+  .ztable thead { display: none; }
+  /* A page that built a real card list for phones tags its table max-lg:hidden.
+     These display:block rules are unlayered so they outrank that utility —
+     restate the hide here so the opt-out actually wins. */
+  .ztable.max-lg\:hidden, .ztable.max-lg\:hidden tbody, .ztable.max-lg\:hidden tr,
+  .ztable.max-lg\:hidden td { display: none; }
+  .ztable tbody tr { padding: 12px 16px; border-bottom: 1px solid var(--color-line); }
+  .ztable td { border: 0; padding: 1px 0; max-width: none; }
+  .ztable td:empty { display: none; }
+  .ztable td.text-right, .ztable td[align="right"] { text-align: left; }
+  .ztable tr.zrow { cursor: default; }
+  .ztable tr.zrow:active td { background: var(--color-wash); }
+}
+
+/* status pill */
+.zpill {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 20px; padding: 0 8px; border-radius: 3px;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+  background: var(--color-wash-2); color: var(--color-ink-2);
+}
+.zpill.red { background: var(--color-red-wash); color: var(--color-accent); }
+.zpill.navy { background: var(--color-navy); color: #fff; }
+.zpill.outline { background: #fff; box-shadow: inset 0 0 0 1px var(--color-line); }
+
+/* A strip that scrolls sideways on purpose (tab bars) should not also carry a
+   scrollbar — on a phone the bar is thumb-driven and the track is just noise. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

@@ -1,0 +1,22 @@
+{
+  "name": "pestops",
+  "private": true,
+  "version": "2.0.0",
+  "description": "PestOps \u2014 pest-control operations platform. Next.js + NestJS + PostgreSQL.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:db": "node scripts/devdb.mjs",
+    "dev:api": "npm run start:dev --workspace api",
+    "dev:web": "npm run dev --workspace web",
+    "build": "npm run build --workspace shared && npm run build --workspace api && npm run build --workspace web",
+    "db:push": "npm run db:push --workspace api",
+    "db:seed": "npm run db:seed --workspace api",
+    "db:demo": "npm run db:demo --workspace api"
+  },
+  "devDependencies": {
+    "embedded-postgres": "^18.4.0-beta.17"
+  }
+}

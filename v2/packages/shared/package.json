@@ -1,0 +1,14 @@
+{
+  "name": "shared",
+  "private": true,
+  "version": "2.0.0",
+  "description": "PestOps domain logic — the visit engine, GST, crew rules. Pure TypeScript, no runtime deps.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

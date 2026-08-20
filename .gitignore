@@ -1,0 +1,53 @@
+# =============================================================================
+#  What must never reach the repository.
+#
+#  The first section is the one that matters. Everything below it is noise you
+#  would rather not commit; the env files are secrets that cannot be uncommitted
+#  once pushed — git keeps history, and a force-push does not help you once the
+#  repo has been cloned or indexed. If one lands there, rotate the key. Do not
+#  try to scrub it.
+# =============================================================================
+
+# --------------------------------------------------------------- secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+id_rsa*
+
+# ------------------------------------------------------------ dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# ------------------------------------------------------------------ builds
+.next/
+.next-*/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# ----------------------------------------------------------------- the data
+# The embedded development database. It holds real customer rows once you have
+# been using the app, and it is enormous.
+.pgdata/
+*.sqlite
+*.db
+
+# ------------------------------------------------------------------- output
+*.log
+npm-debug.log*
+yarn-error.log*
+uploads/
+coverage/
+
+# --------------------------------------------------------------- the machine
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,66 @@
+# ============================================================================
+# PestOps on a VPS — three containers behind nginx.
+#
+#   db    PostgreSQL 16, data on a named volume
+#   api   NestJS, built from apps/api
+#   web   Next.js, built from apps/web, proxies /api to the api container
+#
+# First run:   cp .env.example .env   (set real secrets!)
+#              docker compose up -d --build
+#              docker compose exec api npx prisma db push
+#              docker compose exec api npm run db:seed
+# ============================================================================
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pestops
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      POSTGRES_DB: pestops
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pestops"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://pestops:${DB_PASSWORD}@db:5432/pestops
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      PORT: 4000
+      # Cloudflare R2. Blank means photos keep living in PostgreSQL as data
+      # URLs — see DEPLOY.md. The secret is read from deploy/.env, which
+      # set-secrets.sh writes at 0600 and which is never committed.
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_BUCKET: ${R2_BUCKET:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+    # Bound to loopback: nginx is the only thing that may reach it, and it is
+    # nginx that holds the certificate. Never publish 4000 to 0.0.0.0.
+    ports:
+      - "127.0.0.1:4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    restart: unless-stopped
+    environment:
+      API_URL: http://api:4000
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

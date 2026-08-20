@@ -1,0 +1,104 @@
+/* ==========================================================================
+   Dispatch board — control area (two tiers). Candidate CSS.
+   ========================================================================== */
+
+/* --- shared: a real disabled look (replaces opacity:.48 on a solid fill) -- */
+.btn[disabled], .btn.is-disabled {
+  background: var(--surface-2) !important; color: var(--muted-2) !important;
+  border-color: var(--line) !important; box-shadow: none !important; opacity: 1 !important;
+}
+.btn[disabled] { pointer-events: auto; cursor: not-allowed; }
+.btn.is-disabled { pointer-events: none; cursor: not-allowed; }
+.btn[disabled] svg, .btn.is-disabled svg { opacity: .75; }
+
+/* --- the control card ---------------------------------------------------- */
+.dctl { margin-bottom: 12px; border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--surface); box-shadow: var(--sh-xs); overflow: hidden; }
+
+.dctl-r1 { display: flex; align-items: center; gap: 10px; padding: 8px 10px; }
+.dctl-r2 { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap;
+  padding: 7px 10px; border-top: 1px solid var(--line); background: var(--surface-2); }
+
+.dctl-grp { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; min-width: 0; }
+.dctl-grp.tools { margin-left: auto; }
+.dctl-sep { flex: none; width: 1px; height: 22px; background: var(--line); }
+
+/* one control height for the whole toolbar */
+.dctl .btn-sm { height: 32px; }
+.dctl .select, .dctl .input { height: 32px; font-size: 13px; }
+.dctl .select { width: 158px; flex: none; }
+.dctl .input[type="date"] { width: 132px; flex: none; padding: 0 10px; }
+.dctl .seg { padding: 2px; }
+.dctl .seg button { height: 28px; padding: 0 9px; font-size: 11.5px; display: inline-flex;
+  align-items: center; }
+.dctl .chip { height: 32px; padding: 0 9px; font-size: 12px; gap: 4px; }
+
+/* icon buttons read as peers of the bordered controls */
+.dctl .iconbtn { width: 32px; height: 32px; border: 1px solid var(--line-2);
+  background: var(--surface); box-shadow: var(--sh-xs); color: var(--muted); }
+.dctl .iconbtn svg { width: 16px; height: 16px; }
+.dctl .iconbtn:hover { background: var(--surface-2); border-color: #C3CCD8; color: var(--ink); }
+.dctl .iconbtn.on { background: var(--brand-50); border-color: var(--brand-200);
+  color: var(--brand-700); }
+
+/* tier 1: month anchor + prev/next + week strip + jump */
+.dctl-when { flex: none; font-size: 13.5px; font-weight: 650; letter-spacing: -.01em;
+  color: var(--ink); white-space: nowrap; padding-left: 2px; }
+.dctl-r1 > .iconbtn { height: 44px; width: 26px; border-radius: var(--r-sm); }
+
+.dctl-grp.week { flex: 1 1 auto; min-width: 0; max-width: 880px; gap: 6px; }
+.dctl-grp.jump { margin-left: auto; }
+.dctl .dweek { flex: 1 1 auto; min-width: 0; margin: 0; gap: 4px; }
+.dctl .dday { flex-direction: row; flex-wrap: wrap; align-items: baseline;
+  justify-content: center; align-content: center; gap: 0 5px; padding: 5px 4px 6px;
+  border-radius: var(--r-sm); }
+.dctl .dday .dw { font-size: 10px; }
+.dctl .dday .dn { font-size: 15px; }
+.dctl .dday .dc { flex: 0 0 100%; text-align: center; font-size: 10.5px; line-height: 1.35; }
+.dctl .dday .dwait { top: 5px; right: 5px; width: 5px; height: 5px; }
+
+/* tier 2: the day summary, a distinct read-only element */
+.dsum { display: flex; align-items: center; flex: none; height: 32px; padding: 0 2px;
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
+.dsum .f { display: flex; align-items: baseline; gap: 4px; padding: 0 8px;
+  font-size: 11px; color: var(--muted); white-space: nowrap; }
+.dsum .f + .f { box-shadow: inset 1px 0 0 var(--line); }
+.dsum b { font-size: 12.5px; font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.dsum i { font-style: normal; font-size: 11.5px; color: var(--muted-2);
+  font-variant-numeric: tabular-nums; margin-left: -2px; }
+.dsum .f.on b { color: var(--brand-600); }
+.dsum .f.wait b { color: var(--warn-700); }
+.dsum .f.wait.zero b { color: var(--muted-2); }
+.dsum .f.util { align-items: center; }
+.dsum .bar { width: 38px; height: 5px; border-radius: 999px; background: var(--surface-3);
+  overflow: hidden; flex: none; }
+.dsum .bar span { display: block; height: 100%; border-radius: 999px; background: var(--brand-500); }
+.dsum .f.util.warn b { color: var(--warn-700); } .dsum .f.util.warn .bar span { background: var(--warn-500); }
+.dsum .f.util.bad  b { color: var(--danger-700); } .dsum .f.util.bad .bar span { background: var(--danger-500); }
+.dsum .f.over { color: var(--danger-700); font-weight: 600; }
+
+/* count pill on the primary action */
+.dctl .btn .cnt { display: inline-flex; align-items: center; justify-content: center;
+  min-width: 17px; height: 17px; padding: 0 5px; margin: 0 -3px 0 1px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: rgba(255,255,255,.22); color: #fff; }
+
+/* breakpoints */
+@media (max-width: 1240px) {
+  .dctl-when, .dctl-when + .dctl-sep { display: none; }
+  .dctl .dday { padding: 5px 2px 6px; }
+  .dctl .dday .dw { font-size: 9.5px; letter-spacing: .02em; }
+  .dctl .dday .dn { font-size: 14px; }
+}
+@media (max-width: 900px) {
+  .dctl-r1 { flex-wrap: wrap; }
+  .dctl .dweek { flex: 1 1 100%; order: 2; }
+  .dctl-r1 > .iconbtn { height: 32px; }
+  .dsum { flex: 1 1 auto; }
+}
+@media (max-width: 560px) {
+  .dctl-grp { flex-wrap: wrap; }
+  .dctl .select { width: 100%; flex: 1 1 100%; }
+  .dsum { width: 100%; overflow-x: auto; }
+}

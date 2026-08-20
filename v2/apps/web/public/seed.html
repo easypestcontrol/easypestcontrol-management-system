@@ -1,0 +1,9 @@
+<!doctype html>
+<!-- Dev helper: seeds the auth token so headless screenshots can sign in.
+     Same-origin static page; harmless in production (does nothing without ?t=). -->
+<script>
+  var q = new URLSearchParams(location.search);
+  var t = q.get('t');
+  if (t) localStorage.setItem('pestops.token', t);
+  location.replace(q.get('to') || '/jobs');
+</script>

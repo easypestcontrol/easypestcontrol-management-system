@@ -1,0 +1,87 @@
+/* ===== candidate v2: dispatch board control bar ===== */
+.dtb { --ctl: 30px;
+  display: flex; flex-direction: column;
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--surface); box-shadow: var(--sh-xs);
+  margin-bottom: 12px; }
+.dtb-row { display: flex; align-items: center; flex-wrap: wrap;
+  gap: 6px 8px; padding: 7px 10px; min-width: 0; }
+.dtb-row + .dtb-row { border-top: 1px solid var(--line); }
+.dtb-row > .vdivider { height: 18px; align-self: center; margin: 0; flex: none; }
+.dtb-grp { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.dtb-end { margin-left: auto; }
+
+.dtb .btn-sm { height: var(--ctl); }
+.dtb .input, .dtb .select { height: var(--ctl); width: auto; font-size: 12.5px;
+  border-radius: var(--r-xs); }
+.dtb .select { padding-right: 30px; background-position: right 9px center; }
+.dtb-branch { flex: 0 1 176px; min-width: 112px; }
+.dtb .seg { padding: 2px; border-radius: var(--r-xs); }
+.dtb .seg button { height: calc(var(--ctl) - 4px); padding: 0 8px; font-size: 12px; border-radius: 4px; }
+
+.dtb .ico-only { width: var(--ctl); padding: 0; }
+.dtb .ico-only.on { background: var(--brand-50); border-color: var(--brand-200); color: var(--brand-700); }
+
+.dnav { display: flex; align-items: center; }
+.dnav > * { border-radius: 0; margin-left: -1px; }
+.dnav > :first-child { border-radius: var(--r-xs) 0 0 var(--r-xs); margin-left: 0; }
+.dnav > :last-child { border-radius: 0 var(--r-xs) var(--r-xs) 0; }
+.dnav > :hover, .dnav > :focus-visible { position: relative; z-index: 1; }
+.dtb-date { width: 126px; }
+
+.dweek { display: flex; flex: 1 1 340px; gap: 4px; min-width: 0; margin: 0; }
+.dday { position: relative; flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 5px;
+  height: var(--ctl); padding: 0 8px; border: 1px solid var(--line);
+  border-radius: var(--r-xs); background: var(--surface); cursor: pointer;
+  overflow: hidden; white-space: nowrap;
+  transition: border-color .12s, background .12s; }
+.dday:hover { border-color: var(--brand-300); background: var(--surface-2); }
+.dday .dw { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.dday .dn { font-size: 13.5px; font-weight: 700; line-height: 1; color: var(--ink); }
+.dday .dc { font-size: 10px; font-weight: 700; line-height: 16px; padding: 0 5px;
+  border-radius: 999px; background: var(--surface-3); color: var(--muted); }
+.dday.today .dn { color: var(--brand-600); }
+.dday.on { border-color: var(--brand-600); background: var(--brand-50); box-shadow: inset 0 0 0 1px var(--brand-600); }
+.dday.on .dw { color: var(--brand-700); }
+.dday.on .dc { background: var(--brand-100); color: var(--brand-700); }
+.dday .dwait { position: absolute; top: 3px; right: 3px; width: 5px; height: 5px;
+  border-radius: 999px; background: var(--warn-500); }
+
+.dchips { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.dtb .chip { height: var(--ctl); padding: 0 10px; font-size: 12.5px; }
+
+.dstats { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  min-height: var(--ctl); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.dstats b { font-weight: 700; color: var(--ink); }
+.dutil { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px;
+  border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); }
+
+.dtb .btn[disabled] { opacity: 1; pointer-events: auto; cursor: not-allowed;
+  background: var(--surface-3); color: var(--muted-2);
+  border-color: var(--line); box-shadow: none; }
+.dtb .btn[disabled] svg { opacity: .65; }
+.dtb .btn .cnt { font-size: 11px; font-weight: 700; line-height: 16px; padding: 0 5px;
+  border-radius: 999px; background: rgba(255,255,255,.22); }
+.dtb .btn[disabled] .cnt { background: var(--surface); color: var(--muted-2); }
+
+@media (max-width: 1320px) {
+  .dstats { flex: 1 0 100%; order: 9; margin-left: 0; justify-content: flex-start; }
+}
+@media (max-width: 1080px) {
+  .dboard > .dqueue { order: 2; }
+}
+@media (max-width: 860px) {
+  .dtb-row { padding: 6px 8px; }
+  .dtb-row > .vdivider { display: none; }
+  .dweek { flex-basis: 100%; order: 2; }
+  .dtb-end { margin-left: 0; }
+}
+@media (max-width: 560px) {
+  .dday .dc { display: none; }
+  .dday { padding: 0 4px; gap: 3px; }
+  .dtb-date { width: 118px; }
+  .dnav { flex: 1 0 100%; }
+  .dnav > :nth-child(2) { flex: 1; }
+  .dtb-date { flex: 1; width: auto; }
+}

@@ -1,0 +1,18 @@
+# Static demo — no build step, no dependencies.
+[build]
+  publish = "."
+  command = ""
+
+# index.html is the role picker; hash routing handles everything after that,
+# so no SPA redirect rules are needed.
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"

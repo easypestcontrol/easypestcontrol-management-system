@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>PestOps</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B7454'/%3E%3Cpath d='M16 6l7 2.6v6.2C23 20 16 25 16 25S9 20 9 14.8V8.6z' fill='none' stroke='white' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M13 15.5l2 2 4-4' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ================= Sidebar ================= -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brandbar">
+      <div class="brandmark" id="sbMark"></div>
+      <div class="grow">
+        <div class="brandname">PestOps</div>
+        <div class="brandsub" id="sbRole">—</div>
+      </div>
+      <button class="iconbtn lg-only" id="sbClose" aria-label="Close menu"></button>
+    </div>
+
+    <nav class="navscroll" id="nav"></nav>
+
+    <div class="sidefoot">
+      <div class="dropdown">
+        <button class="userchip" data-drop id="userChip"></button>
+        <div class="dropmenu left" style="display:none;bottom:calc(100% + 6px);top:auto;min-width:212px" id="userMenu"></div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="scrim" id="scrim"></div>
+
+  <!-- ================= Main ================= -->
+  <div class="main">
+    <header class="topbar">
+      <button class="iconbtn lg-only" id="menuBtn" aria-label="Open menu"></button>
+      <div class="grow truncate">
+        <div class="crumb" id="tbCrumb"></div>
+        <h1 id="tbTitle">—</h1>
+      </div>
+      <button class="iconbtn" id="searchBtn" title="Search (press /)" aria-label="Search"></button>
+      <div class="dropdown">
+        <button class="iconbtn" data-drop id="bellBtn" aria-label="Notifications"></button>
+        <div class="dropmenu" style="display:none;min-width:330px;padding:0" id="bellMenu"></div>
+      </div>
+      <div class="vdivider desk-only" style="height:22px;margin:0 4px"></div>
+      <div class="dropdown desk-only" id="quickWrap">
+        <button class="btn btn-primary btn-sm" data-drop id="quickBtn" title="Create new"></button>
+        <div class="dropmenu" style="display:none;min-width:206px" id="quickMenu"></div>
+      </div>
+    </header>
+
+    <main class="page" id="page"></main>
+  </div>
+
+  <!-- ================= Mobile tab bar ================= -->
+  <nav class="tabbar" id="tabbar"></nav>
+</div>
+
+<script src="assets/js/icons.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/pdf.js"></script>
+<script src="assets/js/pdfmerge.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/comp.js"></script>
+
+<script src="assets/js/views/dashboard.js"></script>
+<script src="assets/js/views/leads.js"></script>
+<script src="assets/js/views/quotations.js"></script>
+<script src="assets/js/views/contracts.js"></script>
+<script src="assets/js/views/amcform.js"></script>
+<script src="assets/js/views/delivery.js"></script>
+<script src="assets/js/views/jobs.js"></script>
+<script src="assets/js/views/schedule.js"></script>
+<script src="assets/js/views/board.js"></script>
+<script src="assets/js/views/clients.js"></script>
+<script src="assets/js/views/services.js"></script>
+<script src="assets/js/views/team.js"></script>
+<script src="assets/js/views/inventory.js"></script>
+<script src="assets/js/views/audits.js"></script>
+<script src="assets/js/views/invoices.js"></script>
+<script src="assets/js/views/reports.js"></script>
+<script src="assets/js/views/masterdata.js"></script>
+<script src="assets/js/views/settings.js"></script>
+<script src="assets/js/views/tech.js"></script>
+<script src="assets/js/views/portal.js"></script>
+
+<script src="assets/js/app.js"></script>
+</body>
+</html>

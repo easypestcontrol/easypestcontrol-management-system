@@ -1,0 +1,710 @@
+// ============================================================================
+// PestOps v2 — the data model.
+//
+// Ported 1:1 from the v1 store (assets/js/store.js + data.js), so every rule
+// the old app enforced has a column to live in. Human-readable ids (AMC-2026-01,
+// JOB-901, QT-2042) are kept as primary keys — they appear on printed documents
+// and in WhatsApp messages, so they are part of the product, not an artifact.
+//
+// Deliberate denormalizations, carried over from v1 where they earned their keep:
+//   - Job.serviceIds / Job.techIds as text[]  — a visit is a snapshot; the crew
+//     that went is a fact about the visit, not a live join.
+//   - Job.exec as JSONB — the execution record (photos, chemicals, findings,
+//     signature) is written once by the technician and only ever read whole.
+//   - PlanLine.techIds as text[] — the standing crew per service, clamped to
+//     PlanLine.crew everywhere it is written (see shared/crew.ts).
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- enums
+
+enum Role {
+  admin
+  ops
+  sales
+  tech
+  senior_tech // a technician who may also issue chemicals from inventory
+  accounts
+  client
+}
+
+enum LeadStage {
+  new
+  followup
+  inspection
+  quoted
+  contract
+  won
+  lost
+}
+
+enum QuoteStatus {
+  draft
+  sent
+  approved
+  rejected
+}
+
+enum ContractMode {
+  amc
+  onetime
+}
+
+enum JobStatus {
+  scheduled
+  enroute
+  inprogress
+  completed
+  cancelled
+}
+
+enum JobPriority {
+  low
+  normal
+  high
+  urgent
+}
+
+enum InvoiceStatus {
+  draft
+  sent
+  partial
+  paid
+  overdue
+  /// Raised in error and withdrawn. The document stays — a financial record is
+  /// never deleted — but it is out of every total, and the services it billed
+  /// go back on the billing checklist so the work can be charged properly.
+  cancelled
+}
+
+// ---------------------------------------------------------------- org
+
+model Company {
+  id           String   @id @default("co")
+  name         String
+  tagline      String   @default("")
+  phone        String   @default("")
+  email        String   @default("")
+  gstin        String   @default("")
+  addr         String   @default("")
+  city         String   @default("")
+  state        String   @default("Tamil Nadu") // home state — decides CGST/SGST vs IGST
+  pin          String   @default("")
+  gstRate      Int      @default(18)
+  logo         String   @default("") // data URL, shown in the sidebar
+  // company-default working hours; a technician may override on their profile
+  hoursFrom    String   @default("09:00")
+  hoursTo      String   @default("18:00")
+  hoursDays    Int[]    @default([1, 2, 3, 4, 5, 6])
+  terms        String[] @default([]) // default quotation terms
+  // Per-document terms: { quotation, invoice, contract, service } → string[]
+  docTerms     Json     @default("{}")
+  integrations Json     @default("{}") // { olaKey, rzpKeyId, rzpKeySecret }
+}
+
+model Branch {
+  id    String   @id // BR-01
+  name  String
+  code  String   @default("")
+  phone String   @default("")
+  areas String[] @default([]) // locality names this branch covers — drives job->branch mapping
+}
+
+model User {
+  id        String   @id // U01
+  name      String
+  role      Role
+  title     String   @default("")
+  phone     String   @default("")
+  email     String   @unique
+  password  String // bcrypt hash
+  color     String   @default("#0B7454")
+  joined    String   @default("") // ISO date
+  skills    String[] @default([])
+  branches  String[] @default([]) // Branch ids
+  photo     String   @default("") // data URL
+  sign      String   @default("") // signature image data URL — auto-placed on documents
+  empType   String   @default("Full-time")
+  dob       String   @default("")
+  blood     String   @default("")
+  aadhaar   String   @default("")
+  addr      String   @default("")
+  emergency Json     @default("[]") // [{name, relation, phone}]
+  // per-technician working hours override; empty = company default
+  hoursFrom String   @default("")
+  hoursTo   String   @default("")
+  hoursDays Int[]    @default([])
+  rating    Float    @default(0)
+  jobsDone  Int      @default(0)
+  active    Boolean  @default(true)
+}
+
+model Service {
+  id       String   @id // SV01
+  code     String
+  name     String
+  cat      String   @default("Residential")
+  price    Int      @default(0)
+  unit     String   @default("per visit")
+  mins     Int      @default(60)
+  warranty String   @default("")
+  chem     String[] @default([]) // inventory item ids used
+  desc     String   @default("")
+  pdf      String   @default("") // service information sheet, data URL — merged into quotation PDFs
+}
+
+// ---------------------------------------------------------------- sales
+
+model Client {
+  id      String @id // CL-001
+  name    String // display name — what every screen shows
+  type    String @default("Residential") // property type
+  contact String @default("") // primary contact display
+  phone   String @default("") // mobile — WhatsApp and reminders
+  email   String @default("")
+  addr    String @default("") // site address summary — where the technician goes
+  city    String @default("")
+  pin     String @default("")
+  gstin   String @default("")
+  since   String @default("")
+  color   String @default("#0B7454")
+  area    String @default("") // locality — drives branch mapping
+  branch  String @default("") // Branch id; empty = inferred from address areas
+
+  // ---- where the site actually is, marked once by the first technician to
+  // stand there. Every later visit navigates to this instead of asking again.
+  siteLat   Float?
+  siteLng   Float?
+  siteGeoAt String @default("") // ISO stamp of when it was marked
+  siteGeoBy String @default("") // user id of the technician who marked it
+
+  // ---- identity, ported from the v1 form
+  custKind   String   @default("Business") // Business / Individual
+  salutation String   @default("")
+  firstName  String   @default("")
+  lastName   String   @default("")
+  company    String   @default("")
+  language   String   @default("English")
+  workPhone  String   @default("")
+  channels   String[] @default(["Email", "WhatsApp"]) // how they want to hear from us
+
+  // ---- tax & terms — these drive the GST split on every document
+  gstTreatment   String  @default("")
+  placeOfSupply  String  @default("Tamil Nadu") // vs company.state: CGST+SGST or IGST
+  pan            String  @default("")
+  taxPref        String  @default("Taxable") // Taxable / Tax Exempt
+  currency       String  @default("INR - Indian Rupee")
+  openingBalance Int     @default(0)
+  payTerms       String  @default("Due on Receipt")
+  propertySize   String  @default("") // "3 BHK / 1,450 sq.ft"
+  portal         Boolean @default(false)
+
+  // ---- the detailed blocks, read whole
+  billing  Json   @default("{}") // {attention, country, street1, street2, city, state, pin, phone}
+  shipping Json   @default("{}") // the site address; blank = billing is used
+  contacts Json   @default("[]") // [{salutation, firstName, lastName, email, workPhone, mobile}]
+  docs     Json   @default("[]") // [{name, size, type, data}] — agreements, site plans, POs
+  remarks  String @default("") // internal only
+}
+
+model Lead {
+  id         String    @id // LD-1001
+  name       String
+  phone      String    @default("")
+  email      String    @default("")
+  type       String    @default("Residential")
+  area       String    @default("")
+  source     String    @default("")
+  stage      LeadStage @default(new)
+  value      Int       @default(0)
+  followUp   String    @default("") // ISO date
+  notes      String    @default("")
+  owner      String    @default("") // User id
+  branch     String    @default("")
+  clientId   String    @default("") // set on promotion
+  contractId String    @default("") // set on won
+  log        Json      @default("[]") // [{at, by, text}] newest first
+  createdAt  DateTime  @default(now())
+}
+
+model Quotation {
+  id            String       @id // QT-2042
+  leadId        String       @default("")
+  clientId      String       @default("")
+  date          String
+  status        QuoteStatus  @default(draft)
+  mode          ContractMode @default(amc)
+  months        Int          @default(12)
+  freq          String       @default("Monthly")
+  title         String       @default("")
+  refNo         String       @default("")
+  placeOfSupply String       @default("") // vs company.state — decides CGST/SGST vs IGST
+  // Addresses as printed on the document; blank = fall back to the party record
+  billAddr      String       @default("")
+  shipAddr      String       @default("")
+  discount      Int          @default(0) // rupees, taken off before tax
+  notes         String       @default("")
+  terms         String[]     @default([])
+  signCustomer  String       @default("") // data URL
+  signExec      String       @default("")
+  // Acceptance is two-handed, like a contract's signatures: ours, then theirs.
+  approvedBy    String       @default("") // user id of OUR sign-off; '' = not yet
+  approvedAt    String       @default("")
+  owner         String       @default("")
+  branch        String       @default("")
+  contractId    String       @default("") // set on conversion
+  items         QuoteItem[]
+  createdAt     DateTime     @default(now())
+}
+
+model QuoteItem {
+  id      Int       @id @default(autoincrement())
+  quoteId String
+  quote   Quotation @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  svId    String
+  desc    String    @default("")
+  qty     Int       @default(1) // AMC: visits priced; one-time: units sold (bedrooms, tanks, sq.ft)
+  rate    Int       @default(0)
+  visits  Int       @default(0)
+  months  Int       @default(0) // a line quoted over 6 months runs 6 even in a 12-month contract
+  order   Int       @default(0)
+}
+
+// ---------------------------------------------------------------- delivery
+
+model Contract {
+  id            String       @id // AMC-2026-01 / OTS-2026-01
+  clientId      String
+  quoteId       String       @default("")
+  leadId        String       @default("")
+  mode          ContractMode @default(amc)
+  start         String
+  end           String
+  months        Int          @default(12)
+  freq          String       @default("")
+  billing       String       @default("Quarterly")
+  value         Int          @default(0)
+  owner         String       @default("")
+  branch        String       @default("")
+  site          String       @default("") // site / shipping address as agreed
+  billAddr      String       @default("") // billing address as printed on the agreement
+  scope         String       @default("")
+  slot          String       @default("10:00")
+  slotEnd       String       @default("") // one-time only: booked window end
+  notes         String       @default("")
+  terms         String[]     @default([])
+  refNo         String       @default("")
+  placeOfSupply String       @default("")
+  discount      Int          @default(0)
+  // How the money moves — decided once, at signing (the user's three types):
+  //   upfront  = one invoice, full value, at signing; nothing collected on site
+  //   pervisit = each completed visit raises its own invoice; technician collects
+  //   interval = equal installments on the billing cycle; office collects
+  billingMode   String       @default("interval")
+  billingAmount Int          @default(0) // MRR: fixed monthly amount; 0 = value / months
+  mergeSameDay  Boolean      @default(true) // same-day services share one trip and one crew
+  workdaysOnly  Boolean      @default(true) // Sundays skipped
+  blackout      String[]     @default([])
+  signCustomer  String       @default("")
+  signExec      String       @default("")
+  agreedAt      String       @default("")
+  totalVisits   Int          @default(0)
+  plan          PlanLine[]
+  createdAt     DateTime     @default(now())
+}
+
+model PlanLine {
+  id         Int      @id @default(autoincrement())
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  svId       String
+  visits     Int      @default(1)
+  months     Int      @default(0)
+  mins       Int      @default(60)
+  dayRule    String   @default("") // "dom:18" — always the 18th
+  startAt    String   @default("")
+  slot       String   @default("10:00")
+  slotEnd    String   @default("") // booked window end for every generated service
+  freq       String   @default("")
+  crew       Int      @default(1) // people on site at once for THIS service
+  rate       Int      @default(0) // per-visit price ex-GST — drives per-visit invoices
+  techIds    String[] @default([]) // the standing crew — INVARIANT: length <= crew at every writer
+  dates      String[] @default([]) // hand-picked visit dates by index; empty slot = automatic
+  order      Int      @default(0)
+}
+
+model Job {
+  id         String      @id // JOB-901
+  type       String      @default("One-Time") // AMC Visit / One-Time / Callback / Complaint / Inspection
+  contractId String      @default("")
+  clientId   String
+  branch     String      @default("") // stamped from the customer — the branch wall filters on this
+  serviceIds String[]    @default([])
+  date       String
+  slot       String      @default("10:00")
+  slotEnd    String      @default("")
+  mins       Int         @default(60) // elapsed minutes on site — SUM across merged services
+  techIds    String[]    @default([])
+  // Who owns this service. Must be one of techIds. Only the head may record
+  // the work; the rest of the crew get their trip and a read-only checklist.
+  // Empty on a single-technician job, where that technician is the head.
+  headTechId String      @default("")
+  crewNeed   Int         @default(1) // peak-simultaneous people — MAX across merged services
+  status     JobStatus   @default(scheduled)
+  priority   JobPriority @default(normal)
+  visitNo    Int         @default(0)
+  ofVisits   Int         @default(0)
+  /// The invoice this service was billed on, or "" while it is still billable.
+  ///
+  /// A service is billed once. This field is what makes that true: a service
+  /// carrying an invoice id never appears on the billing checklist again, and
+  /// the question "has this been charged for" has one answer wherever it is
+  /// asked — the technician's screen, the office's, or the contract total.
+  /// Cancelling an invoice clears it, so a mistake does not permanently
+  /// un-bill work that was actually done.
+  invoiceId  String      @default("")
+  notes      String      @default("")
+  pinned     Boolean     @default(false) // placed by hand — the plan engine never moves it
+  exec       Json? // {checkinAt, startedAt, finishedAt, durationMins, geo, photosBefore[], photosAfter[], chemicals[{id,qty}], findings[], observations, signedBy, signature, rating, feedback}
+  createdAt  DateTime    @default(now())
+}
+
+// ---------------------------------------------------------------- money
+
+model Invoice {
+  id            String        @id // INV-3301
+  clientId      String
+  contractId    String        @default("")
+  branch        String        @default("") // stamped from the customer — the branch wall filters on this
+  // where this invoice came from: upfront | interval | visit | onetime | manual
+  kind          String        @default("manual")
+  jobId         String        @default("") // set when kind = visit
+  seq           Int           @default(0) // installment number when kind = interval/upfront
+  date          String
+  due           String
+  period        String        @default("")
+  status        InvoiceStatus @default(draft)
+  items         Json          @default("[]") // [{svId?, desc, qty, rate}]
+  discount      Int           @default(0)
+  placeOfSupply String        @default("")
+  notes         String        @default("")
+  payments      Payment[]
+  createdAt     DateTime      @default(now())
+}
+
+model Payment {
+  id        String  @id // RCT-881
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  date      String
+  amount    Int
+  mode      String  @default("UPI")
+  ref       String  @default("")
+  by        String  @default("") // user id of whoever collected it
+  at        String  @default("") // HH:MM at the moment of collection
+  settled   Boolean @default(false) // cash: true once deposited at the office
+}
+
+// ---------------------------------------------------------------- resources
+
+/// A product we buy and issue.
+///
+/// `unit` is the **base unit** — g, ml or piece — and it is the only unit stock,
+/// technician holdings and consumption are ever counted in. Purchases arrive in
+/// packs (see PoItem.packSize) and are converted to base units on receipt, so
+/// there is exactly one number on the shelf and it always means one thing.
+model InventoryItem {
+  id      String @id // IN01
+  name    String
+  cat     String @default("")
+  unit    String @default("ml") // base unit: g | ml | piece
+  /// Total across every branch. A cache of sum(BranchStock.qty for this item),
+  /// kept true because all three writers — receipt, issue, transfer — move both
+  /// numbers inside one transaction.
+  stock   Int    @default(0)
+  reorder Int    @default(0) // company-wide floor; branches set their own too
+  note    String @default("")
+
+  /// How it was last bought, so the next order form fills itself in.
+  lastRate     Int    @default(0) // per pack, ex-GST
+  lastPackUnit String @default("")
+  lastPackSize Int    @default(1)
+}
+
+/// What one branch has on its own shelf. Stock is per branch: a technician draws
+/// from his own branch, and a company total big enough to cover him means nothing
+/// if the chemicals are 500 km away.
+model BranchStock {
+  id       Int    @id @default(autoincrement())
+  branchId String
+  itemId   String
+  qty      Int    @default(0) // in the item's base unit
+  reorder  Int    @default(0) // this branch's own floor
+
+  @@unique([branchId, itemId])
+  @@index([itemId])
+}
+
+/// What a technician is carrying right now, item by item. Issued stock lives
+/// here until it is consumed on a service or returned to the store.
+model TechStock {
+  id     Int    @id @default(autoincrement())
+  userId String
+  itemId String
+  qty    Int    @default(0) // current holding, in the item's own unit
+
+  @@unique([userId, itemId])
+  @@index([userId])
+}
+
+/// Every movement of stock in or out of a technician's hands. The audit trail
+/// behind TechStock: who took it, who released it, when, and against which job
+/// it was used.
+model StockIssue {
+  id       String   @id // ISS-1
+  userId   String // the technician
+  issuedBy String // admin / ops / senior_tech who released it
+  itemId   String
+  qty      Int
+  dir      String   @default("out") // out = into his hands, in = returned to store
+  jobId    String   @default("") // set when the movement is consumption on a service
+  note     String   @default("")
+  at       DateTime @default(now())
+
+  @@index([userId])
+  @@index([jobId])
+}
+
+/// Every movement of stock in or out of a branch's shelf. A movement that does
+/// not say which branch it happened on is not an audit trail, so `branchId` is
+/// written on every row.
+model StockMove {
+  id       Int    @id @default(autoincrement())
+  itemId   String
+  branchId String @default("")
+  date     String
+  qty      Int
+  dir      String @default("out") // in / out
+  jobId    String @default("")
+  poId     String @default("") // the purchase order this receipt came from
+  note     String @default("")
+
+  @@index([itemId])
+  @@index([poId])
+}
+
+model Audit {
+  id       String @id // AUD-101
+  clientId String
+  date     String
+  auditor  String @default("")
+  score    Int    @default(0)
+  status   String @default("open")
+  findings Json   @default("[]")
+}
+
+model Notification {
+  id     Int     @id @default(autoincrement())
+  userId String  @default("") // empty = broadcast
+  at     String
+  text   String
+  read   Boolean @default(false)
+}
+
+// One row per phone that logged into the PestOps Field app — the FCM address
+// the push watcher fans notifications out to. Cleared on logout or when FCM
+// reports the token dead.
+model Device {
+  id       Int    @id @default(autoincrement())
+  userId   String
+  token    String @unique
+  platform String @default("android")
+  at       String @default("")
+}
+
+// One row per human-readable id counter: job, quote, contract, invoice, receipt, lead, audit
+model Seq {
+  key   String @id
+  value Int
+}
+
+// ------------------------------------------------------------ field modules
+
+model Training {
+  id        String   @id // TR-1
+  title     String
+  role      String   @default("all") // tech | sales | ops | accounts | all
+  body      String   @default("") // the text of the lesson
+  video     String   @default("") // uploaded file name under uploads/training
+  link      String   @default("") // or an external video URL
+  by        String   @default("")
+  createdAt DateTime @default(now())
+}
+
+model Trip {
+  id        String    @id // TRIP-1
+  userId    String
+  purpose   String    @default("")
+  jobId     String    @default("")
+  dest      String    @default("") // where they said they were going
+  status    String    @default("active") // active | done
+  startAt   DateTime  @default(now())
+  endAt     DateTime?
+  distanceM Int       @default(0) // metres along the actual GPS breadcrumb path
+  points    Json      @default("[]") // [{lat,lng,t}]
+}
+
+// ---------------------------------------------------------------- purchasing
+
+/// Who we buy from. Enough to print a compliant order and to ring them when the
+/// delivery is late. `state` decides the GST split, exactly as a customer's
+/// place of supply does on a quotation.
+model Vendor {
+  id        String          @id // VN-01
+  name      String
+  gstin     String          @default("")
+  contact   String          @default("") // the person who answers
+  phone     String          @default("")
+  email     String          @default("")
+  addr      String          @default("")
+  city      String          @default("")
+  state     String          @default("")
+  pincode   String          @default("")
+  terms     String          @default("") // "Net 30"
+  cat       String          @default("") // Chemical | Equipment | Consumable | Mixed
+  note      String          @default("")
+  active    Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  orders    PurchaseOrder[]
+}
+
+enum PoStatus {
+  draft
+  ordered
+  partial
+  received
+  cancelled
+}
+
+/// The one door stock comes in through. Same anatomy as a quotation, pointed the
+/// other way — here we are the customer.
+model PurchaseOrder {
+  id            String   @id // PO-2026-01
+  vendorId      String
+  vendor        Vendor   @relation(fields: [vendorId], references: [id])
+  date          String
+  expected      String   @default("") // when they said it would arrive
+  status        PoStatus @default(draft)
+  /// Ship-to. Not documentation — this is the shelf the goods land on.
+  branch        String   @default("")
+  placeOfSupply String   @default("") // vendor's state vs ours
+  discount      Int      @default(0) // rupees, off before tax
+  notes         String   @default("")
+  terms         String[] @default([])
+  raisedBy      String   @default("")
+  orderedAt     String   @default("")
+  receivedBy    String   @default("")
+  receivedAt    String   @default("")
+  items         PoItem[]
+  createdAt     DateTime @default(now())
+
+  @@index([vendorId])
+  @@index([status])
+}
+
+/// One line of an order. Bought in packs, stocked in base units: receiving adds
+/// `qty * packSize` to the shelf. `packSize` lives here and not on the item
+/// because this vendor's 500 g packet is that vendor's 1 kg tin.
+model PoItem {
+  id          Int           @id @default(autoincrement())
+  poId        String
+  po          PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  /// Blank while the order is a draft introducing a product we have never bought.
+  /// Filled when the order is placed and the item is created at zero stock.
+  itemId      String        @default("")
+  name        String        @default("")
+  cat         String        @default("")
+  baseUnit    String        @default("g") // g | ml | piece
+  packUnit    String        @default("") // packet, bottle, kg, litre…
+  packSize    Int           @default(1) // base units in one pack
+  qty         Int           @default(1) // packs ordered
+  rate        Int           @default(0) // per pack, ex-GST
+  receivedQty Int           @default(0) // packs received so far
+  order       Int           @default(0)
+
+  @@index([poId])
+}
+
+// -------------------------------------------------------------- credentials
+
+/// A third-party service the business runs on — the VPS, Cloudflare R2, Ola
+/// Maps, Razorpay, the domain.
+///
+/// This is the **commercial** record, not the secret one: which account it sits
+/// under, what it costs, when it renews, and how close it is to its limits.
+/// API keys stay where they always were — written into Company.integrations,
+/// server-side and never echoed back — because a page that prints your keys is
+/// a page that leaks them the first time someone shares a screen.
+///
+/// Admin only. It answers two questions nobody could answer before: *what am I
+/// about to be charged for*, and *what am I about to run out of*.
+model Credential {
+  id        String   @id // CR-01
+  service   String // Ola Maps | Cloudflare R2 | VPS | Razorpay | Domain | …
+  provider  String   @default("") // Hostinger, Cloudflare, Ola Krutrim…
+  /// The login this sits under. The whole point: which mailbox to check when
+  /// the renewal notice arrives, and whose card is on it.
+  account   String   @default("")
+  plan      String   @default("") // "KVM 2", "R2 Standard", "Free tier"
+  cost      Int      @default(0) // per cycle, whole rupees
+  cycle     String   @default("Monthly") // Monthly | Yearly | Pay as you go | Free
+  renewsOn  String   @default("") // YYYY-MM-DD
+  autoRenew Boolean  @default(false)
+  console   String   @default("") // where to go to manage it
+  note      String   @default("")
+  active    Boolean  @default(true)
+  /// Read from the provider, never typed. Blank until the first sync.
+  checkedOn String   @default("")
+  /// What went wrong on the last sync, if anything — shown so a stale figure
+  /// explains itself instead of quietly ageing.
+  syncError String   @default("")
+
+  /// The key the figures are fetched with. Written in, never read back: the
+  /// API returns `hasKey`, not the key. A page that prints your secrets leaks
+  /// them the first time somebody shares a screen.
+  apiKey      String @default("")
+  apiSecret   String @default("")
+  /// What the provider needs alongside the key — a Cloudflare account id, a
+  /// bucket name, a droplet id.
+  accountRef  String @default("")
+  resourceRef String @default("")
+
+  createdAt DateTime @default(now())
+
+  quotas CredentialQuota[]
+}
+
+/// One limit on a service. Deliberately a list: R2 has storage, operations and
+/// egress; a VPS has disk and bandwidth; Ola has a call ceiling. One row per
+/// thing that can run out.
+model CredentialQuota {
+  id           Int        @id @default(autoincrement())
+  credentialId String
+  credential   Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  label        String // "API calls", "Storage", "Egress"
+  used         Int        @default(0)
+  limit        Int        @default(0) // 0 = no stated ceiling
+  unit         String     @default("") // "calls / month", "GB", "GB / month"
+  note         String     @default("")
+  order        Int        @default(0)
+
+  @@index([credentialId])
+}

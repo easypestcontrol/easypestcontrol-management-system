@@ -1,0 +1,181 @@
+/* ============================================================================
+   Public document views — what a Share link opens, no login required.
+
+   Same pattern as /public/quotes (the customer approval page): the document
+   id IS the link. Each endpoint returns only what belongs ON the printed
+   document — no internal notes, no other customers, no lists to walk.
+   ========================================================================== */
+import { Controller, Get, NotFoundException, Param, UseGuards } from '@nestjs/common';
+import { docTotals } from 'shared';
+import { PrismaService } from './prisma.service';
+import { AuthGuard, Public } from './auth/auth.guard';
+
+@Controller('public/docs')
+@UseGuards(AuthGuard)
+export class PublicDocsController {
+  constructor(private prisma: PrismaService) {}
+
+  private async companyBlock() {
+    const co = await this.prisma.company.findFirst();
+    const dt = (co?.docTerms || {}) as Record<string, string[]>;
+    return {
+      name: co?.name || '', tagline: co?.tagline || '', logo: co?.logo || '',
+      addr: co?.addr || '', city: co?.city || '', pin: co?.pin || '',
+      phone: co?.phone || '', email: co?.email || '', gstin: co?.gstin || '',
+      state: co?.state || 'Tamil Nadu', gstRate: co?.gstRate ?? 18,
+      // Each document prints ITS OWN terms, set section-wise in Settings.
+      docTerms: {
+        quotation: dt.quotation?.length ? dt.quotation : (co?.terms || []),
+        invoice: dt.invoice?.length ? dt.invoice : [
+          'Payment due within 15 days of invoice date.',
+          'Interest at 18% p.a. applies on overdue amounts.',
+          'Subject to Chennai jurisdiction.',
+        ],
+        contract: dt.contract?.length ? dt.contract : (co?.terms || []),
+        service: dt.service?.length ? dt.service : [
+          'Chemicals applied by licensed applicators as per CIB&RC guidelines.',
+        ],
+      },
+    };
+  }
+
+  @Public()
+  @Get('invoice/:id')
+  async invoice(@Param('id') id: string) {
+    const inv = await this.prisma.invoice.findUnique({
+      where: { id },
+      include: { payments: { orderBy: [{ date: 'desc' }, { id: 'desc' }] } },
+    });
+    if (!inv || inv.status === 'cancelled') throw new NotFoundException('No such invoice');
+    const [client, co] = await Promise.all([
+      this.prisma.client.findUnique({
+        where: { id: inv.clientId },
+        select: {
+          name: true, contact: true, phone: true, addr: true,
+          city: true, pin: true, gstin: true,
+        },
+      }),
+      this.companyBlock(),
+    ]);
+    const items = (Array.isArray(inv.items) ? inv.items : []) as Array<{
+      desc?: string; qty?: number; rate?: number; date?: string; jobId?: string;
+    }>;
+    const t = docTotals(items as never, inv.discount, inv.placeOfSupply || co.state, co.state, co.gstRate);
+    const paid = inv.payments.reduce((a, p) => a + p.amount, 0);
+    return {
+      id: inv.id, date: inv.date, due: inv.due, period: inv.period,
+      status: inv.status, place: t.tax.place,
+      items: items.map((x) => ({
+        desc: x.desc || '', qty: x.qty || 1, rate: x.rate || 0,
+        date: x.date || '', jobId: x.jobId || '',
+      })),
+      totals: {
+        sub: t.sub, disc: t.disc, rows: t.tax.rows, total: t.total,
+        paid, balance: Math.max(0, t.total - paid),
+      },
+      payments: inv.payments.map((p) => ({
+        id: p.id, amount: p.amount, mode: p.mode, date: p.date,
+      })),
+      client, company: co,
+    };
+  }
+
+  @Public()
+  @Get('report/:id')
+  async report(@Param('id') id: string) {
+    const j = await this.prisma.job.findUnique({ where: { id } });
+    // The report exists the moment the service is finished — not before.
+    if (!j || j.status !== 'completed') throw new NotFoundException('No report for this service');
+    const x = (j.exec || {}) as {
+      checkinAt?: string; startedAt?: string; finishedAt?: string; durationMins?: number;
+      geo?: string; photosBefore?: string[]; photosAfter?: string[];
+      chemicals?: Array<{ id: string; qty: number }>;
+      findings?: string[]; areaFindings?: Array<{ area: string; text: string }>;
+      observations?: string; techNotes?: string;
+      signedBy?: string; signature?: boolean; signatureImage?: string; rating?: number;
+      reportSentAt?: string;
+    };
+    const [client, services, crew, items, co] = await Promise.all([
+      this.prisma.client.findUnique({
+        where: { id: j.clientId },
+        select: { name: true, contact: true, phone: true, addr: true, city: true },
+      }),
+      this.prisma.service.findMany({
+        where: { id: { in: j.serviceIds } }, select: { id: true, name: true, warranty: true },
+      }),
+      this.prisma.user.findMany({
+        where: { id: { in: j.techIds } }, select: { id: true, name: true, title: true },
+      }),
+      this.prisma.inventoryItem.findMany({
+        where: { id: { in: (x.chemicals || []).map((c) => c.id) } },
+        select: { id: true, name: true, unit: true },
+      }),
+      this.companyBlock(),
+    ]);
+    const itemOf = new Map(items.map((i) => [i.id, i]));
+    return {
+      id: j.id, date: j.date, slot: j.slot, contractId: j.contractId,
+      visitNo: j.visitNo, ofVisits: j.ofVisits,
+      services: j.serviceIds.map((sid) => {
+        const sv = services.find((s) => s.id === sid);
+        return { name: sv?.name || sid, warranty: sv?.warranty || '' };
+      }),
+      crew: j.techIds.map((tid) => {
+        const t = crew.find((u) => u.id === tid);
+        return { name: t?.name || tid, title: t?.title || '', head: tid === j.headTechId };
+      }),
+      exec: {
+        checkinAt: x.checkinAt || '', startedAt: x.startedAt || '',
+        finishedAt: x.finishedAt || '', durationMins: x.durationMins || 0,
+        geo: x.geo || '',
+        photosBefore: x.photosBefore || [], photosAfter: x.photosAfter || [],
+        chemicals: (x.chemicals || []).map((c) => ({
+          name: itemOf.get(c.id)?.name || c.id, qty: c.qty, unit: itemOf.get(c.id)?.unit || '',
+        })),
+        findings: x.findings || [], areaFindings: x.areaFindings || [],
+        observations: x.observations || '', techNotes: x.techNotes || '',
+        signedBy: x.signedBy || '', signature: !!x.signature,
+        signatureImage: x.signatureImage || '', rating: x.rating || 0,
+        reportSentAt: x.reportSentAt || '',
+      },
+      client, company: co,
+    };
+  }
+
+  @Public()
+  @Get('contract/:id')
+  async contract(@Param('id') id: string) {
+    const c = await this.prisma.contract.findUnique({
+      where: { id }, include: { plan: { orderBy: { order: 'asc' } } },
+    });
+    if (!c) throw new NotFoundException('No such contract');
+    const [client, services, jobs, co] = await Promise.all([
+      this.prisma.client.findUnique({
+        where: { id: c.clientId },
+        select: { name: true, contact: true, phone: true, addr: true, city: true },
+      }),
+      this.prisma.service.findMany({ select: { id: true, name: true } }),
+      this.prisma.job.findMany({
+        where: { contractId: id },
+        orderBy: [{ date: 'asc' }, { slot: 'asc' }],
+        select: { id: true, date: true, slot: true, status: true, serviceIds: true },
+      }),
+      this.companyBlock(),
+    ]);
+    const nameOf = new Map(services.map((s) => [s.id, s.name]));
+    return {
+      id: c.id, mode: c.mode, billing: c.billing, value: c.value,
+      start: c.start, end: c.end, months: c.months,
+      site: c.site || '', billAddr: c.billAddr || '',
+      plan: c.plan.map((l) => ({
+        service: nameOf.get(l.svId) || l.svId,
+        visits: l.visits, freq: l.freq, crew: l.crew,
+      })),
+      schedule: jobs.map((j) => ({
+        id: j.id, date: j.date, slot: j.slot, status: j.status,
+        services: j.serviceIds.map((s) => nameOf.get(s) || s).join(' + '),
+      })),
+      client, company: co,
+    };
+  }
+}
