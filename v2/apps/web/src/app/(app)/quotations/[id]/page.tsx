@@ -179,6 +179,7 @@ export default function QuotationDetail() {
     email: boot.company.email, gstin: boot.company.gstin, addr: boot.company.addr,
     city: boot.company.city, state: boot.company.state, pin: boot.company.pin,
     gstRate: boot.company.gstRate, logo: boot.company.logo, terms: boot.company.terms || [],
+    sign: boot.company.sign, seal: boot.company.seal,
   } : null), [boot]);
 
   function say(msg: string) {
