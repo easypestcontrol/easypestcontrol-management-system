@@ -186,6 +186,18 @@ async function vps(): Promise<QuotaReading[]> {
 /* --------------------------------------------------------------- Ola Maps */
 
 function olaMaps(i: SyncInput): QuotaReading[] {
+  /*
+   * Counting our own calls needs no key — but the service still does, and a
+   * green light over a service that cannot answer a single request is worse
+   * than no light at all. Without the key there is nothing to meter, because
+   * nothing can be asked: every geocode and route fails at Settings.
+   */
+  if (!i.apiKey) {
+    throw new UsageUnavailable(
+      'Ola Maps is not connected — add the API key in Settings → Integrations. '
+      + 'Live map and navigation stay off until then.',
+    );
+  }
   // Ola publishes no usage endpoint, so the honest figure is the one we keep:
   // every geocode, autocomplete and route this app has asked for this month.
   return [{
@@ -258,9 +270,17 @@ export const SYNCABLE = ['Cloudflare R2', 'VPS', 'Ola Maps', 'Razorpay'];
  * What each service needs before a sync is worth attempting — and where it
  * comes from. Nothing on this list is entered on the Credentials page itself.
  */
+/*
+ * What each service needs before it can do its job — not what the meter needs
+ * to read a number. Ola counts its own calls without a key, but it cannot
+ * geocode without one, and it is the geocoding the business is paying for.
+ *
+ * These names are read out of Settings → Integrations, the one place the app
+ * itself keeps them. See the sync in credentials.controller.ts.
+ */
 export const NEEDS: Record<string, string[]> = {
   'Cloudflare R2': [],  // the server environment
   Razorpay: ['apiKey', 'apiSecret'], // Settings → Integrations
-  'Ola Maps': [],
+  'Ola Maps': ['apiKey'],            // Settings → Integrations
   VPS: [],
 };

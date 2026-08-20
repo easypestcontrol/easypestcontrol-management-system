@@ -81,7 +81,7 @@ const PRESETS: Record<string, {
 }> = {
   'Ola Maps': {
     provider: 'Ola Krutrim',
-    source: 'Ola publishes no usage endpoint, so this app counts its own calls — every geocode and route it makes. No key needed here.',
+    source: 'Ola publishes no usage endpoint, so this app counts its own calls — every geocode and route it makes. The key itself lives in Settings → Integrations, where the map and navigation read it.',
   },
   'Cloudflare R2': {
     provider: 'Cloudflare',
@@ -89,7 +89,7 @@ const PRESETS: Record<string, {
     keyHint: 'A token with Account Analytics : Read. Nothing else — it only needs to look.',
     accountLabel: 'Account id',
     accountHint: 'The 32-character id in your Cloudflare dashboard URL.',
-    source: 'Storage and operation counts come from Cloudflare’s analytics API.',
+    source: 'Measured with the same R2 keys that store the photographs, set on the server. Nothing to type here.',
   },
   VPS: {
     provider: '',

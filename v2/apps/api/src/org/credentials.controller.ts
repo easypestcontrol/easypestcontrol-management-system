@@ -141,6 +141,23 @@ export class CredentialsController {
     }
   }
 
+  /**
+   * The operational keys, read from the one place the app itself keeps them.
+   *
+   * Ola and Razorpay are not configured on this page — they are configured in
+   * Settings → Integrations, because that is where the running code looks for
+   * them. Reading them from anywhere else is how a card comes to say "stable"
+   * about a service the rest of the app cannot reach.
+   */
+  private async opKeys(): Promise<Record<string, { apiKey: string; apiSecret: string }>> {
+    const co = await this.prisma.company.findFirst();
+    const ig = (co?.integrations || {}) as Record<string, string>;
+    return {
+      'Ola Maps': { apiKey: open(ig.olaKey) || '', apiSecret: open(ig.olaClientSecret) || '' },
+      Razorpay: { apiKey: open(ig.rzpKeyId) || '', apiSecret: open(ig.rzpKeySecret) || '' },
+    };
+  }
+
   @Get()
   async list() {
     await this.ensure();
@@ -148,11 +165,14 @@ export class CredentialsController {
       include: { quotas: { orderBy: { order: 'asc' } } },
       orderBy: { id: 'asc' },
     });
+    const ops = await this.opKeys();
 
     const items = rows.map((c) => {
       const days = daysUntil(c.renewsOn);
       const need = NEEDS[c.service] || [];
-      const missing = need.filter((f) => !String((c as unknown as Record<string, string>)[f] || '').trim());
+      // Where the key lives decides where we look for it.
+      const from = ops[c.service] || (c as unknown as Record<string, string>);
+      const missing = need.filter((f) => !String((from as Record<string, string>)[f] || '').trim());
       // Everything except the secrets. They go in; they do not come back.
       const { apiKey, apiSecret, accountRef, resourceRef, ...safe } = c;
       const quotas = c.quotas.map((q) => ({
@@ -238,10 +258,11 @@ export class CredentialsController {
       const month = 'ola.calls.' + new Date().toISOString().slice(0, 7);
       const counter = await this.prisma.seq.findUnique({ where: { key: month } });
 
+      const op = (await this.opKeys())[c.service];
       const readings = await readUsage({
         service: c.service,
-        apiKey: open(c.apiKey),
-        apiSecret: open(c.apiSecret),
+        apiKey: op ? op.apiKey : open(c.apiKey),
+        apiSecret: op ? op.apiSecret : open(c.apiSecret),
         accountRef: open(c.accountRef),
         resourceRef: open(c.resourceRef),
         selfCounts: { ola: counter?.value || 0 },
