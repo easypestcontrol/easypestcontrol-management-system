@@ -25,11 +25,16 @@ import {
 
 const PRINT_CSS = `
 @media print {
-  @page { size: A4; margin: 12mm; }
-  aside, header, .no-print { display: none !important; }
-  html, body { height: auto !important; background: #fff !important; }
+  /* margin 0 also drops the browser's URL/date header-footer */
+  @page { size: A4; margin: 0; }
+  aside, header, nav, .no-print { display: none !important; }
+  html, body { height: auto !important; background: #fff !important; margin: 0 !important; }
   div, main { height: auto !important; overflow: visible !important; }
-  .print-doc { border: none !important; border-radius: 0 !important; max-width: none !important; margin: 0 !important; }
+  main { padding: 0 !important; }
+  .print-doc { border: none !important; border-radius: 0 !important; max-width: none !important;
+    margin: 0 !important; box-shadow: none !important; zoom: 0.75; }
+  /* on paper the document is a plain professional invoice — no status stamp */
+  .doc-stamp { display: none !important; }
 }`;
 
 export default function InvoicePage() {
@@ -220,7 +225,7 @@ export default function InvoicePage() {
                 GSTIN: {co?.gstin || '—'}
               </div>
             </div>
-            <span className={'inline-block border-2 rounded px-3 py-1 text-[11px] sm:text-[12px] font-bold uppercase tracking-[0.18em] shrink-0 ' + stamp}>
+            <span className={'doc-stamp inline-block border-2 rounded px-3 py-1 text-[11px] sm:text-[12px] font-bold uppercase tracking-[0.18em] shrink-0 ' + stamp}>
               {STATUS_LABEL[inv.status]}
             </span>
           </div>

@@ -10,17 +10,28 @@
 import { useEffect, useState } from 'react';
 import { money } from 'shared';
 import { api, type Bootstrap, type Company } from '@/lib/api';
-import { STATUS_LABEL, amountInWords, fmtDate, type InvoiceDetail } from '../ui';
+import { amountInWords, fmtDate, type InvoiceDetail } from '../ui';
 
 const PRINT_CSS = `
 @media print {
-  @page { size: A4; margin: 12mm; }
-  aside, header, .no-print { display: none !important; }
-  html, body { height: auto !important; background: #fff !important; }
+  /* Zero page margin ALSO silences the browser's own header and footer —
+     the localhost URL and the date it writes into that margin. The sheet
+     brings its own padding instead. */
+  @page { size: A4; margin: 0; }
+  /* nav too: the mobile bottom bar "shows" in print because the paper is
+     narrower than the lg breakpoint. */
+  aside, header, nav, .no-print { display: none !important; }
+  html, body { height: auto !important; background: #fff !important; margin: 0 !important; }
   div, main { height: auto !important; overflow: visible !important; }
+  main { padding: 0 !important; }
+  .inv-wrap { padding: 0 !important; }
+  .inv-flow { gap: 0 !important; }
   .inv-page { border: none !important; border-radius: 0 !important; box-shadow: none !important;
-    max-width: none !important; margin: 0 !important; page-break-after: always; }
+    max-width: none !important; margin: 0 !important; page-break-after: always;
+    /* a shade smaller, so a full year of visits stays on ONE page */
+    zoom: 0.8; }
   .inv-page:last-child { page-break-after: auto; }
+  .inv-page > div { padding: 12mm 14mm !important; }
 }`;
 
 export default function InvoicesPrint() {
@@ -60,7 +71,7 @@ export default function InvoicesPrint() {
   }
 
   return (
-    <div className="p-4 lg:p-6">
+    <div className="inv-wrap p-4 lg:p-6">
       <style>{PRINT_CSS}</style>
 
       <div className="no-print max-w-[820px] mx-auto mb-4 flex items-center gap-3 flex-wrap">
@@ -79,7 +90,7 @@ export default function InvoicesPrint() {
         )}
       </div>
 
-      <div className="flex flex-col gap-6">
+      <div className="inv-flow flex flex-col gap-6">
         {docs.map((inv) => <InvoiceSheet key={inv.id} inv={inv} co={co} />)}
       </div>
     </div>
@@ -90,10 +101,6 @@ export default function InvoicesPrint() {
 
 function InvoiceSheet({ inv, co }: { inv: InvoiceDetail; co: Company }) {
   const t = inv.totals;
-  const stamp =
-    inv.status === 'overdue' ? 'text-accent border-accent'
-    : inv.status === 'paid' ? 'text-navy border-navy'
-    : 'text-muted border-line';
   const placeLabel = t.place + (t.place === 'Tamil Nadu' ? ' (33)' : '');
 
   return (
@@ -119,9 +126,6 @@ function InvoiceSheet({ inv, co }: { inv: InvoiceDetail; co: Company }) {
               GSTIN: {co.gstin || '—'}
             </div>
           </div>
-          <span className={'inline-block border-2 rounded px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] shrink-0 ' + stamp}>
-            {STATUS_LABEL[inv.status]}
-          </span>
         </div>
 
         <div className="mt-3 flex items-end justify-between gap-4 flex-wrap">
@@ -201,17 +205,6 @@ function InvoiceSheet({ inv, co }: { inv: InvoiceDetail; co: Company }) {
             <div className="flex justify-between py-1 mt-1 border-t-2 border-navy font-bold text-[13px]">
               <span>Invoice total</span><span>{money(t.total)}</span>
             </div>
-            {t.paid > 0 && (
-              <>
-                <div className="flex justify-between py-0.5 text-muted">
-                  <span>Amount paid</span><span>− {money(t.paid)}</span>
-                </div>
-                <div className={'flex justify-between py-1 border-t border-line font-bold '
-                  + (t.balance > 0 ? 'text-accent' : '')}>
-                  <span>Balance due</span><span>{money(t.balance)}</span>
-                </div>
-              </>
-            )}
             <p className="text-[10px] text-muted mt-1.5 leading-snug">{amountInWords(t.total)}</p>
           </div>
         </div>

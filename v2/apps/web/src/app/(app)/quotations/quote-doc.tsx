@@ -46,9 +46,12 @@ export default function QuoteDoc({ q, company }: { q: QuoteFull; company: DocCom
           .qdoc {
             position: absolute; left: 0; top: 0; width: 100%;
             max-width: none; margin: 0; border: 0; border-radius: 0; box-shadow: none;
+            padding: 14mm !important;
           }
           .no-print { display: none !important; }
-          @page { size: A4; margin: 14mm; }
+          /* margin 0 drops the browser's URL/date header-footer;
+             the 14mm lives on .qdoc instead */
+          @page { size: A4; margin: 0; }
         }
       `}</style>
       <div className="p-5 sm:p-10">
