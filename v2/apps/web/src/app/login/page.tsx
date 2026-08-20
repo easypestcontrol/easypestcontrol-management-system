@@ -3,31 +3,24 @@
 /* ============================================================================
    Sign in.
 
-   There is one way in: the email and password the administrator issued. No
-   role cards, no one-click anything. The demo build shipped a shared password
-   in this file so a visitor could look around as any of six people — which
-   also meant the password was readable by anyone who opened the page source.
-   In production that is not a convenience, it is the front door left open.
+   One card in the middle of the page: the mark, two fields, a button. There
+   is nothing else here on purpose — a person reaching this screen already
+   works here and is not being sold anything, and a sales panel beside a
+   password box is just something else to read at seven in the morning.
 
-   Who you are decides where you land and what you can see: homeFor() sends a
-   technician to his day rather than the office dashboard, and the branch on
-   the account scopes the data behind every screen. Both are decided from the
-   signed token on the server, never from anything typed here.
+   The logo carries the company name and its line, so neither is repeated as
+   text underneath; a wordmark printed twice reads as a mistake.
+
+   One way in: the email and password the administrator issued. The demo
+   build shipped a shared password in this file so a visitor could look
+   around as any of six people — which also put that password in front of
+   anyone who opened the page source.
    ========================================================================== */
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { api, setToken, type SessionUser } from '@/lib/api';
 import { homeFor } from 'shared';
-
-const FEATURES = [
-  'Lead pipeline with follow-ups',
-  'Quotations with GST + customer approval links',
-  'AMC contracts that generate every visit',
-  'Drag-and-drop technician dispatch',
-  'Field execution with photo proof + signatures',
-  'Invoices, payments and outstanding',
-];
 
 export default function Login() {
   const router = useRouter();
@@ -59,90 +52,56 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* ------------------------------------------------ brand panel */}
-      <div className="hidden lg:flex w-[42%] bg-navy text-white flex-col p-12 overflow-y-auto">
-        <div className="flex items-center gap-3">
-          <span className="w-10 h-10 rounded bg-accent flex items-center justify-center font-bold text-lg">P</span>
-          <span>
-            <span className="block text-[17px] font-bold leading-tight">PestOps</span>
-            <span className="block text-[10px] tracking-[0.1em] uppercase text-white/50 font-semibold">Operations Platform</span>
-          </span>
-        </div>
+    <div className="min-h-screen bg-wash flex items-center justify-center p-5">
+      <div className="w-full max-w-[400px]">
+        <div className="rounded-2xl bg-white border border-line shadow-card px-7 py-8 sm:px-9 sm:py-10">
+          {/* The mark is the heading. Width, not height, keeps a wide
+              wordmark from swelling on a narrow screen. */}
+          <img
+            src="/logo.png"
+            alt="Easy Pest — Next Level Pest Control Expert"
+            className="w-[190px] max-w-full mx-auto"
+          />
 
-        <div className="mt-12">
-          <h1 className="text-[26px] font-semibold leading-snug max-w-md">
-            Run your whole pest-control business from one screen.
-          </h1>
-          <p className="mt-4 text-white/60 text-[13.5px] leading-relaxed max-w-sm">
-            Lead to quotation, quotation to AMC contract, contract to scheduled visits,
-            visits to photo-proof reports and invoices — no more WhatsApp threads and
-            manual books.
-          </p>
-
-          <ul className="mt-8 space-y-2.5">
-            {FEATURES.map((f) => (
-              <li key={f} className="flex items-start gap-2.5 text-[13px] text-white/75">
-                <span className="mt-[3px] w-3.5 h-3.5 rounded-sm bg-accent/90 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-                </span>
-                {f}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <p className="mt-auto pt-10 text-white/35 text-[12px]">© {new Date().getFullYear()} PestOps</p>
-      </div>
-
-      {/* ------------------------------------------------ entry */}
-      <div className="flex-1 flex items-center justify-center overflow-y-auto p-5 lg:p-8">
-        <div className="w-full max-w-[380px] py-4">
-          {/* The brand panel is hidden on a phone, so the mark comes along. */}
-          <div className="flex items-center gap-3 lg:hidden mb-8">
-            <span className="w-10 h-10 rounded bg-accent flex items-center justify-center font-bold text-lg text-white">P</span>
-            <span>
-              <span className="block text-[17px] font-bold leading-tight">PestOps</span>
-              <span className="block text-[10px] tracking-[0.1em] uppercase text-muted-2 font-semibold">Operations Platform</span>
-            </span>
-          </div>
-
-          <h2 className="text-[22px] font-semibold">Sign in</h2>
-          <p className="text-muted text-[13px] mt-1.5 leading-relaxed">
+          <h1 className="mt-8 text-[19px] font-semibold text-center">Sign in</h1>
+          <p className="text-muted text-[13px] mt-1.5 text-center leading-relaxed">
             Use the email and password your administrator issued you.
           </p>
 
-          <form onSubmit={signIn} className="mt-6 space-y-3.5">
+          <form onSubmit={signIn} className="mt-7 space-y-4">
             <label className="block">
               <span className="block text-[12.5px] font-medium mb-1.5">Email</span>
               <input value={email} onChange={(e) => setEmail(e.target.value)}
                 type="email" required autoComplete="username" autoFocus
-                className="w-full h-11 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy" />
+                className="w-full h-11 px-3 rounded-lg border border-line text-[13.5px] outline-none focus:border-navy" />
             </label>
 
             <label className="block">
               <span className="block text-[12.5px] font-medium mb-1.5">Password</span>
               <input value={password} onChange={(e) => setPassword(e.target.value)}
                 type="password" required autoComplete="current-password"
-                className="w-full h-11 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy" />
+                className="w-full h-11 px-3 rounded-lg border border-line text-[13.5px] outline-none focus:border-navy" />
             </label>
 
-            {/* Reserve the line so the button does not jump when it appears. */}
             {err && (
               <p role="alert" className="text-accent text-[12.5px] leading-relaxed">{err}</p>
             )}
 
             <button disabled={busy}
-              className="w-full h-11 rounded bg-accent text-white font-semibold text-[13.5px] hover:brightness-90 disabled:opacity-60">
+              className="w-full h-11 rounded-lg bg-accent text-white font-semibold text-[13.5px] hover:brightness-90 disabled:opacity-60">
               {busy ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
 
-          <p className="mt-6 text-muted-2 text-[12px] leading-relaxed">
+          <p className="mt-6 text-muted-2 text-[12px] leading-relaxed text-center">
             Lost your password? Ask your administrator to set a new one — for
             security, nobody here can read the one you had.
           </p>
         </div>
+
+        <p className="mt-5 text-center text-muted-2 text-[11.5px]">
+          © {new Date().getFullYear()} Easy Pest Control
+        </p>
       </div>
     </div>
   );
