@@ -20,6 +20,11 @@ COPY --from=build /app/packages/shared/package.json packages/shared/
 COPY --from=build /app/apps/api/dist apps/api/dist
 COPY --from=build /app/apps/api/package.json apps/api/
 COPY --from=build /app/apps/api/prisma apps/api/prisma
+# The seed is TypeScript run through ts-node, so it needs the config that says
+# how to compile it. Without this, ts-node falls back to defaults that conflict
+# with each other and `npm run db:seed` dies on TS5109 inside the container —
+# which is a terrible moment to discover it, halfway through a deployment.
+COPY --from=build /app/apps/api/tsconfig.json apps/api/
 WORKDIR /app/apps/api
 EXPOSE 4000
 CMD ["node", "dist/main.js"]
