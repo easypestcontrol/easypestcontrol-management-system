@@ -12,7 +12,21 @@ import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
-const PASSWORD = 'pestops123';
+/*
+ * The starting password every seeded account gets. It is read from the
+ * environment and never written here: this file is public on GitHub, so a
+ * constant in it is a published password, which is how the previous one
+ * ('pestops123') came to open the live system to anybody who read the repo.
+ *
+ * Set DEFAULT_USER_PASSWORD in the server's .env before seeding.
+ */
+const PASSWORD = String(process.env.DEFAULT_USER_PASSWORD || '').trim();
+if (!PASSWORD) {
+  throw new Error(
+    'DEFAULT_USER_PASSWORD is not set. Put it in the .env this seed runs with — '
+    + 'it must not be committed to the repository.',
+  );
+}
 
 async function main() {
   const hash = await bcrypt.hash(PASSWORD, 10);

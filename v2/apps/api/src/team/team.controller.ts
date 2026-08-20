@@ -8,7 +8,8 @@
    still unedited (DEFAULT_TITLE, team.js:10). Members are deactivated, never
    deleted — their id is stamped on jobs, quotes and contracts.
 
-   v2 additions over v1: passwords (default 'pestops123', bcrypt), an active
+   v2 additions over v1: passwords (a starting password from the environment,
+   bcrypt-hashed; never a constant in this repo), an active
    flag, and the working-hours editor the parity doc asks for ("no editor UI
    in v1" — V2_PARITY.md §1.5 hours).
 
@@ -27,17 +28,24 @@ import { isFieldTech } from 'shared';
 import { branchScope, clampScope } from '../branch.util';
 
 /**
- * A fresh password for a new member, shown to the admin once and never stored
- * in the clear.
+ * The password a new member starts with.
  *
- * It used to be a constant every account shared, which is fine for a demo and
- * indefensible in production: the value sits in the source, so knowing one
- * person's email is knowing their password. Random per member closes that, and
- * because nobody can read it back afterwards, a forgotten password is reset
- * rather than looked up.
+ * One shared starting password, by the owner's decision — it is what the
+ * office actually does when handing a phone to a new technician. The rule
+ * that matters is where it is written down: DEFAULT_USER_PASSWORD lives in
+ * the server's .env, never in this repository, because the previous constant
+ * was public on GitHub and therefore was not a password at all.
  *
- * No l/1/I or O/0 — this gets read off a screen and typed on a phone.
+ * With nothing configured there is no guessable fallback — each member gets a
+ * random one instead, shown to the admin once.
  */
+function startingPassword(): string {
+  const configured = String(process.env.DEFAULT_USER_PASSWORD || '').trim();
+  if (configured) return configured;
+  return freshPassword();
+}
+
+/** Random, unambiguous on a phone screen: no l/1/I, no O/0. */
 const PW_ALPHABET = 'abcdefghijkmnpqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ23456789';
 function freshPassword(): string {
   const bytes = crypto.randomBytes(12);
@@ -234,7 +242,7 @@ export class TeamController {
     }
 
     const role = DEFAULT_TITLE[String(body.role || '')] ? String(body.role) : 'tech';
-    const tempPassword = freshPassword();
+    const tempPassword = startingPassword();
 
     // Mint the next free U-id. Seeded ids were not counted into the sequence,
     // so scan past collisions the way v1's nextBranchId did (masterdata.js:21-26).
