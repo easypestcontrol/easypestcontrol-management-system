@@ -1,17 +1,21 @@
-/* Shared looks for the Expenses module — the category glyphs and the status
+/* Shared looks for the Expenses module — the category icons and the status
    chips, one source so the shelf and the folder always match. */
 
-export const CATEGORY_GLYPH: Record<string, string> = {
-  'Fuel / Petrol': '⛽',
-  'Food & tea': '🍱',
-  'Travel (bus / train / auto)': '🚌',
-  'Materials & supplies': '🧰',
-  'Vehicle repair': '🔧',
-  'Mobile recharge': '📱',
-  'Accommodation': '🏨',
-  'Other': '🧾',
-  'Trip allowance': '🛵',
+import type { IconName } from '@/components/icons';
+
+export const CATEGORY_ICON: Record<string, IconName> = {
+  'Fuel / Petrol': 'fuel',
+  'Food & tea': 'food',
+  'Travel (bus / train / auto)': 'bus',
+  'Materials & supplies': 'tools',
+  'Vehicle repair': 'wrench',
+  'Mobile recharge': 'phone',
+  'Accommodation': 'bed',
+  'Other': 'receipt',
+  'Trip allowance': 'road',
 };
+
+export const catIcon = (name: string): IconName => CATEGORY_ICON[name] || 'receipt';
 
 export const STATUS_CHIP: Record<string, { label: string; cls: string }> = {
   open: { label: 'OPEN', cls: 'bg-wash text-muted border border-line' },

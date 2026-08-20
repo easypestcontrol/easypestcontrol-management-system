@@ -13,7 +13,7 @@ import { money } from 'shared';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { initials } from '../contracts/lib';
-import { CATEGORY_GLYPH, STATUS_CHIP } from './ui';
+import { catIcon, STATUS_CHIP } from './ui';
 
 interface Row {
   id: string; title: string; date: string; status: string; branch: string;
@@ -98,7 +98,7 @@ export default function ExpensesPage() {
   const hasSpend = data.byMonth.some((m) => m.total > 0);
 
   return (
-    <div className="p-4 lg:p-6 max-w-[980px]">
+    <div className="p-4 lg:p-6">
       <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-[20px] font-semibold">Expenses</h1>
@@ -115,7 +115,7 @@ export default function ExpensesPage() {
 
       {/* ------------------------------------------------ analytics band */}
       {hasSpend && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
           <section className="rounded-md border border-line bg-white p-4 shadow-card">
             <div className="mb-2 flex items-baseline gap-2">
               <h2 className="text-[13px] font-semibold">Spend, month by month</h2>
@@ -130,11 +130,23 @@ export default function ExpensesPage() {
             </div>
             <CategoryBars cats={data.byCategory} />
           </section>
+          <div className="max-lg:hidden flex flex-col gap-3">
+            {[
+              { label: 'This month', v: money(monthTotal), hot: false },
+              { label: data.canManage ? 'To approve' : 'With the admin', v: String(queueN), hot: queueN > 0 },
+              { label: data.canManage ? 'To pay out' : 'Owed to you', v: money(owed), hot: owed > 0 },
+            ].map((c) => (
+              <div key={c.label} className="flex-1 rounded-md border border-line bg-white px-4 py-3 shadow-card flex items-center justify-between">
+                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-muted">{c.label}</p>
+                <p className={'text-[19px] font-bold leading-none ' + (c.hot ? 'text-accent' : '')}>{c.v}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {/* ------------------------------------------------- summary chips */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
+      <div className={'grid grid-cols-3 gap-3 mb-4 ' + (hasSpend ? 'lg:hidden' : '')}>
         {[
           { label: 'This month', v: money(monthTotal), hot: false },
           { label: data.canManage ? 'To approve' : 'With the admin', v: String(queueN), hot: queueN > 0 },
@@ -247,8 +259,8 @@ function CategoryBars({ cats }: { cats: List['byCategory'] }) {
     <div className="flex flex-col gap-2">
       {cats.map((c) => (
         <div key={c.name} className="flex items-center gap-2.5">
-          <span className="w-7 h-7 rounded bg-wash flex items-center justify-center text-[14px] shrink-0">
-            {CATEGORY_GLYPH[c.name] || '🧾'}
+          <span className="w-7 h-7 rounded bg-red-wash text-accent flex items-center justify-center shrink-0">
+            <Icon name={catIcon(c.name)} size={14} />
           </span>
           <span className="flex-1 min-w-0">
             <span className="flex justify-between text-[12px] mb-0.5">

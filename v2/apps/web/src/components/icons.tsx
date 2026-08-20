@@ -42,6 +42,16 @@ const PATHS = {
   upload: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 8 5-5 5 5M12 3v12" /></>,
   x: <path d="M18 6 6 18M6 6l12 12" />,
   check: <path d="M20 6 9 17l-5-5" />,
+  // ---- expense categories ----
+  fuel: <><path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16" /><path d="M2.5 21h13M4 10.5h10" /><path d="M14 8.5h2.5a2 2 0 0 1 2 2V17a1.5 1.5 0 0 0 3 0v-6.8L19 7.5" /></>,
+  food: <><path d="M17 9h1.5a3.5 3.5 0 0 1 0 7H17" /><path d="M3 9h14v6a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z" /><path d="M6.5 2.8v2.7M10 2.8v2.7M13.5 2.8v2.7" /></>,
+  bus: <><path d="M4 4h16v13H4z" /><path d="M4 10.5h16M4 17v2.5M20 17v2.5" /><path d="M8 13.8h.01M16 13.8h.01" /></>,
+  tools: <><path d="m12.5 7.5 4 4L8 20l-4 1 1-4z" /><path d="m15 5 2.5-2.5a1.4 1.4 0 0 1 2 0l2 2a1.4 1.4 0 0 1 0 2L19 9" /><path d="m14.5 5.5 4 4" /></>,
+  wrench: <><path d="M14.7 6.3a4.5 4.5 0 0 0-6 5.7L3 17.7A2.1 2.1 0 0 0 6 20.7l5.7-5.7a4.5 4.5 0 0 0 5.7-6L14 12.4 11.6 10z" /></>,
+  phone: <><rect x="6.5" y="2.8" width="11" height="18.4" rx="2" /><path d="M10.5 18.5h3" /></>,
+  bed: <><path d="M3 18V7" /><path d="M3 13h18v5" /><path d="M3 15h18" /><circle cx="7" cy="10" r="1.6" /><path d="M11 11.5h7a3 3 0 0 1 3 3" /></>,
+  receipt: <><path d="M5 3h14v18l-2.3-1.5L14.4 21l-2.4-1.5L9.6 21l-2.3-1.5L5 21z" /><path d="M9 7.5h6M9 11h6M9 14.5h3.5" /></>,
+  road: <><path d="M4 20 9 4h6l5 16" /><path d="M12 6.5v2.2M12 11v2.2M12 15.5v2.2" /></>,
 } as const;
 
 export type IconName = keyof typeof PATHS;

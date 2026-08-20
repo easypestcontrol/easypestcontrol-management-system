@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { money } from 'shared';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
-import { CATEGORY_GLYPH, STATUS_CHIP } from '../ui';
+import { catIcon, STATUS_CHIP } from '../ui';
 
 interface Item {
   id: string; kind: string; date: string; category: string; merchant: string;
@@ -87,7 +87,7 @@ export default function ExpenseFolder() {
   }
 
   return (
-    <div className="p-4 lg:p-6 max-w-[860px]">
+    <div className="p-4 lg:p-6 max-w-[1100px]">
       <Link href="/expenses" className="text-[12.5px] text-muted hover:text-ink">← All expenses</Link>
 
       {/* ------------------------------------------------------- header */}
@@ -139,8 +139,8 @@ export default function ExpenseFolder() {
             ) : f.expenses.map((e, i) => (
               <div key={e.id}
                 className={'flex items-start gap-3 px-4 py-3 ' + (i < f.expenses.length - 1 ? 'border-b border-line-soft' : '')}>
-                <span className="w-10 h-10 rounded-lg bg-wash flex items-center justify-center text-[17px] shrink-0 mt-0.5">
-                  {CATEGORY_GLYPH[e.category] || '🧾'}
+                <span className="w-10 h-10 rounded-lg bg-red-wash text-accent flex items-center justify-center shrink-0 mt-0.5">
+                  <Icon name={catIcon(e.category)} size={17} />
                 </span>
                 <span className="flex-1 min-w-0">
                   <span className="block text-[13px] font-semibold">
@@ -206,7 +206,7 @@ export default function ExpenseFolder() {
               {Array.from(catSum.entries()).map(([cat, v]) => (
                 <div key={cat} className="flex items-center justify-between gap-2 py-1 text-[12px]">
                   <span className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-[13px]">{CATEGORY_GLYPH[cat] || '🧾'}</span>
+                    <Icon name={catIcon(cat)} size={13} className="text-muted shrink-0" />
                     <span className="truncate">{cat}</span>
                   </span>
                   <span className="font-semibold shrink-0">{money(v)}</span>
@@ -334,7 +334,8 @@ function AddForm({ folderId, kmRate, onAdded }: {
           <button key={k} onClick={() => setKind(k)}
             className={'h-9 px-4 rounded-md text-[13px] font-semibold border transition-colors '
               + (kind === k ? 'border-navy bg-wash text-navy' : 'border-line text-muted hover:bg-wash')}>
-            {k === 'expense' ? '🧾 Expense with bill' : '🛵 Trip (km allowance)'}
+            <Icon name={k === 'expense' ? 'receipt' : 'road'} size={14} className="inline mr-1.5 align-[-2px]" />
+            {k === 'expense' ? 'Expense with bill' : 'Trip (km allowance)'}
           </button>
         ))}
       </div>
@@ -349,7 +350,7 @@ function AddForm({ folderId, kmRate, onAdded }: {
           <label className="block">
             <span className="block text-[12px] font-semibold text-ink-2 mb-1">Category</span>
             <select value={category} onChange={(e) => setCategory(e.target.value)} className={input}>
-              {CATEGORIES.map((c) => <option key={c}>{(CATEGORY_GLYPH[c] || '') + ' ' + c}</option>)}
+              {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
             </select>
           </label>
           <label className="block">
