@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { api, type DashboardStats, type SessionUser } from '@/lib/api';
 import { isFieldTech } from 'shared';
 import TechDashboard from './tech-dashboard';
+import AdminMobile from './admin-mobile';
 import { useBranchFilter } from '@/components/branch-filter';
 import { Icon, type IconName } from '@/components/icons';
 
@@ -76,7 +77,13 @@ export default function Dashboard() {
   const actions = ACTIONS.filter((a) => !me || a.roles.includes(me.role));
 
   return (
-    <div className="p-4 lg:p-6 max-w-[1200px]">
+    <>
+      {/* The phone gets its own screen, not this one at a narrower width.
+          Two designs, because the two devices are used differently: a desk
+          is where the business is examined, a phone is where it is checked. */}
+      <AdminMobile s={s} me={me} actions={actions} branchEl={bf.el} />
+
+    <div className="max-lg:hidden p-4 lg:p-6 max-w-[1200px]">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
           <h1 className="text-[20px] font-semibold">Home</h1>
@@ -202,6 +209,7 @@ export default function Dashboard() {
         </>
       )}
     </div>
+    </>
   );
 }
 

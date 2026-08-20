@@ -81,6 +81,18 @@ export class ExpensesController {
     return expenses.reduce((a, e) => a + e.amount, 0);
   }
 
+  /** One line into the folder's diary — the Zoho-style report history. */
+  private async hist(id: string, text: string) {
+    const r = await this.prisma.expenseReport.findUnique({
+      where: { id }, select: { history: true },
+    });
+    const h = Array.isArray(r?.history) ? (r!.history as Array<unknown>) : [];
+    await this.prisma.expenseReport.update({
+      where: { id },
+      data: { history: [...h, { at: nowStamp(), text }] as never },
+    }).catch(() => {});
+  }
+
   /* ------------------------------------------------------------- reading */
 
   /** Admin sees every folder in scope; everyone else sees their own. */
@@ -95,16 +107,42 @@ export class ExpensesController {
       this.prisma.expenseReport.findMany({
         where: where as never,
         orderBy: [{ date: 'desc' }, { id: 'desc' }],
-        include: { expenses: { select: { amount: true } } },
+        include: { expenses: { select: { amount: true, category: true, kind: true } } },
         take: 200,
       }),
       this.prisma.user.findMany({ select: { id: true, name: true, color: true } }),
       this.prisma.company.findFirst({ select: { kmRate: true } }),
     ]);
     const uOf = new Map(users.map((u) => [u.id, u]));
+
+    // The shelf's analytics: where the money goes, and how the months run.
+    const catOf = new Map<string, number>();
+    const monOf = new Map<string, number>();
+    for (const r of reports) {
+      if (r.status === 'rejected') continue;
+      const m = r.date.slice(0, 7);
+      for (const e of r.expenses) {
+        catOf.set(e.category, (catOf.get(e.category) || 0) + e.amount);
+        monOf.set(m, (monOf.get(m) || 0) + e.amount);
+      }
+    }
+    const now = new Date();
+    const MONTHS_S = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const byMonth: Array<{ label: string; total: number }> = [];
+    for (let k = 5; k >= 0; k--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - k, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      byMonth.push({ label: MONTHS_S[d.getMonth()], total: monOf.get(key) || 0 });
+    }
+    const byCategory = Array.from(catOf.entries())
+      .map(([name, total]) => ({ name, total }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 6);
+
     return {
       canManage: admin,
       kmRate: co?.kmRate || 0,
+      byMonth, byCategory,
       rows: reports.map((r) => ({
         id: r.id, title: r.title, date: r.date, status: r.status, branch: r.branch,
         by: r.by, byName: uOf.get(r.by)?.name || 'Former staff (' + r.by + ')',
@@ -162,6 +200,7 @@ export class ExpensesController {
         by: me,
         branch: user?.branches[0] || '',
         note: String(body.note || '').trim(),
+        history: [{ at: nowStamp(), text: 'Folder created by ' + (user?.name || me) }] as never,
       },
     });
     return { id: r.id };
@@ -208,11 +247,13 @@ export class ExpensesController {
         images: cleanImages(body.images) as never,
       },
     });
+    await this.hist(id, e.id + ' added — Rs ' + amount.toLocaleString('en-IN') + ' ' + e.category);
     // A rejected folder being reworked goes back to open.
     if (r.status === 'rejected') {
       await this.prisma.expenseReport.update({
         where: { id }, data: { status: 'open', adminNote: '' },
       });
+      await this.hist(id, 'Reopened for rework');
     }
     return { id: e.id, amount };
   }
@@ -226,6 +267,7 @@ export class ExpensesController {
       throw new BadRequestException('This folder has been submitted — it cannot be changed now');
     }
     await this.prisma.expense.delete({ where: { id } });
+    await this.hist(e.reportId, e.id + ' removed');
     return { ok: true };
   }
 
@@ -256,8 +298,9 @@ export class ExpensesController {
     }
     if (!r.expenses.length) throw new BadRequestException('The folder is empty — add an expense first');
     await this.prisma.expenseReport.update({
-      where: { id }, data: { status: 'submitted', adminNote: '' },
+      where: { id }, data: { status: 'submitted', adminNote: '', submittedAt: nowStamp() },
     });
+    await this.hist(id, 'Submitted for approval — Rs ' + this.sum(r.expenses).toLocaleString('en-IN'));
     const who = await this.prisma.user.findUnique({ where: { id: r.by } });
     await this.notifyAdmins(
       `Expenses to approve: Rs ${this.sum(r.expenses).toLocaleString('en-IN')} from ${who?.name || r.by}` +
@@ -284,8 +327,13 @@ export class ExpensesController {
         status: approve ? 'approved' : 'rejected',
         adminNote: note,
         approvedBy: approve ? (req.user?.sub || '') : '',
+        decidedAt: nowStamp(),
       },
     });
+    const who = await this.prisma.user.findUnique({ where: { id: req.user?.sub || '' } });
+    await this.hist(id, approve
+      ? 'Approved by ' + (who?.name || 'admin')
+      : 'Returned by ' + (who?.name || 'admin') + ': ' + note);
     await this.notify(r.by, approve
       ? `Expenses approved: Rs ${this.sum(r.expenses).toLocaleString('en-IN')} — ${r.title}. Payment follows. (${r.id})`
       : `Expenses returned: ${r.title} — ${note} (${r.id})`);
@@ -340,6 +388,9 @@ export class ExpensesController {
       where: { id },
       data: { status: 'paid', paidAt: nowStamp(), payMode: mode, payoutId },
     });
+    await this.hist(id, mode === 'razorpayx'
+      ? 'Rs ' + total.toLocaleString('en-IN') + ' paid via RazorpayX' + (payoutId ? ' · ' + payoutId : '')
+      : 'Rs ' + total.toLocaleString('en-IN') + ' marked paid by hand');
     await this.notify(r.by,
       `Expenses paid: Rs ${total.toLocaleString('en-IN')} — ${r.title}` +
       (mode === 'razorpayx' ? ' sent to your bank account via RazorpayX.' : ' (paid by hand).') +

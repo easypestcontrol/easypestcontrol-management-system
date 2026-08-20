@@ -446,9 +446,14 @@ model ExpenseReport {
   note       String    @default("")
   adminNote  String    @default("") // the reason on a rejection
   approvedBy String    @default("")
+  submittedAt String   @default("")
+  decidedAt  String    @default("")
   paidAt     String    @default("")
   payMode    String    @default("") // razorpayx | manual
   payoutId   String    @default("") // RazorpayX payout id, for the audit trail
+  // The report's own diary — [{at, text}], appended at every step, shown as
+  // the history trail the way Zoho shows Report History.
+  history    Json      @default("[]")
   createdAt  DateTime  @default(now())
   expenses   Expense[]
 }
