@@ -38,7 +38,9 @@ function NavigateSheet({ destText, title, onClose }: {
   }>>([]);
   const [navOn, setNavOn] = useState(false);
   const [nav, setNav] = useState<{ idx: number; toStepM: number; remainM: number; remainS: number } | null>(null);
-  const mapCtl = useRef<{ move: (lat: number, lng: number, follow: boolean) => void } | null>(null);
+  const mapCtl = useRef<{
+    move: (lat: number, lng: number, follow: boolean, bearing?: number | null) => void;
+  } | null>(null);
   const navWatch = useRef<(() => void) | null>(null);
   const navIdx = useRef(0);
   const navLast = useRef(0);
@@ -49,6 +51,7 @@ function NavigateSheet({ destText, title, onClose }: {
   const spokenIdx = useRef(-1);      // which step has been announced
   const spokenNear = useRef(-1);     // which step got its "in 200 m" warning
   const offCount = useRef(0);        // consecutive fixes away from the line
+  const lastFix = useRef<{ lat: number; lng: number } | null>(null);
   const [rerouting, setRerouting] = useState(false);
 
   const position = () => getPosition();
@@ -65,6 +68,27 @@ function NavigateSheet({ destText, title, onClose }: {
       Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.sin(rad(bLng - aLng) / 2) ** 2;
     return 2 * 6371000 * Math.asin(Math.sqrt(h));
   };
+
+  /**
+   * Which way the car is pointing, from where it was to where it is.
+   *
+   * Phones report a `heading`, but it is the compass — it swings with the
+   * handset lying on a seat and is absent on many devices. Two consecutive
+   * positions give course over ground instead, which is what the map should
+   * turn to. Under 8 m of movement there is no reliable direction, so we
+   * return null and the camera keeps the rotation it had.
+   */
+  function bearingFrom(lat: number, lng: number): number | null {
+    const p = lastFix.current;
+    lastFix.current = { lat, lng };
+    if (!p) return null;
+    if (metres(p.lat, p.lng, lat, lng) < 8) return null;
+    const rad = (x: number) => (x * Math.PI) / 180;
+    const y = Math.sin(rad(lng - p.lng)) * Math.cos(rad(lat));
+    const x = Math.cos(rad(p.lat)) * Math.sin(rad(lat)) -
+      Math.sin(rad(p.lat)) * Math.cos(rad(lat)) * Math.cos(rad(lng - p.lng));
+    return (Math.atan2(y, x) * 180) / Math.PI;
+  }
 
   /** Ola writes instructions with markup in them; a voice reads it literally. */
   const plain = (t: string) => t.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -111,14 +135,6 @@ function NavigateSheet({ destText, title, onClose }: {
     return best;
   }
 
-  /** Hand the drive to Google Maps — its voice, its traffic, its lane guidance. */
-  function openInGoogleMaps() {
-    if (!destLL) return;
-    const url = 'https://www.google.com/maps/dir/?api=1&destination='
-      + destLL.lat + ',' + destLL.lng + '&travelmode=driving&dir_action=navigate';
-    window.open(url, '_blank');
-  }
-
   async function fetchRoute(h: { lat: number; lng: number }, d: { lat: number; lng: number }) {
     const r = await api.get<{ distanceM: number; durationS: number; polyline: string;
       steps: Array<{ text: string; distanceM: number; durationS: number; maneuver: string; lat: number; lng: number }>;
@@ -143,7 +159,7 @@ function NavigateSheet({ destText, title, onClose }: {
       if (now - navLast.current < 3000) return;
       navLast.current = now;
       const la = pos.coords.latitude, ln = pos.coords.longitude;
-      mapCtl.current?.move(la, ln, true);
+      mapCtl.current?.move(la, ln, true, bearingFrom(la, ln));
       setHere({ lat: la, lng: ln });
 
       /*
@@ -203,6 +219,7 @@ function NavigateSheet({ destText, title, onClose }: {
     setNavOn(false);
     spokenIdx.current = -1;
     spokenNear.current = -1;
+    lastFix.current = null;
     // A sheet closed mid-sentence should not keep talking.
     if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
   }
@@ -305,7 +322,9 @@ function NavigateSheet({ destText, title, onClose }: {
           )}
           {state === 'ready' && olaKey && (
             <RouteMap key={mapKey} olaKey={olaKey} here={here} dest={destLL} route={route} height={420}
-              onReady={(c: { move: (lat: number, lng: number, follow: boolean) => void }) => { mapCtl.current = c; }} />
+              onReady={(c: {
+                move: (lat: number, lng: number, follow: boolean, bearing?: number | null) => void;
+              }) => { mapCtl.current = c; }} />
           )}
           {state === 'ready' && (
             <div className="flex gap-2 mt-3 flex-wrap">
@@ -329,14 +348,6 @@ function NavigateSheet({ destText, title, onClose }: {
                 className={'h-10 px-4 rounded border text-[13px] font-semibold hover:bg-wash '
                   + (voice ? 'border-navy text-navy' : 'border-line text-muted')}>
                 {voice ? '🔊 Voice on' : '🔇 Voice off'}
-              </button>
-              {/* When the driver wants the real thing — Google's voice, its
-                  traffic and its lane guidance. We keep tracking either way,
-                  because the trip log is ours and does not depend on which
-                  map they looked at. */}
-              <button onClick={openInGoogleMaps} disabled={!destLL}
-                className="h-10 px-4 rounded border border-line text-[13px] font-semibold hover:bg-wash disabled:opacity-50">
-                Open in Google Maps
               </button>
               <span className="text-[11px] text-muted-2 self-center basis-full">
                 Spoken directions, and it re-routes itself if you leave the road.

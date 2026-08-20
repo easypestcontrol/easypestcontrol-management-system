@@ -27,7 +27,9 @@ export default function TripMap({ olaKey, path = [], route = [], here = null, de
    * marker glides and the camera follows WITHOUT remounting the map, so no
    * tile storm on every tick.
    */
-  onReady?: (ctl: { move: (lat: number, lng: number, follow: boolean) => void }) => void;
+  onReady?: (ctl: {
+    move: (lat: number, lng: number, follow: boolean, bearing?: number | null) => void;
+  }) => void;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<{ remove: () => void } | null>(null);
@@ -78,10 +80,28 @@ export default function TripMap({ olaKey, path = [], route = [], here = null, de
         if (me) meMarker.setLngLat([me.lng, me.lat]).addTo(map);
         let meOnMap = !!me;
         onReady?.({
-          move: (lat, lng, follow) => {
+          /*
+           * Follow the driver.
+           *
+           * Overview zoom is useless at a junction — you cannot see which of
+           * two roads is yours — so following pulls in to street level. And
+           * when a bearing is known the map turns with the car, because a
+           * north-up map asks the driver to rotate it in their head at
+           * exactly the moment they have no attention to spare. Passing no
+           * bearing (stopped, or too slow to have a direction) leaves the
+           * rotation where it was rather than spinning on noise.
+           */
+          move: (lat, lng, follow, bearing) => {
             if (!meOnMap) { meMarker.addTo(map); meOnMap = true; }
             meMarker.setLngLat([lng, lat]);
-            if (follow) map.easeTo({ center: [lng, lat], duration: 900 });
+            if (!follow) return;
+            map.easeTo({
+              center: [lng, lat],
+              zoom: Math.max(map.getZoom(), 16.5),
+              ...(typeof bearing === 'number' ? { bearing } : {}),
+              pitch: 45,
+              duration: 900,
+            });
           },
         });
         if (dest) {
