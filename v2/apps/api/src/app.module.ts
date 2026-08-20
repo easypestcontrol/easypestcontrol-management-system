@@ -5,6 +5,7 @@ import { ClientsController } from './clients/clients.controller';
 import { DashboardController } from './dashboard/dashboard.controller';
 import { TechDashController } from './dashboard/techdash.controller';
 import { CredentialsController } from './org/credentials.controller';
+import { FilesController, PublicFilesController } from './storage/files.controller';
 import { SearchController } from './search/search.controller';
 import { DevicesController, NotificationsController } from './notifications/notifications.controller';
 import { AuditsController } from './audits/audits.controller';
@@ -38,6 +39,8 @@ import { PayController } from './pay/pay.controller';
     DashboardController,
     TechDashController,
     CredentialsController,
+    FilesController,
+    PublicFilesController,
     SearchController,
     NotificationsController,
     DevicesController,

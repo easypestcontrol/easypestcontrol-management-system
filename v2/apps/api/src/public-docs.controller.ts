@@ -6,6 +6,7 @@
    document — no internal notes, no other customers, no lists to walk.
    ========================================================================== */
 import { Controller, Get, NotFoundException, Param, UseGuards } from '@nestjs/common';
+import { StorageService } from './storage/storage.service';
 import { docTotals } from 'shared';
 import { PrismaService } from './prisma.service';
 import { AuthGuard, Public } from './auth/auth.guard';
@@ -128,14 +129,18 @@ export class PublicDocsController {
         checkinAt: x.checkinAt || '', startedAt: x.startedAt || '',
         finishedAt: x.finishedAt || '', durationMins: x.durationMins || 0,
         geo: x.geo || '',
-        photosBefore: x.photosBefore || [], photosAfter: x.photosAfter || [],
+        // The customer has no token, so photographs come through the public
+        // door. The keys are UUIDs — the link exposes the photograph it names
+        // and nothing beside it.
+        photosBefore: (x.photosBefore || []).map((v) => StorageService.url(v, true)),
+        photosAfter: (x.photosAfter || []).map((v) => StorageService.url(v, true)),
         chemicals: (x.chemicals || []).map((c) => ({
           name: itemOf.get(c.id)?.name || c.id, qty: c.qty, unit: itemOf.get(c.id)?.unit || '',
         })),
         findings: x.findings || [], areaFindings: x.areaFindings || [],
         observations: x.observations || '', techNotes: x.techNotes || '',
         signedBy: x.signedBy || '', signature: !!x.signature,
-        signatureImage: x.signatureImage || '', rating: x.rating || 0,
+        signatureImage: StorageService.url(x.signatureImage || '', true), rating: x.rating || 0,
         reportSentAt: x.reportSentAt || '',
       },
       client, company: co,

@@ -2,7 +2,7 @@
   "name": "api",
   "private": true,
   "version": "2.0.0",
-  "description": "PestOps API \u2014 NestJS + Prisma + PostgreSQL",
+  "description": "PestOps API — NestJS + Prisma + PostgreSQL",
   "scripts": {
     "build": "nest build",
     "start": "node dist/main.js",
@@ -13,7 +13,7 @@
     "db:demo": "ts-node --transpile-only prisma/seed-demo.ts"
   },
   "dependencies": {
-    "shared": "*",
+    "@aws-sdk/client-s3": "^3.1114.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/jwt": "^11.0.0",
@@ -23,7 +23,8 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "shared": "*"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",

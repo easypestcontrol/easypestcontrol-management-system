@@ -21,6 +21,7 @@ import {
   isFieldTech, isOffice, isOnCrew, toHHMM, toMin,
 } from 'shared';
 import { mintInvoiceId, raiseDueBilling } from '../billing.util';
+import { StorageService } from '../storage/storage.service';
 
 /* ------------------------------------------------------------------ types */
 
@@ -148,7 +149,7 @@ function pick(body: Record<string, unknown>) {
 @Controller('jobs')
 @UseGuards(AuthGuard)
 export class JobsController {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private storage: StorageService) {}
 
   /* ------------------------------------------------------------- catalog */
   // Declared before ':id' so the literal path wins.
@@ -329,7 +330,8 @@ export class JobsController {
     return {
       serviceInfo,
       ...j,
-      exec,
+      // Keys in the database, URLs on the wire.
+      exec: StorageService.execUrls(exec as unknown as Record<string, unknown>) as typeof exec,
       invoice: invoice && invoice.status !== 'cancelled'
         ? { id: invoice.id, date: invoice.date }
         : null,
@@ -740,7 +742,10 @@ export class JobsController {
     const src = String(body.dataUrl || '');
     if (src.indexOf('data:image') !== 0) throw new BadRequestException('Send the photo as an image data URL');
     const x = execOf(j);
-    (kind === 'before' ? x.photosBefore : x.photosAfter).push(src);
+    // Off to R2 if it is configured; the data URL comes straight back if not,
+    // so this line is the same either way.
+    const stored = await this.storage.put(src, `jobs/${id}/${kind}`);
+    (kind === 'before' ? x.photosBefore : x.photosAfter).push(stored);
     return this.prisma.job.update({ where: { id }, data: { exec: x as never } });
   }
 
@@ -756,7 +761,10 @@ export class JobsController {
     const list = kind === 'after' ? x.photosAfter : x.photosBefore;
     const i = Number(index);
     if (!(i >= 0 && i < list.length)) throw new BadRequestException('No such photo');
-    list.splice(i, 1);
+    const [gone] = list.splice(i, 1);
+    // Delete the object too, or the bucket fills with photographs nothing
+    // points at and the storage bill grows for no reason.
+    await this.storage.remove(gone);
     return this.prisma.job.update({ where: { id }, data: { exec: x as never } });
   }
 
@@ -862,7 +870,13 @@ export class JobsController {
     const url = String(body.dataUrl || '');
     if (!url.startsWith('data:image/')) throw new BadRequestException('A photo is required');
     const x = execOf(j);
-    x.uniformPhotos = { ...(x.uniformPhotos || {}), [me.id]: url };
+    const previous = (x.uniformPhotos || {})[me.id];
+    x.uniformPhotos = {
+      ...(x.uniformPhotos || {}),
+      [me.id]: await this.storage.put(url, `jobs/${id}/uniform`),
+    };
+    // Retaking replaces it — the one being replaced is nobody's evidence now.
+    if (previous) await this.storage.remove(previous);
     return this.prisma.job.update({ where: { id }, data: { exec: x as never } });
   }
 
@@ -937,7 +951,7 @@ export class JobsController {
     const x = execOf(j);
     x.signature = true;
     x.signedBy = signedBy;
-    x.signatureImage = String(body.signatureImage || '');
+    x.signatureImage = await this.storage.put(String(body.signatureImage || ''), `jobs/${id}/signature`);
     const r = Math.round(Number(body.rating) || 0);
     x.rating = r >= 1 && r <= 5 ? r : 5;
     if (typeof body.observations === 'string') x.observations = body.observations.trim();

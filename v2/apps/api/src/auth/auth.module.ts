@@ -4,6 +4,9 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth.guard';
 import { PrismaService } from '../prisma.service';
+// Global, like Prisma: every controller that stores a photograph needs it,
+// and none of them should have to import a module to get one.
+import { StorageService } from '../storage/storage.service';
 
 @Global()
 @Module({
@@ -15,7 +18,7 @@ import { PrismaService } from '../prisma.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthGuard, PrismaService],
-  exports: [AuthService, AuthGuard, PrismaService],
+  providers: [AuthService, AuthGuard, PrismaService, StorageService],
+  exports: [AuthService, AuthGuard, PrismaService, StorageService],
 })
 export class AuthModule {}
