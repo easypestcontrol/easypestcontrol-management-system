@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "272106023333",
+    "project_id": "easypest-e8c9c",
+    "storage_bucket": "easypest-e8c9c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:272106023333:android:950ae1823c3f26137d204c",
+        "android_client_info": {
+          "package_name": "com.pestops.field"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyApdiJ29-dzGHbKPE0nw_XSeFTM-96FhaI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
