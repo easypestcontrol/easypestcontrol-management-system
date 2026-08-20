@@ -57,7 +57,8 @@ export interface SessionUser {
 export interface Company {
   id: string; name: string; tagline: string; phone: string; email: string;
   gstin: string; addr: string; city: string; state: string; pin: string;
-  gstRate: number; logo: string; hoursFrom: string; hoursTo: string;
+  gstRate: number; logo: string; sign: string; seal: string;
+  hoursFrom: string; hoursTo: string;
   hoursDays: number[]; terms: string[];
   docTerms?: { quotation?: string[]; invoice?: string[]; contract?: string[]; service?: string[] };
   roleAccess?: Record<string, Record<string, boolean>>;

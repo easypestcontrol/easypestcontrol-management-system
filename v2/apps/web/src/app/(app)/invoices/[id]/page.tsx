@@ -16,6 +16,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { money } from 'shared';
 import { api, ApiError, type Bootstrap, type Company, type SessionUser } from '@/lib/api';
+import { SignArea } from '@/components/sign-area';
 import { Icon } from '@/components/icons';
 import ShareLink from '@/components/share-link';
 import {
@@ -383,7 +384,7 @@ export default function InvoicePage() {
                   'Subject to Chennai jurisdiction.']).join(' ')}
             </p>
             <div className="text-center min-w-[180px] max-sm:hidden print:block">
-              <div className="h-[42px]" />
+              <SignArea sign={co?.sign} seal={co?.seal} />
               <div className="border-t border-line pt-2 text-[11.5px] font-semibold">
                 For {co?.name || '—'}
               </div>

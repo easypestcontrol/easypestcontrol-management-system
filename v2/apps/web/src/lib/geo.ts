@@ -1,6 +1,6 @@
 /* ============================================================================
    One door to the GPS. In the browser this is navigator.geolocation; inside
-   the PestOps Field app it is the NATIVE Android location service via the
+   the Easy Pest Control app it is the NATIVE Android location service via the
    Capacitor bridge — which also sidesteps the WebView rule that blocks
    geolocation on plain-http origins (our LAN setup).
    ========================================================================== */
@@ -22,10 +22,10 @@ interface CapGeo {
 /* The three ways GPS goes wrong on a phone — each names its exact fix, so the
    technician (or whoever is on the phone with them) knows what to press. */
 export const GEO_OLD_APP =
-  'This phone has an old build of the app — install the latest PestOps Field APK once, then GPS works.';
+  'This phone has an old build of the app — install the latest Easy Pest Control APK once, then GPS works.';
 export const GEO_BLOCKED =
-  'Location is blocked for PestOps Field. Open the phone’s Settings → Apps → ' +
-  'PestOps Field → Permissions → Location → “Allow while using the app”.';
+  'Location is blocked for Easy Pest Control. Open the phone’s Settings → Apps → ' +
+  'Easy Pest Control → Permissions → Location → “Allow while using the app”.';
 export const GEO_OFF =
   'The phone’s Location switch is off — turn on Location in the quick settings and try again.';
 

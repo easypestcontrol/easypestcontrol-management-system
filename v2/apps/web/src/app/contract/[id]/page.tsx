@@ -6,6 +6,7 @@
    coming, the period and the value. No login, phone-first.
    ========================================================================== */
 
+import { SignArea } from '@/components/sign-area';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { money } from 'shared';
@@ -18,7 +19,7 @@ interface Doc {
   client: { name: string; contact: string; phone: string; addr: string; city: string } | null;
   company: {
     name: string; tagline: string; logo: string; addr: string; city: string; pin: string;
-    phone: string; email: string; gstin: string;
+    phone: string; email: string; gstin: string; sign?: string; seal?: string;
     docTerms?: { quotation?: string[]; invoice?: string[]; contract?: string[]; service?: string[] };
   };
 }
@@ -162,6 +163,14 @@ export default function PublicContract() {
               </ul>
             </div>
           )}
+          <div className="flex justify-end mt-8">
+            <div className="text-center min-w-[180px]">
+              <SignArea sign={co.sign} seal={co.seal} />
+              <div className="border-t border-[#e3e6ee] pt-2 text-[11.5px] font-semibold">For {co.name}</div>
+              <div className="text-[10.5px] text-gray-400">Authorised signatory</div>
+            </div>
+          </div>
+
           <p className="text-[10.5px] text-gray-400 leading-relaxed mt-6">
             This is a live view of your service contract with {co.name} — the schedule
             updates as services are completed.

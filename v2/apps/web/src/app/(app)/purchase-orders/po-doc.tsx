@@ -28,6 +28,7 @@
    sheet and the browser's print dialog saves it as A4.
    ========================================================================== */
 
+import { SignArea } from '@/components/sign-area';
 import { fmtDate, type DocCompany } from '../quotations/lib';
 
 export interface PoDocLine {
@@ -291,7 +292,7 @@ export default function PoDoc({ po, company, branchName, branchAddr }: {
             {[company.phone, company.email].filter(Boolean).join(' · ')}
           </div>
           <div className="text-center min-w-[180px]">
-            <div className="h-[42px]" />
+            <SignArea sign={company.sign} seal={company.seal} />
             <div className="border-t border-line pt-1.5 mt-1 text-[11.5px] font-semibold">
               For {company.name}
             </div>

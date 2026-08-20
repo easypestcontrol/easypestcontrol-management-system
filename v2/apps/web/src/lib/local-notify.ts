@@ -1,6 +1,6 @@
 /* ============================================================================
    In-app banners with sound, via the phone's own notification tray. Inside
-   the PestOps Field app this raises a real Android notification (default
+   the Easy Pest Control app this raises a real Android notification (default
    system tone) the moment the bell learns something new — the technician
    hears it even mid-checklist. In a plain browser it is a silent no-op; the
    closed-app case is FCM's job (see apps/api/src/notifications/push.ts).

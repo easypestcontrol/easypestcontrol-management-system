@@ -44,6 +44,7 @@ export class PublicQuotesController {
             name: co.name, tagline: co.tagline, phone: co.phone, email: co.email,
             gstin: co.gstin, addr: co.addr, city: co.city, state: co.state,
             pin: co.pin, gstRate: co.gstRate, logo: co.logo, terms: co.terms,
+            sign: co.sign, seal: co.seal,
           }
         : null,
     };

@@ -20,6 +20,7 @@ import {
   QUOTE_STATUS, amountInWords, fmtDate, lineVisits, validOf,
   type DocCompany, type QuoteFull,
 } from './lib';
+import { SignArea } from '@/components/sign-area';
 
 const STAMP: Record<string, string> = {
   draft: 'text-muted-2 border-line',
@@ -226,12 +227,7 @@ export default function QuoteDoc({ q, company }: { q: QuoteFull; company: DocCom
               </div>
             )}
             <div className="text-center min-w-[180px]">
-              {q.signExec || q.ownerSign ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={q.signExec || q.ownerSign} alt="Signature" className="h-[42px] max-w-[200px] object-contain mx-auto block" />
-              ) : (
-                <div className="h-[42px]" />
-              )}
+              <SignArea sign={q.signExec || q.ownerSign || company.sign} seal={company.seal} />
               <div className="border-t border-line pt-1.5 mt-1 text-[11.5px] font-semibold">
                 For {company.name}
               </div>

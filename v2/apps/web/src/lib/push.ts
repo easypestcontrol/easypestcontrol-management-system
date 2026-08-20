@@ -1,5 +1,5 @@
 /* ============================================================================
-   Closed-app push registration. When the PestOps Field APK carries the
+   Closed-app push registration. When the Easy Pest Control APK carries the
    @capacitor/push-notifications plugin (added the moment Firebase keys
    exist), this asks Android for the FCM token, files it with the API
    (POST /devices), and routes a notification tap to the page it names.

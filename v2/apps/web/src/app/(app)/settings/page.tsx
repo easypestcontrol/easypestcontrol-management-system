@@ -18,7 +18,7 @@ import { Icon } from '@/components/icons';
 type SectionId = 'org' | 'terms' | 'roles';
 
 const SECTIONS: Array<{ id: SectionId; label: string; sub: string }> = [
-  { id: 'org', label: 'Organisation', sub: 'Name, logo, address, GSTIN' },
+  { id: 'org', label: 'Organisation', sub: 'Name, logo, signature & seal, GSTIN' },
   { id: 'terms', label: 'Document terms', sub: 'Per quotation, invoice, contract, service' },
   { id: 'roles', label: 'User roles', sub: 'Which pages each role can open' },
 ];
@@ -93,19 +93,31 @@ export default function Settings() {
     setTimeout(() => setSaved(''), 3000);
   }
 
-  /** Downscale to a 240px-tall PNG so a phone photo doesn't bloat the database. */
-  function onLogo(f: File) {
+  // One hidden file input serves all three images; this remembers which
+  // tile asked for the upload.
+  const upKind = useRef<'logo' | 'sign' | 'seal'>('logo');
+
+  /** Downscale to a PNG (240px logo / 200px signature / 280px seal) so a
+      phone photo doesn't bloat the database. PNG keeps transparency, so a
+      signature scanned on white or cut out clean both print well. */
+  function onImage(f: File) {
+    const kind = upKind.current;
+    const cap = kind === 'sign' ? 200 : kind === 'seal' ? 280 : 240;
     const img = new Image();
     img.onload = () => {
-      const h = Math.min(240, img.height);
+      const h = Math.min(cap, img.height);
       const w = Math.round(img.width * (h / img.height));
       const cv = document.createElement('canvas');
       cv.width = w; cv.height = h;
       cv.getContext('2d')!.drawImage(img, 0, 0, w, h);
-      set('logo', cv.toDataURL('image/png'));
+      set(kind, cv.toDataURL('image/png'));
     };
     img.src = URL.createObjectURL(f);
   }
+  const pickImage = (kind: 'logo' | 'sign' | 'seal') => {
+    upKind.current = kind;
+    file.current?.click();
+  };
 
   if (!co) return <p className="p-6 text-muted text-[13px]">Loading…</p>;
 
@@ -188,7 +200,7 @@ export default function Settings() {
                       : <span className="text-muted-2 text-[11px]">No logo yet</span>}
                   </span>
                   <div className="flex gap-2">
-                    <button onClick={() => file.current?.click()}
+                    <button onClick={() => pickImage('logo')}
                       className="flex items-center gap-1.5 h-8 px-3 rounded border border-line text-[12.5px] font-medium hover:bg-wash">
                       <Icon name="upload" size={14} /> Upload
                     </button>
@@ -200,7 +212,43 @@ export default function Settings() {
                     )}
                   </div>
                   <input ref={file} type="file" accept="image/*" className="hidden"
-                    onChange={(e) => e.target.files?.[0] && onLogo(e.target.files[0])} />
+                    onChange={(e) => { if (e.target.files?.[0]) onImage(e.target.files[0]); e.target.value = ''; }} />
+                </div>
+              </section>
+
+              <section className="rounded-md border border-line p-5 mb-5">
+                <h2 className="text-[14px] font-semibold mb-1">Signature &amp; seal</h2>
+                <p className="text-muted text-[12.5px] mb-4">
+                  Printed together on the &ldquo;Authorised signatory&rdquo; block of every
+                  quotation, invoice, contract and purchase order. A PNG with a
+                  transparent background prints cleanest.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {([['sign', 'Signature'], ['seal', 'Seal / stamp']] as const).map(([k, label]) => (
+                    <div key={k} className="rounded border border-line-soft p-4">
+                      <div className="text-[12px] font-semibold text-ink-2 mb-2">{label}</div>
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <span className="w-[130px] h-[72px] rounded border border-line bg-wash flex items-center justify-center overflow-hidden">
+                          {co[k]
+                            // eslint-disable-next-line @next/next/no-img-element
+                            ? <img src={co[k]} alt={label} className="max-w-full max-h-full object-contain" />
+                            : <span className="text-muted-2 text-[11px]">Nothing yet</span>}
+                        </span>
+                        <div className="flex gap-2">
+                          <button onClick={() => pickImage(k)}
+                            className="flex items-center gap-1.5 h-8 px-3 rounded border border-line text-[12.5px] font-medium hover:bg-wash">
+                            <Icon name="upload" size={14} /> Upload
+                          </button>
+                          {co[k] && (
+                            <button onClick={() => set(k, '')}
+                              className="flex items-center gap-1.5 h-8 px-3 rounded border border-line text-[12.5px] font-medium text-accent hover:bg-red-wash">
+                              <Icon name="x" size={14} /> Remove
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </section>
 

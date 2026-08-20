@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react';
 import { money } from 'shared';
 import { api, type Bootstrap, type Company } from '@/lib/api';
+import { SignArea } from '@/components/sign-area';
 import { amountInWords, fmtDate, type InvoiceDetail } from '../ui';
 
 const PRINT_CSS = `
@@ -206,6 +207,14 @@ function InvoiceSheet({ inv, co }: { inv: InvoiceDetail; co: Company }) {
               <span>Invoice total</span><span>{money(t.total)}</span>
             </div>
             <p className="text-[10px] text-muted mt-1.5 leading-snug">{amountInWords(t.total)}</p>
+          </div>
+        </div>
+
+        <div className="flex justify-end mt-8">
+          <div className="text-center min-w-[180px]">
+            <SignArea sign={co.sign} seal={co.seal} />
+            <div className="border-t border-line pt-2 text-[11.5px] font-semibold">For {co.name}</div>
+            <div className="text-[10.5px] text-muted">Authorised signatory</div>
           </div>
         </div>
 

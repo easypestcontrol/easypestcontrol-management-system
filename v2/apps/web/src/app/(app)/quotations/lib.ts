@@ -70,7 +70,7 @@ export interface QuoteFull extends Quote {
 export interface DocCompany {
   name: string; tagline: string; phone: string; email: string; gstin: string;
   addr: string; city: string; state: string; pin: string; gstRate: number;
-  logo: string; terms: string[];
+  logo: string; sign?: string; seal?: string; terms: string[];
 }
 
 export interface PublicQuote extends QuoteFull {

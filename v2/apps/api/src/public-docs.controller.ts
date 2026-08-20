@@ -21,6 +21,7 @@ export class PublicDocsController {
     const dt = (co?.docTerms || {}) as Record<string, string[]>;
     return {
       name: co?.name || '', tagline: co?.tagline || '', logo: co?.logo || '',
+      sign: co?.sign || '', seal: co?.seal || '',
       addr: co?.addr || '', city: co?.city || '', pin: co?.pin || '',
       phone: co?.phone || '', email: co?.email || '', gstin: co?.gstin || '',
       state: co?.state || 'Tamil Nadu', gstRate: co?.gstRate ?? 18,

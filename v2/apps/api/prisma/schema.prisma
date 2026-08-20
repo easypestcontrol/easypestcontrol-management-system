@@ -100,6 +100,10 @@ model Company {
   pin          String   @default("")
   gstRate      Int      @default(18)
   logo         String   @default("") // data URL, shown in the sidebar
+  // The admin's signature and round seal (data URLs) — printed together on
+  // the "Authorised signatory" block of every document.
+  sign         String   @default("")
+  seal         String   @default("")
   // company-default working hours; a technician may override on their profile
   hoursFrom    String   @default("09:00")
   hoursTo      String   @default("18:00")
