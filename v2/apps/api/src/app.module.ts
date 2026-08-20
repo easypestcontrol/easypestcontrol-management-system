@@ -13,6 +13,7 @@ import { LeadsController } from './leads/leads.controller';
 import { QuotationsController } from './quotations/quotations.controller';
 import { PublicQuotesController } from './quotations/public-quotes.controller';
 import { PublicDocsController } from './public-docs.controller';
+import { TasksController } from './tasks/tasks.controller';
 import { ContractsController } from './contracts/contracts.controller';
 import { DispatchController } from './dispatch/dispatch.controller';
 import { JobsController } from './jobs/jobs.controller';
@@ -49,6 +50,7 @@ import { PayController } from './pay/pay.controller';
     QuotationsController,
     PublicQuotesController,
     PublicDocsController,
+    TasksController,
     ContractsController,
     DispatchController,
     JobsController,

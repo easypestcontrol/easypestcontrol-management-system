@@ -100,10 +100,10 @@ function HBar({ pct, red, faded }: { pct: number; red?: boolean; faded?: boolean
 
 /* Grouped bars, hand-rolled SVG: billed navy, collected red. */
 function RevenueChart({ data }: { data: MonthPoint[] }) {
-  const NAVY = '#1B2E65';
+  const NAVY = '#141414';
   const RED = '#FF0000';
-  const GRID = 'rgba(27,46,101,0.10)';
-  const TXT = 'rgba(27,46,101,0.55)';
+  const GRID = 'rgba(20,20,20,0.10)';
+  const TXT = 'rgba(20,20,20,0.55)';
   const W = 720; const H = 230;
   const padL = 52; const padR = 10; const padT = 12; const padB = 26;
   const plotW = W - padL - padR;
@@ -284,7 +284,7 @@ export default function Reports() {
                           <td>
                             <span className="flex items-center gap-2.5">
                               <span className="w-7 h-7 rounded-full text-white text-[10px] font-bold flex items-center justify-center shrink-0"
-                                style={{ background: t.color || '#1B2E65' }}>
+                                style={{ background: t.color || '#141414' }}>
                                 {t.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
                               </span>
                               <span className="min-w-0">

@@ -633,7 +633,7 @@ export default function TeamMember() {
             <img src={m.photo} alt="" className="w-16 h-16 rounded-full object-cover" />
           ) : (
             <span className="w-16 h-16 rounded-full text-white text-[18px] font-bold flex items-center justify-center"
-              style={{ background: m.color || '#1B2E65' }}>
+              style={{ background: m.color || '#141414' }}>
               {m.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
             </span>
           )}

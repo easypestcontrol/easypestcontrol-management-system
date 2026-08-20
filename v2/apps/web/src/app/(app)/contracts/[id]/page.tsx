@@ -51,7 +51,7 @@ function TechStack({ ids, users }: { ids: string[]; users: BootUser[] }) {
         return (
           <span key={id} title={u?.name || id}
             className="w-6 h-6 rounded-full text-white text-[9px] font-bold flex items-center justify-center border-2 border-white"
-            style={{ background: u?.color || '#1B2E65', marginLeft: i ? -6 : 0 }}>
+            style={{ background: u?.color || '#141414', marginLeft: i ? -6 : 0 }}>
             {initials(u?.name || id)}
           </span>
         );
@@ -178,7 +178,7 @@ export default function ContractPage() {
       <div className="flex items-start justify-between gap-4 mt-3 mb-5 flex-wrap">
         <div className="flex items-center gap-3 min-w-0">
           <span className="w-11 h-11 rounded-full text-white text-[13px] font-bold flex items-center justify-center shrink-0"
-            style={{ background: cl?.color || '#1B2E65' }}>
+            style={{ background: cl?.color || '#141414' }}>
             {initials(cl?.name || '?')}
           </span>
           <div className="min-w-0">
@@ -762,7 +762,7 @@ function AssignDialog({ c, boot, onClose, onSaved }: {
                               ? 'border-red-line bg-red-wash text-ink hover:border-accent'
                               : 'border-line hover:bg-wash')}>
                         <span className="w-5 h-5 rounded-full text-white text-[8.5px] font-bold flex items-center justify-center"
-                          style={{ background: t.color || '#1B2E65' }}>
+                          style={{ background: t.color || '#141414' }}>
                           {initials(t.name)}
                         </span>
                         {t.name}

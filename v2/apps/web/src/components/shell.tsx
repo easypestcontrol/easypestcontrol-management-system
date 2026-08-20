@@ -23,6 +23,8 @@ type NavItem = { href: string; label: string; icon: IconName; roles?: string[] }
 /* The Zoho Books idiom: Home on top, everything else in categories that fold.
    One category open at a time; the one holding the current page opens itself. */
 const HOME: NavItem = { href: '/dashboard', label: 'Home', icon: 'home' };
+// Its own module, right under Home — the admin's to-do list for the team.
+const TASKS: NavItem = { href: '/tasks', label: 'Tasks', icon: 'check' };
 const SETTINGS: NavItem = { href: '/settings', label: 'Settings', icon: 'settings', roles: ['admin', 'ops'] };
 /* What the business runs on and what it costs — the owner's view of the bill.
    Admin only: it is the account and the money, not the day-to-day. */
@@ -199,7 +201,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           Desktop only. On a phone the app chrome takes over: an app bar on
           top and the bottom navigation — no sidebar at all. */}
       <aside onClick={(e) => e.stopPropagation()}
-        className="w-[224px] shrink-0 bg-navy hidden lg:flex flex-col z-50">
+        className="w-[224px] shrink-0 bg-white border-r border-line hidden lg:flex flex-col z-50">
         <Link href={homeFor(me?.role)}
           className="flex items-center gap-3 px-4 h-[58px] border-b border-side-line">
           {co?.logo ? (
@@ -213,7 +215,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             </span>
           )}
           <span className="min-w-0">
-            <span className="block text-white font-semibold text-[13.5px] leading-tight truncate">
+            <span className="block text-ink font-semibold text-[13.5px] leading-tight truncate">
               {co?.name || 'PestOps'}
             </span>
             <span className="block text-side-muted text-[10.5px] truncate">
@@ -234,8 +236,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                     'relative flex items-center gap-3 h-9 text-[13px] transition-colors ' +
                     (indent ? 'pl-7 pr-4 ' : 'px-4 ') +
                     (active
-                      ? 'bg-side-active text-white font-medium'
-                      : 'text-side-text hover:bg-side-hover hover:text-white')
+                      ? 'bg-side-active text-accent font-semibold'
+                      : 'text-side-text hover:bg-side-hover hover:text-ink')
                   }>
                   {active && <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent" />}
                   <Icon name={n.icon} size={16} className={active ? '' : 'opacity-75'} />
@@ -245,12 +247,13 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             };
 
             if (isFieldTech(me?.role)) {
-              return <>{TECH_NAV.map((n) => item(n))}</>;
+              return <>{[TECH_NAV[0], TASKS, ...TECH_NAV.slice(1)].map((n) => item(n))}</>;
             }
 
             return (
               <>
                 {item(HOME)}
+                {item(TASKS)}
                 {GROUPS.map((g) => {
                   const items = g.items.filter(visible);
                   if (!items.length) return null;
@@ -260,7 +263,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                     <div key={g.id}>
                       <button
                         onClick={() => setOpenGroup(open ? '' : g.id)}
-                        className="w-full flex items-center gap-2 px-4 h-8 mt-1.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-side-muted hover:text-white transition-colors">
+                        className="w-full flex items-center gap-2 px-4 h-8 mt-1.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-side-muted hover:text-ink transition-colors">
                         <span className={'transition-transform duration-300 ' + (open ? 'rotate-90' : '')}>
                           <Icon name="chevRight" size={11} />
                         </span>
@@ -295,10 +298,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               {me.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-white text-[12.5px] font-medium truncate">{me.name}</span>
+              <span className="block text-ink text-[12.5px] font-medium truncate">{me.name}</span>
               <span className="block text-side-muted text-[10.5px] capitalize">{me.role}</span>
             </span>
-            <button title="Sign out" className="text-side-muted hover:text-white"
+            <button title="Sign out" className="text-side-muted hover:text-accent"
               onClick={() => { forgetPush(); clearToken(); router.replace('/login'); }}>
               <Icon name="logout" size={16} />
             </button>
@@ -427,7 +430,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         {/* ---------------------------------------------- bottom navigation
             The phone's way around the app — replaces the sidebar entirely. */}
         {me && (() => {
-          const visibleAll = [HOME, ...GROUPS.flatMap((g) => g.items), SETTINGS, CREDENTIALS]
+          const visibleAll = [HOME, TASKS, ...GROUPS.flatMap((g) => g.items), SETTINGS, CREDENTIALS]
             .filter((n) => !n.roles || n.roles.includes(me.role));
           const primary = isFieldTech(me.role)
             ? TECH_NAV

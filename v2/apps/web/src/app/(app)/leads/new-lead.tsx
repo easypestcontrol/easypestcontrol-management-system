@@ -334,7 +334,7 @@ export default function NewLead({ boot, me, leads, onClose, onSaved }: {
                     onChange={(e) => setInterest(e.target.checked
                       ? [...interest, s.id]
                       : interest.filter((x) => x !== s.id))}
-                    className="accent-[#1B2E65]" />
+                    className="accent-[#141414]" />
                   <span className="text-[13px] flex-1">{s.name}</span>
                   <span className="text-[12px] text-muted">{money(s.price)}</span>
                 </label>

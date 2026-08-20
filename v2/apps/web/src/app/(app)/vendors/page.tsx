@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import { usePager } from '@/components/pager';
 import { Modal, Field, inputCls, selectCls } from '../jobs/ui';
 
 interface Vendor {
@@ -46,6 +47,7 @@ function toDraft(v: Vendor | null): Draft {
 export default function Vendors() {
   const router = useRouter();
   const [rows, setRows] = useState<Vendor[] | null>(null);
+  const pg = usePager(rows || []);
   const [q, setQ] = useState('');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [editing, setEditing] = useState('');
@@ -124,7 +126,7 @@ export default function Vendors() {
         <>
           {/* phones get cards; a desk gets the table */}
           <div className="lg:hidden flex flex-col gap-2.5 p-3">
-            {rows.map((v) => (
+            {pg.pageRows.map((v) => (
               <div key={v.id} className="rounded-xl border border-line bg-white p-4 shadow-card">
                 <div className="flex items-start justify-between gap-2">
                   <span className="min-w-0">
@@ -161,7 +163,7 @@ export default function Vendors() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((v) => (
+              {pg.pageRows.map((v) => (
                 <tr key={v.id} className="zrow">
                   <td onClick={() => { setDraft(toDraft(v)); setEditing(v.id); }}>
                     <span className="block font-semibold text-navy">{v.name}</span>
@@ -198,6 +200,7 @@ export default function Vendors() {
               ))}
             </tbody>
           </table>
+        {pg.el}
         </>
       )}
 

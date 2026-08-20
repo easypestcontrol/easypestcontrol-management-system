@@ -141,12 +141,12 @@ function tipShow(html: string, x: number, y: number, tone: 'ok' | 'warn' | 'bad'
     tipEl = document.createElement('div');
     document.body.appendChild(tipEl);
   }
-  const bg = tone === 'bad' ? '#FF0000' : '#1B2E65';
+  const bg = tone === 'bad' ? '#FF0000' : '#141414';
   const border = tone === 'warn' ? '1px solid #FF0000' : '1px solid transparent';
   tipEl.style.cssText =
     'position:fixed;z-index:96;max-width:290px;padding:8px 11px;border-radius:6px;' +
     'font-size:12px;line-height:1.35;color:#fff;pointer-events:none;' +
-    'box-shadow:0 6px 24px rgba(27,46,101,.25);' +
+    'box-shadow:0 6px 24px rgba(20,20,20,.25);' +
     `background:${bg};border:${border};` +
     `left:${Math.min(x + 14, window.innerWidth - 300)}px;top:${y + 16}px;`;
   tipEl.innerHTML = html;
@@ -177,7 +177,7 @@ function Glyph({ name, size = 12, className = '' }: {
 function Avatar({ name, color, size = 28 }: { name: string; color: string; size?: number }) {
   return (
     <span className="rounded-full text-white font-bold flex items-center justify-center shrink-0"
-      style={{ width: size, height: size, fontSize: size * 0.36, background: color || '#1B2E65' }}>
+      style={{ width: size, height: size, fontSize: size * 0.36, background: color || '#141414' }}>
       {name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
     </span>
   );
@@ -487,7 +487,7 @@ export default function Board() {
     }
     g.style.cssText +=
       ';position:fixed;left:0;top:0;margin:0;z-index:94;opacity:.92;pointer-events:none;' +
-      `width:${width}px;height:${r.height}px;box-shadow:0 6px 24px rgba(27,46,101,.3);`;
+      `width:${width}px;height:${r.height}px;box-shadow:0 6px 24px rgba(20,20,20,.3);`;
     g.style.transform = `translate(${d.x0 - d.grab}px, ${d.y0 - 16}px)`;
     document.body.appendChild(g);
     d.ghost = g;
@@ -500,7 +500,7 @@ export default function Board() {
     if (!d.lane || d.start == null || !d.tech) return;
     const blocked = d.warns.some((w) => w.level === 'block');
     d.markedLane = d.lane;
-    d.lane.style.backgroundColor = blocked ? 'rgba(255,0,0,0.07)' : 'rgba(27,46,101,0.06)';
+    d.lane.style.backgroundColor = blocked ? 'rgba(255,0,0,0.07)' : 'rgba(20,20,20,0.06)';
     const stop = toHHMM(d.start + (d.job.mins || 60));
     const html =
       `<div style="font-weight:600">${esc(fmtTime(toHHMM(d.start)))} – ${esc(fmtTime(stop))}</div>` +

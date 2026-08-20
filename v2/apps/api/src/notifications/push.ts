@@ -69,7 +69,7 @@ async function fcmToken(): Promise<string | null> {
 /* --------------------------------------------------------------- sending */
 
 // The document id inside the text becomes the deep link on tap.
-const REF = /\b(?:JOB|SER|INV|QUO|AMC|CON|SVC|TR|LD|RCT|RCPT)-[A-Za-z0-9-]+/;
+const REF = /\b(?:JOB|SER|TSK|INV|QUO|AMC|CON|SVC|TR|LD|RCT|RCPT)-[A-Za-z0-9-]+/;
 
 async function pushRow(prisma: PrismaClient, row: { userId: string; text: string }) {
   const s = serviceAccount();

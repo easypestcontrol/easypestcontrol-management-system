@@ -530,6 +530,23 @@ model Device {
   at       String @default("")
 }
 
+// A standalone to-do — the admin schedules work for a person with a deadline.
+// Deliberately NOT tied to quotations/contracts/services: its own module.
+model Task {
+  id        String   @id // TSK-1
+  title     String
+  notes     String   @default("") // what has to be done, spelled out
+  assignee  String   @default("") // user id it is for
+  createdBy String   @default("")
+  branch    String   @default("") // the branch wall applies here too
+  due       String   @default("") // YYYY-MM-DD
+  dueTime   String   @default("") // HH:MM
+  priority  String   @default("normal") // low | normal | high
+  status    String   @default("open") // open | done
+  doneAt    String   @default("")
+  createdAt DateTime @default(now())
+}
+
 // One row per human-readable id counter: job, quote, contract, invoice, receipt, lead, audit
 model Seq {
   key   String @id

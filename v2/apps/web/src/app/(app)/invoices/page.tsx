@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 import { docTotals, money } from 'shared';
 import { api, type Bootstrap, type Client, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import { usePager } from '@/components/pager';
 import {
   Dialog, PayDialog, STATUS_LABEL, fmtDate, pillClass, todayISO,
   type ContractOption, type InvoiceDetail, type InvoiceRow, type ListResponse,
@@ -53,6 +54,7 @@ export default function Invoices() {
     }, q ? 250 : 0);
     return () => clearTimeout(t);
   }, [tab, q, rev, bf.branch]);
+  const pg = usePager(data?.rows || []);
 
   const canBill = !!me && (me.role === 'admin' || me.role === 'accounts'); // v1 invoices.js:34
 
@@ -168,7 +170,7 @@ export default function Invoices() {
             </tr>
           </thead>
           <tbody>
-            {data.rows.map((i) => {
+            {pg.pageRows.map((i) => {
               const late = i.daysLate > 0 && i.status !== 'paid';
               return (
                 <tr key={i.id} className="zrow" onClick={() => router.push('/invoices/' + i.id)}>
@@ -194,6 +196,7 @@ export default function Invoices() {
           </tbody>
         </table>
       )}
+      {pg.el}
 
       {/* ------------------------------------------------------ dialogs */}
       {creating && (

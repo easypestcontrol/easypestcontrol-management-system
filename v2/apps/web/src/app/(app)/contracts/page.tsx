@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { money, moneyShort } from 'shared';
 import { api, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import { usePager } from '@/components/pager';
 import {
   fmtDate, fmtShort, fmtTime, initials, relDay, statusPill,
   type Boot, type ContractRow,
@@ -72,6 +73,7 @@ export default function Contracts() {
       return (r.key + r.clientName).toLowerCase().indexOf(needle) >= 0;
     }).sort((a, b) => ((a.end || '') < (b.end || '') ? 1 : -1));
   }, [rows, tab, q]);
+  const pg = usePager(filtered);
 
   // Annual value = every non-expired row, exactly the v1 header stat.
   const liveValue = (rows || []).filter((r) => r.statusKey !== 'expired')
@@ -167,7 +169,7 @@ export default function Contracts() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((r) => (
+            {pg.pageRows.map((r) => (
               <tr key={r.key} className="zrow"
                 onClick={() => router.push(r.standalone ? '/jobs/' + r.key : '/contracts/' + r.key)}>
                 <td className="whitespace-nowrap">
@@ -185,7 +187,7 @@ export default function Contracts() {
                 <td>
                   <span className="flex items-center gap-2.5 min-w-0">
                     <span className="w-7 h-7 rounded-full text-white text-[10px] font-bold flex items-center justify-center shrink-0"
-                      style={{ background: r.clientColor || '#1B2E65' }}>
+                      style={{ background: r.clientColor || '#141414' }}>
                       {initials(r.clientName)}
                     </span>
                     <span className="min-w-0">
@@ -248,6 +250,7 @@ export default function Contracts() {
           </tbody>
         </table>
       )}
+      {pg.el}
 
       {/* ------------------------------------------------------- chooser */}
       {choose && (

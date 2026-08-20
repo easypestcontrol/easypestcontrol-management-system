@@ -27,6 +27,7 @@ function plugin(): CapPush | null {
 /** The document id in a notification decides where a tap lands. */
 export function refToPath(ref: string): string {
   if (/^(JOB|SER)-/.test(ref)) return '/jobs/' + ref;
+  if (/^TSK-/.test(ref)) return '/tasks';
   if (/^INV-/.test(ref)) return '/invoices/' + ref;
   if (/^QUO-/.test(ref)) return '/quotations/' + ref;
   if (/^(AMC|CON)-/.test(ref)) return '/contracts/' + ref;

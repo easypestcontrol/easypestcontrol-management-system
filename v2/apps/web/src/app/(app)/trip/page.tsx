@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { api, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import { usePager } from '@/components/pager';
 import { decodePolyline } from '@/lib/polyline';
 import { getPosition, geoHint } from '@/lib/geo';
 
@@ -53,6 +54,7 @@ export default function TripPage() {
   const [me, setMe] = useState<SessionUser | null>(null);
   const [active, setActive] = useState<Trip | null>(null);
   const [rows, setRows] = useState<Trip[] | null>(null);
+  const pg = usePager(rows || []);
   const [today, setToday] = useState<TodaySvc[] | null>(null);
   const [all, setAll] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -321,7 +323,7 @@ export default function TripPage() {
             <p className="text-muted text-[13px] px-4 py-6 text-center">
               No trips yet — the first one starts above.
             </p>
-          ) : rows.map((t) => (
+          ) : pg.pageRows.map((t) => (
             <div key={t.id} className="px-4 py-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[13.5px] font-semibold truncate">{t.purpose}</span>
@@ -348,7 +350,7 @@ export default function TripPage() {
               <tr><td colSpan={all ? 6 : 5} className="text-center text-muted py-6">
                 No trips yet — the first one starts above.
               </td></tr>
-            ) : rows.map((t) => (
+            ) : pg.pageRows.map((t) => (
               <tr key={t.id}>
                 <td className="font-mono text-[12px]">{t.id}</td>
                 {all && <td>{t.userName}</td>}
@@ -365,6 +367,7 @@ export default function TripPage() {
             ))}
           </tbody>
         </table>
+        {pg.el}
       </section>
 
       {adding && (

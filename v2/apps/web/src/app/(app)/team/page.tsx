@@ -41,7 +41,7 @@ function Avatar({ m, size = 28 }: { m: Member; size?: number }) {
   }
   return (
     <span className="rounded-full text-white text-[10px] font-bold flex items-center justify-center shrink-0"
-      style={{ width: size, height: size, background: m.color || '#1B2E65' }}>
+      style={{ width: size, height: size, background: m.color || '#141414' }}>
       {m.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
     </span>
   );

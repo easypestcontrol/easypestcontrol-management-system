@@ -19,6 +19,7 @@ interface Doc {
   company: {
     name: string; tagline: string; logo: string; addr: string; city: string; pin: string;
     phone: string; email: string; gstin: string;
+    docTerms?: { quotation?: string[]; invoice?: string[]; contract?: string[]; service?: string[] };
   };
 }
 
@@ -55,18 +56,16 @@ export default function PublicContract() {
           {/* head */}
           <div className="flex justify-between gap-6 flex-wrap">
             <div>
-              <div className="flex items-center gap-3 mb-3">
+              <div className="mb-3">
                 {co.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={co.logo} alt="" className="h-10 w-auto object-contain" />
                 ) : (
-                  <span className="w-10 h-10 rounded bg-[#1B2E65] text-white flex items-center justify-center font-bold text-[16px]">
+                  <span className="w-10 h-10 rounded bg-[#141414] text-white flex items-center justify-center font-bold text-[16px]">
                     {(co.name || 'P').charAt(0)}
                   </span>
                 )}
-                <div>
-                  <div className="text-[16px] font-bold text-[#1B2E65] leading-tight">{co.name}</div>
-                </div>
+                <div className="text-[16px] font-bold text-[#141414] leading-tight mt-1.5">{co.name}</div>
               </div>
               <div className="text-[11.5px] text-gray-500 leading-relaxed">
                 {co.addr}{co.city ? `, ${co.city}` : ''}{co.pin ? ` — ${co.pin}` : ''}<br />
@@ -74,7 +73,7 @@ export default function PublicContract() {
               </div>
             </div>
             <div className="text-right">
-              <div className="text-[18px] font-bold tracking-[0.1em] text-[#1B2E65]">
+              <div className="text-[18px] font-bold tracking-[0.1em] text-[#141414]">
                 {doc.mode === 'amc' ? 'SERVICE CONTRACT (AMC)' : 'SERVICE CONTRACT'}
               </div>
               <div className="text-[13px] font-semibold text-gray-500">{doc.id}</div>
@@ -85,7 +84,7 @@ export default function PublicContract() {
             </div>
           </div>
 
-          <div className="border-t-2 border-[#1B2E65] my-5 sm:my-6" />
+          <div className="border-t-2 border-[#141414] my-5 sm:my-6" />
 
           {/* customer + site */}
           <div className="flex justify-between gap-6 flex-wrap">
@@ -112,7 +111,7 @@ export default function PublicContract() {
                 <tr>
                   {['Service', 'Visits', 'Frequency'].map((h, i) => (
                     <th key={h}
-                      className={'bg-[#1B2E65] text-white text-[10.5px] uppercase tracking-wider font-semibold px-3 py-2 '
+                      className={'bg-[#141414] text-white text-[10.5px] uppercase tracking-wider font-semibold px-3 py-2 '
                         + (i > 0 ? 'text-center' : 'text-left')}>
                       {h}
                     </th>
@@ -146,7 +145,7 @@ export default function PublicContract() {
                     <span className="block text-[11px] text-gray-500">{fmtD(s.date)} · {s.slot}</span>
                   </span>
                   <span className={'text-[10.5px] font-bold uppercase tracking-wide shrink-0 '
-                    + (s.status === 'completed' ? 'text-[#1B2E65]'
+                    + (s.status === 'completed' ? 'text-[#141414]'
                       : s.status === 'cancelled' ? 'text-gray-400 line-through' : 'text-gray-500')}>
                     {s.status === 'completed' ? 'Done' : s.status === 'cancelled' ? 'Cancelled' : 'Scheduled'}
                   </span>
@@ -155,6 +154,14 @@ export default function PublicContract() {
             </div>
           </div>
 
+          {(co.docTerms?.contract || []).length > 0 && (
+            <div className="mt-6">
+              <div className="text-[10.5px] uppercase tracking-wider text-gray-400 font-semibold mb-1">Terms</div>
+              <ul className="text-[10.5px] text-gray-500 leading-relaxed list-disc pl-4">
+                {co.docTerms!.contract!.map((t, i) => <li key={i}>{t}</li>)}
+              </ul>
+            </div>
+          )}
           <p className="text-[10.5px] text-gray-400 leading-relaxed mt-6">
             This is a live view of your service contract with {co.name} — the schedule
             updates as services are completed.

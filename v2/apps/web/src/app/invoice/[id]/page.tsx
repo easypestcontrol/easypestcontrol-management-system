@@ -19,6 +19,7 @@ interface Doc {
   company: {
     name: string; tagline: string; logo: string; addr: string; city: string; pin: string;
     phone: string; email: string; gstin: string;
+    docTerms?: { quotation?: string[]; invoice?: string[]; contract?: string[]; service?: string[] };
   };
 }
 
@@ -56,18 +57,16 @@ export default function PublicInvoice() {
               like a document, not a wrapped form. */}
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="flex items-center gap-3 mb-2.5">
+              <div className="mb-2.5">
                 {co.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={co.logo} alt="" className="h-9 sm:h-10 w-auto object-contain" />
                 ) : (
-                  <span className="w-10 h-10 rounded bg-[#1B2E65] text-white flex items-center justify-center font-bold text-[16px]">
+                  <span className="w-10 h-10 rounded bg-[#141414] text-white flex items-center justify-center font-bold text-[16px]">
                     {(co.name || 'P').charAt(0)}
                   </span>
                 )}
-                <div>
-                  <div className="text-[15px] sm:text-[16px] font-bold text-[#1B2E65] leading-tight">{co.name}</div>
-                </div>
+                <div className="text-[15px] sm:text-[16px] font-bold text-[#141414] leading-tight mt-1.5">{co.name}</div>
               </div>
               <div className="text-[11px] sm:text-[11.5px] text-gray-500 leading-relaxed">
                 {[co.addr, co.city].filter(Boolean).join(', ')}{co.pin ? ` — ${co.pin}` : ''}<br />
@@ -76,14 +75,14 @@ export default function PublicInvoice() {
               </div>
             </div>
             <span className={'inline-block border-2 rounded px-3 py-1 text-[11px] sm:text-[12px] font-bold uppercase tracking-[0.18em] shrink-0 '
-              + (paid ? 'text-[#1B2E65] border-[#1B2E65]' : 'text-[#FF0000] border-[#FF0000]')}>
+              + (paid ? 'text-[#141414] border-[#141414]' : 'text-[#FF0000] border-[#FF0000]')}>
               {paid ? 'Paid' : 'Payment due'}
             </span>
           </div>
 
           <div className="mt-4 flex items-end justify-between gap-x-4 gap-y-1 flex-wrap">
             <div>
-              <div className="text-[17px] sm:text-[19px] font-bold tracking-[0.13em] text-[#1B2E65] leading-tight">TAX INVOICE</div>
+              <div className="text-[17px] sm:text-[19px] font-bold tracking-[0.13em] text-[#141414] leading-tight">TAX INVOICE</div>
               <div className="text-[13px] font-semibold text-gray-500">{doc.id}</div>
             </div>
             <div className="text-[11.5px] text-gray-500 leading-relaxed sm:text-right">
@@ -92,7 +91,7 @@ export default function PublicInvoice() {
             </div>
           </div>
 
-          <div className="border-t-2 border-[#1B2E65] my-4 sm:my-6" />
+          <div className="border-t-2 border-[#141414] my-4 sm:my-6" />
 
           {/* parties — two columns even on a phone */}
           <div className="grid grid-cols-2 gap-4 sm:gap-6">
@@ -140,7 +139,7 @@ export default function PublicInvoice() {
                 <tr>
                   {['#', 'Description of service', 'Qty', 'Rate', 'Amount'].map((h, i) => (
                     <th key={h}
-                      className={'bg-[#1B2E65] text-white text-[10.5px] uppercase tracking-wider font-semibold px-3 py-2 '
+                      className={'bg-[#141414] text-white text-[10.5px] uppercase tracking-wider font-semibold px-3 py-2 '
                         + (i >= 3 ? 'text-right' : i === 2 ? 'text-center' : 'text-left')}>
                       {h}
                     </th>
@@ -179,7 +178,7 @@ export default function PublicInvoice() {
                   <span className="text-gray-500">{l}</span><span>{money(v)}</span>
                 </div>
               ))}
-              <div className="flex justify-between py-1.5 mt-1 border-t-2 border-[#1B2E65] font-bold text-[13.5px]">
+              <div className="flex justify-between py-1.5 mt-1 border-t-2 border-[#141414] font-bold text-[13.5px]">
                 <span>Invoice total</span><span>{money(t.total)}</span>
               </div>
               {t.paid > 0 && (
@@ -188,7 +187,7 @@ export default function PublicInvoice() {
                     <span>Amount paid</span><span>− {money(t.paid)}</span>
                   </div>
                   <div className={'flex justify-between py-1.5 border-t border-[#e3e6ee] font-bold '
-                    + (t.balance > 0 ? 'text-[#FF0000]' : 'text-[#1B2E65]')}>
+                    + (t.balance > 0 ? 'text-[#FF0000]' : 'text-[#141414]')}>
                     <span>Balance due</span><span>{money(t.balance)}</span>
                   </div>
                 </>
@@ -211,7 +210,7 @@ export default function PublicInvoice() {
           )}
 
           <p className="text-[10.5px] text-gray-400 leading-relaxed mt-6">
-            Payment due within 15 days of invoice date. This is a computer-generated
+            {(co.docTerms?.invoice || []).join(' ')} This is a computer-generated
             invoice from {co.name}.
           </p>
         </div>

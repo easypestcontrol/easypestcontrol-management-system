@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import { usePager } from '@/components/pager';
 import {
   MoveDialog, isLow, moveLabel, stockPct,
   type Item, type Move,
@@ -44,6 +45,8 @@ export default function Inventory() {
   const rows = tab === 'moves' ? [] : (items || []).filter((i) =>
     i.cat === tab &&
     (!needle || (i.name + ' ' + i.note).toLowerCase().indexOf(needle) >= 0));
+
+  const pg = usePager(rows);
 
   function done(msg: string) {
     setDialog(null);
@@ -187,7 +190,7 @@ export default function Inventory() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((i) => {
+            {pg.pageRows.map((i) => {
               const lowNow = isLow(i);
               const last = moves.find((m) => m.itemId === i.id);
               return (

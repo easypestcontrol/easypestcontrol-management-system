@@ -58,7 +58,7 @@ function SigPad({ onInk }: { onInk: (dataUrl: string) => void }) {
         drawing.current = true;
         ref.current!.setPointerCapture(e.pointerId);
         const ctx = ref.current!.getContext('2d')!;
-        ctx.strokeStyle = '#1B2E65'; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+        ctx.strokeStyle = '#141414'; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
         const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y);
       }}
       onPointerMove={(e) => {
@@ -140,7 +140,7 @@ function NewContractForm() {
             start: d.start || todayISO(), end: d.end || todayISO(),
             slot: d.slot || '10:00', slotEnd: d.slotEnd || '12:00',
             subject: d.subject || '', notes: d.notes || '',
-            terms: d.terms?.length ? d.terms : b.company.terms,
+            terms: d.terms?.length ? d.terms : (b.company.docTerms?.contract?.length ? b.company.docTerms.contract : b.company.terms),
             signCustomer: d.signCustomer || '', signExec: d.signExec || '',
             quoteId, leadId: d.leadId || '',
             lines: (d.lines || []) as DraftLine[],
@@ -167,7 +167,7 @@ function NewContractForm() {
             start, end: m === 'onetime' ? start : addMonths(start, 12),
             slot: '10:00', slotEnd: '12:00',
             subject: '', notes: '',
-            terms: b.company.terms?.length ? b.company.terms : [],
+            terms: b.company.docTerms?.contract?.length ? b.company.docTerms.contract : (b.company.terms || []),
             signCustomer: '', signExec: '',
             quoteId: '', leadId: '',
             lines: [],

@@ -113,7 +113,10 @@ export interface BootService {
 }
 export interface BootBranch { id: string; name: string; code: string }
 export interface Boot {
-  company: { name: string; state: string; gstRate: number; terms: string[] };
+  company: {
+    name: string; state: string; gstRate: number; terms: string[];
+    docTerms?: { quotation?: string[]; invoice?: string[]; contract?: string[]; service?: string[] };
+  };
   branches: BootBranch[];
   users: BootUser[];
   services: BootService[];

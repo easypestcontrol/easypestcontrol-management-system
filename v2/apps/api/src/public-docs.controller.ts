@@ -40,6 +40,13 @@ export class PublicDocsController {
     };
   }
 
+  /** The company identity for the public legal pages (terms, privacy). */
+  @Public()
+  @Get('company')
+  async company() {
+    return this.companyBlock();
+  }
+
   @Public()
   @Get('invoice/:id')
   async invoice(@Param('id') id: string) {

@@ -71,10 +71,10 @@ export default function TripMap({ olaKey, path = [], route = [], here = null, de
         };
 
         if (route.length > 1) line('route', route, '#FF0000', 5); // the road ahead
-        if (path.length > 1) line('trail', path.map((p) => [p.lng, p.lat]), '#1B2E65', 4); // driven so far
+        if (path.length > 1) line('trail', path.map((p) => [p.lng, p.lat]), '#141414', 4); // driven so far
 
         const me = here || (last ? { lat: last.lat, lng: last.lng } : null);
-        const meMarker = new maplibregl.Marker({ color: '#1B2E65' });
+        const meMarker = new maplibregl.Marker({ color: '#141414' });
         if (me) meMarker.setLngLat([me.lng, me.lat]).addTo(map);
         let meOnMap = !!me;
         onReady?.({

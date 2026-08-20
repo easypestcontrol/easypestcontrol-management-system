@@ -18,11 +18,11 @@ const DEMO_PASSWORD = 'pestops123';
 
 const ROLES = [
   { email: 'rajesh@shieldpest.in', name: 'Rajesh Kumar', role: 'Administrator', who: 'Founder & Director', blurb: 'Everything — pipeline, contracts, dispatch, money', color: '#FF0000' },
-  { email: 'priya@shieldpest.in', name: 'Priya Sharma', role: 'Operations', who: 'Operations Manager', blurb: 'Contracts, the dispatch board, the day-to-day', color: '#1B2E65' },
-  { email: 'arun@shieldpest.in', name: 'Arun Prakash', role: 'Sales', who: 'Sales Executive', blurb: 'Leads, quotations, follow-ups', color: '#1B2E65' },
-  { email: 'karthik@shieldpest.in', name: 'Karthik R', role: 'Senior Technician', who: 'Senior Technician', blurb: "Today's services, execution, customer signatures", color: '#1B2E65' },
+  { email: 'priya@shieldpest.in', name: 'Priya Sharma', role: 'Operations', who: 'Operations Manager', blurb: 'Contracts, the dispatch board, the day-to-day', color: '#141414' },
+  { email: 'arun@shieldpest.in', name: 'Arun Prakash', role: 'Sales', who: 'Sales Executive', blurb: 'Leads, quotations, follow-ups', color: '#141414' },
+  { email: 'karthik@shieldpest.in', name: 'Karthik R', role: 'Senior Technician', who: 'Senior Technician', blurb: "Today's services, execution, customer signatures", color: '#141414' },
   { email: 'suresh@shieldpest.in', name: 'Suresh M', role: 'Technician', who: 'Technician', blurb: 'The field view — services, trips, wallet', color: '#0B7454' },
-  { email: 'deepa@shieldpest.in', name: 'Deepa Nair', role: 'Accounts', who: 'Accounts & Billing', blurb: 'Invoices, payments, outstanding', color: '#1B2E65' },
+  { email: 'deepa@shieldpest.in', name: 'Deepa Nair', role: 'Accounts', who: 'Accounts & Billing', blurb: 'Invoices, payments, outstanding', color: '#141414' },
 ];
 
 const FEATURES = [

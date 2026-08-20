@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, type Bootstrap, type Client, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import { usePager } from '@/components/pager';
 import { addDays, isFieldTech } from 'shared';
 import {
   SLOTS, JOB_TYPES, durationText, fmtTime, relDay, todayISO,
@@ -61,6 +62,7 @@ export default function Jobs() {
     if (bf.branch) p.set('branch', bf.branch);
     return api.get<JobsList>('/jobs?' + p.toString()).then(setData).catch(() => setData({ rows: [], counts: { today: 0, upcoming: 0, open: 0, unassigned: 0, completed: 0 } }));
   }, [tab, effectiveTech, q, bf.branch]);
+  const pg = usePager(data?.rows || []);
 
   useEffect(() => {
     const t = setTimeout(load, q ? 250 : 0);
@@ -145,7 +147,7 @@ export default function Jobs() {
         <>
         {/* phones get cards — a table is a desk thing */}
         <div className="lg:hidden flex flex-col gap-2.5 p-3">
-          {data.rows.map((j) => {
+          {pg.pageRows.map((j) => {
             const crew = j.techIds.map((id) => usersById.get(id)).filter(Boolean);
             return (
               <button key={j.id} onClick={() => router.push('/jobs/' + j.id)}
@@ -195,7 +197,7 @@ export default function Jobs() {
             </tr>
           </thead>
           <tbody>
-            {data.rows.map((j) => {
+            {pg.pageRows.map((j) => {
               const crew = j.techIds.map((id) => usersById.get(id)).filter(Boolean);
               return (
                 <tr key={j.id} className="zrow" onClick={() => router.push('/jobs/' + j.id)}>
@@ -245,6 +247,7 @@ export default function Jobs() {
             })}
           </tbody>
         </table>
+        {pg.el}
         </>
       )}
 

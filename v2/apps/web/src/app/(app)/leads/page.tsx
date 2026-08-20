@@ -107,7 +107,7 @@ export default function Leads() {
     return (
       <span title={'Assigned to ' + (u?.name || id)}
         className="w-5 h-5 rounded-full text-white text-[8.5px] font-bold flex items-center justify-center shrink-0"
-        style={{ background: u?.color || '#1B2E65' }}>
+        style={{ background: u?.color || '#141414' }}>
         {initials(u?.name || '?')}
       </span>
     );

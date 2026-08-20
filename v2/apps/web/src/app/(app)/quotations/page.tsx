@@ -17,6 +17,7 @@ import {
   type Quote, type QuoteStatusKey,
 } from './lib';
 import { useBranchFilter } from '@/components/branch-filter';
+import { usePager } from '@/components/pager';
 
 const TABS: Array<{ id: 'all' | QuoteStatusKey; label: string }> = [
   { id: 'all', label: 'All' },
@@ -73,6 +74,7 @@ export default function Quotations() {
       return (x.id + x.title + (x.partyName || '')).toLowerCase().includes(needle);
     });
   }, [rows, tab, q]);
+  const pg = usePager(list);
 
   return (
     <div>
@@ -143,7 +145,7 @@ export default function Quotations() {
             </tr>
           </thead>
           <tbody>
-            {list.map((x) => {
+            {pg.pageRows.map((x) => {
               const valid = validOf(x);
               const days = dayDelta(valid);
               const st = QUOTE_STATUS[x.status];
@@ -194,6 +196,7 @@ export default function Quotations() {
           </tbody>
         </table>
       )}
+      {pg.el}
     </div>
   );
 }

@@ -456,7 +456,7 @@ function ManagerDetail({ j, me, reload }: {
                 <button key={r.tech.id} onClick={() => quickAssign(r.tech.id)}
                   className="flex items-center gap-1.5 h-7 pl-1 pr-2.5 rounded-full border border-line bg-white text-[12px] font-medium hover:border-navy">
                   <span className="w-5 h-5 rounded-full text-white text-[8.5px] font-bold flex items-center justify-center"
-                    style={{ background: r.tech.color || '#1B2E65' }}>
+                    style={{ background: r.tech.color || '#141414' }}>
                     {r.tech.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
                   </span>
                   Put {r.tech.name} on it
@@ -2028,7 +2028,7 @@ function SigPad({ apiRef, big }: {
     g.lineWidth = 2.2;
     g.lineCap = 'round';
     g.lineJoin = 'round';
-    g.strokeStyle = '#1B2E65';
+    g.strokeStyle = '#141414';
 
     let drawing = false;
     const state = { inked: false };

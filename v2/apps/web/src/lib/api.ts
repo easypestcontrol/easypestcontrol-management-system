@@ -59,6 +59,7 @@ export interface Company {
   gstin: string; addr: string; city: string; state: string; pin: string;
   gstRate: number; logo: string; hoursFrom: string; hoursTo: string;
   hoursDays: number[]; terms: string[];
+  docTerms?: { quotation?: string[]; invoice?: string[]; contract?: string[]; service?: string[] };
 }
 
 export interface Bootstrap {

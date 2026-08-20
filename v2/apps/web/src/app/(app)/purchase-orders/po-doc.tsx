@@ -98,7 +98,7 @@ export default function PoDoc({ po, company, branchName, branchAddr }: {
         {/* ------------------------------------------------------- header */}
         <div className="flex flex-wrap justify-between gap-6">
           <div className="min-w-[230px] flex-1">
-            <div className="flex items-center gap-3 mb-3">
+            <div className="mb-3">
               {company.logo ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={company.logo} alt="" className="h-10 max-w-[120px] object-contain" />

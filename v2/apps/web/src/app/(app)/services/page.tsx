@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import { usePager } from '@/components/pager';
 import { money } from 'shared';
 
 const CATS = ['All', 'Residential', 'Commercial', 'Industrial', 'Specialised'];
@@ -77,6 +78,7 @@ export default function Services() {
     (cat === 'All' || s.cat === cat) &&
     (!needle || (s.name + s.code + s.desc).toLowerCase().includes(needle)));
   const withSheet = (rows ?? []).filter((s) => s.pdf).length;
+  const pg = usePager(visible);
 
   function open(s: Service | null) {
     setDraft(toDraft(s));
@@ -199,7 +201,7 @@ export default function Services() {
             </tr>
           </thead>
           <tbody>
-            {visible.map((s) => (
+            {pg.pageRows.map((s) => (
               <tr key={s.id} className="zrow" onClick={() => open(s)}>
                 <td>
                   <span className="block font-medium text-navy">{s.name}</span>
@@ -220,6 +222,7 @@ export default function Services() {
           </tbody>
         </table>
       )}
+      {pg.el}
 
       {/* ------------------------------------------------------------ editor */}
       {draft && (

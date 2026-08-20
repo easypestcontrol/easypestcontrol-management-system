@@ -18,6 +18,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import { usePager } from '@/components/pager';
 import { Modal, Field, inputCls, selectCls } from '../jobs/ui';
 
 interface Chem {
@@ -62,6 +63,7 @@ function toDraft(c: Chem | null): Draft {
 export default function Chemicals() {
   const router = useRouter();
   const [rows, setRows] = useState<Chem[] | null>(null);
+  const pg = usePager(rows || []);
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('');
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -166,7 +168,7 @@ export default function Chemicals() {
       ) : (
         <>
           <div className="lg:hidden flex flex-col gap-2.5 p-3">
-            {rows.map((c) => (
+            {pg.pageRows.map((c) => (
               <div key={c.id} className="rounded-xl border border-line bg-white p-4 shadow-card">
                 <div className="flex items-start justify-between gap-2">
                   <span className="min-w-0">
@@ -205,7 +207,7 @@ export default function Chemicals() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((c) => (
+              {pg.pageRows.map((c) => (
                 <tr key={c.id} className="zrow">
                   <td onClick={() => { setDraft(toDraft(c)); setEditing(c); }}>
                     <span className="block font-semibold text-navy">{c.name}</span>
@@ -247,6 +249,7 @@ export default function Chemicals() {
               ))}
             </tbody>
           </table>
+        {pg.el}
         </>
       )}
 

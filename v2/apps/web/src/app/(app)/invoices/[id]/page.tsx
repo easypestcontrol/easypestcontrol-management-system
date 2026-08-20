@@ -192,7 +192,7 @@ export default function InvoicePage() {
               document and not a form that wrapped. */}
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="flex items-center gap-3 mb-2.5">
+              <div className="mb-2.5">
                 {co?.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={co.logo} alt="" className="h-9 sm:h-10 w-auto object-contain" />
@@ -201,9 +201,7 @@ export default function InvoicePage() {
                     {(co?.name || 'P').charAt(0)}
                   </span>
                 )}
-                <div>
-                  <div className="text-[15px] sm:text-[16px] font-bold text-navy leading-tight">{co?.name || '—'}</div>
-                </div>
+                <div className="text-[15px] sm:text-[16px] font-bold text-navy leading-tight mt-1.5">{co?.name || '—'}</div>
               </div>
               <div className="text-[11px] sm:text-[11.5px] text-muted leading-relaxed">
                 {[co?.addr, co?.city].filter(Boolean).join(', ')}{co?.pin ? <> — {co.pin}</> : null}<br />
@@ -362,8 +360,11 @@ export default function InvoicePage() {
           {/* footer */}
           <div className="flex justify-between gap-8 flex-wrap">
             <p className="text-[10.5px] text-muted leading-relaxed max-w-[330px]">
-              Payment due within 15 days of invoice date. Interest at 18% p.a.
-              applies on overdue amounts. Subject to Chennai jurisdiction.
+              {(co?.docTerms?.invoice?.length
+                ? co.docTerms.invoice
+                : ['Payment due within 15 days of invoice date.',
+                  'Interest at 18% p.a. applies on overdue amounts.',
+                  'Subject to Chennai jurisdiction.']).join(' ')}
             </p>
             <div className="text-center min-w-[180px] max-sm:hidden print:block">
               <div className="h-[42px]" />

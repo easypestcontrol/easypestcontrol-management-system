@@ -146,7 +146,7 @@ export default function CustomerDetail() {
           Customers
         </Link>
         <span className="w-9 h-9 rounded-full text-white text-[12px] font-bold flex items-center justify-center"
-          style={{ background: c.color || '#1B2E65' }}>
+          style={{ background: c.color || '#141414' }}>
           {c.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
         </span>
         <div className="min-w-0 flex-1">

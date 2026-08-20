@@ -337,7 +337,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
           right={
             <span className="flex items-center gap-1.5 text-[12.5px]">
               <span className="w-5 h-5 rounded-full text-white text-[8.5px] font-bold flex items-center justify-center"
-                style={{ background: users.find((u) => u.id === l.owner)?.color || '#1B2E65' }}>
+                style={{ background: users.find((u) => u.id === l.owner)?.color || '#141414' }}>
                 {initials(userName(l.owner) || '?')}
               </span>
               {userName(l.owner) || '—'}

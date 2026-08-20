@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import { usePager } from '@/components/pager';
 import { useBranchFilter } from '@/components/branch-filter';
 
 interface Row {
@@ -50,6 +51,7 @@ export default function PurchaseOrders() {
     api.get<List>('/purchase-orders?' + p.toString()).then(setData)
       .catch(() => setData({ rows: [], counts: {} }));
   }, [tab, q, bf.branch]);
+  const pg = usePager(data?.rows || []);
 
   useEffect(() => {
     const t = setTimeout(load, q ? 250 : 0);
@@ -121,7 +123,7 @@ export default function PurchaseOrders() {
       ) : (
         <>
           <div className="lg:hidden flex flex-col gap-2.5 p-3">
-            {data.rows.map((r) => (
+            {pg.pageRows.map((r) => (
               <button key={r.id} onClick={() => router.push('/purchase-orders/' + r.id)}
                 className="text-left rounded-xl border border-line bg-white p-4 shadow-card active:bg-wash">
                 <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -153,7 +155,7 @@ export default function PurchaseOrders() {
               </tr>
             </thead>
             <tbody>
-              {data.rows.map((r) => (
+              {pg.pageRows.map((r) => (
                 <tr key={r.id} className="zrow" onClick={() => router.push('/purchase-orders/' + r.id)}>
                   <td>
                     <span className="block font-semibold text-navy font-mono text-[12.5px]">{r.id}</span>
@@ -177,6 +179,7 @@ export default function PurchaseOrders() {
               ))}
             </tbody>
           </table>
+        {pg.el}
         </>
       )}
     </div>

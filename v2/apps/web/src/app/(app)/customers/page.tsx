@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, type Client } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import { usePager } from '@/components/pager';
 import CustomerForm from './customer-form';
 import { useBranchFilter } from '@/components/branch-filter';
 
@@ -25,6 +26,8 @@ export default function Customers() {
     }, q ? 250 : 0);
     return () => clearTimeout(t);
   }, [q, bf.branch]);
+
+  const pg = usePager(rows || []);
 
   // The topbar's "+ New → Customer" arrives as /customers?new=1
   useEffect(() => {
@@ -78,12 +81,12 @@ export default function Customers() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((c) => (
+            {pg.pageRows.map((c) => (
               <tr key={c.id} className="zrow" onClick={() => router.push('/customers/' + c.id)}>
                 <td>
                   <span className="flex items-center gap-2.5">
                     <span className="w-7 h-7 rounded-full text-white text-[10px] font-bold flex items-center justify-center shrink-0"
-                      style={{ background: c.color || '#1B2E65' }}>
+                      style={{ background: c.color || '#141414' }}>
                       {c.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
                     </span>
                     <span>
@@ -106,6 +109,7 @@ export default function Customers() {
           </tbody>
         </table>
       )}
+      {pg.el}
 
       {creating && (
         <CustomerForm

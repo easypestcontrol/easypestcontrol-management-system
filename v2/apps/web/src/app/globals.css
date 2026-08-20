@@ -1,44 +1,46 @@
 /* ============================================================================
-   PestOps design system — the Zoho Books idiom in exactly three colors.
+   PestOps design system — the Easy Pest brand in exactly three colors.
 
-     navy   rgb(27 46 101)   #1B2E65 — chrome and ink
-     red    rgb(255 0 0)     #FF0000 — action and alert
-     white  rgb(255 255 255)           — surface
+     black  rgb(20 20 20)    #141414 — ink, headings, dark buttons
+     red    rgb(255 0 0)     #FF0000 — action and alert (the brand red)
+     white  rgb(255 255 255)           — surface, including the sidebar
 
-   Every neutral is the navy at reduced opacity, so nothing off-palette can
-   creep in: text is navy, muted text is navy/62, borders navy/14, hover
-   washes navy/4. The sidebar is solid navy with white text; primary buttons
-   and the active-nav rail are the red.
+   Every neutral is the black at reduced opacity, so nothing off-palette can
+   creep in. The sidebar is WHITE with black text — the active item and the
+   primary buttons carry the red, exactly like easypestcontrol.in.
+
+   (--color-navy stays as the token NAME everywhere in the code; its value is
+   now the brand black, so the whole app re-skins from this one block.)
    ========================================================================== */
 @import "tailwindcss";
 
 @theme {
-  --color-navy: #1B2E65;
+  --color-navy: #141414;
   --color-accent: #FF0000;
 
-  --color-ink: #1B2E65;
-  --color-ink-2: rgb(27 46 101 / 0.78);
-  --color-muted: rgb(27 46 101 / 0.62);
-  --color-muted-2: rgb(27 46 101 / 0.42);
-  --color-line: rgb(27 46 101 / 0.14);
-  --color-line-soft: rgb(27 46 101 / 0.08);
-  --color-wash: rgb(27 46 101 / 0.04);
-  --color-wash-2: rgb(27 46 101 / 0.07);
+  --color-ink: #141414;
+  --color-ink-2: rgb(20 20 20 / 0.78);
+  --color-muted: rgb(20 20 20 / 0.58);
+  --color-muted-2: rgb(20 20 20 / 0.40);
+  --color-line: rgb(20 20 20 / 0.13);
+  --color-line-soft: rgb(20 20 20 / 0.07);
+  --color-wash: rgb(20 20 20 / 0.035);
+  --color-wash-2: rgb(20 20 20 / 0.06);
 
-  --color-red-wash: rgb(255 0 0 / 0.07);
-  --color-red-line: rgb(255 0 0 / 0.28);
+  --color-red-wash: rgb(255 0 0 / 0.06);
+  --color-red-line: rgb(255 0 0 / 0.30);
 
-  /* the sidebar's internal palette */
-  --color-side-text: rgb(255 255 255 / 0.82);
-  --color-side-muted: rgb(255 255 255 / 0.5);
-  --color-side-hover: rgb(255 255 255 / 0.08);
-  --color-side-active: rgb(255 255 255 / 0.12);
-  --color-side-line: rgb(255 255 255 / 0.12);
+  /* the sidebar's internal palette — a white sidebar wears dark text */
+  --color-side-text: rgb(20 20 20 / 0.80);
+  --color-side-muted: rgb(20 20 20 / 0.45);
+  --color-side-hover: rgb(20 20 20 / 0.045);
+  --color-side-active: rgb(255 0 0 / 0.07);
+  --color-side-line: rgb(20 20 20 / 0.10);
 
   --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
 
-  --shadow-pop: 0 6px 24px rgb(27 46 101 / 0.14);
-  --shadow-card: 0 1px 2px rgb(27 46 101 / 0.05);
+  --shadow-pop: 0 6px 24px rgb(20 20 20 / 0.14);
+  --shadow-card: 0 1px 2px rgb(20 20 20 / 0.05);
 }
 
 html, body {

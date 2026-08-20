@@ -39,7 +39,7 @@ export function Avatar({ name, color, size = 28 }: { name: string; color?: strin
     <span
       className="rounded-full text-white font-bold flex items-center justify-center shrink-0"
       style={{
-        width: size, height: size, background: color || '#1B2E65',
+        width: size, height: size, background: color || '#141414',
         fontSize: Math.max(9, Math.round(size * 0.36)),
       }}>
       {initials(name || '?')}
@@ -84,7 +84,7 @@ export function Modal({ title, sub, onClose, children, wide }: {
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[8vh] px-4"
-      style={{ background: 'rgb(27 46 101 / 0.4)' }} onClick={onClose}>
+      style={{ background: 'rgb(20 20 20 / 0.4)' }} onClick={onClose}>
       <div className={'bg-white rounded-md shadow-pop w-full ' + (wide ? 'max-w-[640px]' : 'max-w-[480px]')}
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between px-5 pt-4 pb-3 border-b border-line-soft">
@@ -107,7 +107,7 @@ export function Modal({ title, sub, onClose, children, wide }: {
 export function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-8 cursor-zoom-out"
-      style={{ background: 'rgb(27 46 101 / 0.72)' }} onClick={onClose}>
+      style={{ background: 'rgb(20 20 20 / 0.72)' }} onClick={onClose}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={src} alt="" className="max-w-full max-h-full rounded shadow-pop bg-white" />
     </div>
