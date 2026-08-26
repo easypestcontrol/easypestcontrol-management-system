@@ -13,7 +13,11 @@ import { Icon } from '@/components/icons';
 
 /* ---------------------------------------------------------------- types */
 
-export type InvStatus = 'draft' | 'sent' | 'partial' | 'paid' | 'overdue';
+/* 'cancelled' exists in the database — an invoice raised in error is
+   withdrawn, never deleted, because a financial record is never deleted.
+   The client type had never been widened to match, so a cancelled row
+   fell through every status branch and rendered as nothing. */
+export type InvStatus = 'draft' | 'sent' | 'partial' | 'paid' | 'overdue' | 'cancelled';
 
 export interface InvoiceRow {
   id: string; clientId: string; clientName: string; contractId: string;
@@ -80,12 +84,14 @@ export interface ContractOption {
 
 export const STATUS_LABEL: Record<InvStatus, string> = {
   draft: 'Draft', sent: 'Sent', partial: 'Partial', paid: 'Paid', overdue: 'Overdue',
+  cancelled: 'Cancelled',
 };
 
 export function pillClass(s: InvStatus): string {
   if (s === 'overdue') return 'zpill red';
   if (s === 'paid') return 'zpill navy';
-  if (s === 'draft') return 'zpill outline';
+  // Withdrawn money should not look like money still expected.
+  if (s === 'draft' || s === 'cancelled') return 'zpill outline';
   return 'zpill';
 }
 

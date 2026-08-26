@@ -20,6 +20,7 @@ import {
   type ContractOption, type InvoiceDetail, type InvoiceRow, type ListResponse,
 } from './ui';
 import { useBranchFilter } from '@/components/branch-filter';
+import InvoicesMobile from './mobile';
 
 const TABS = [
   { id: 'all', label: 'All' },
@@ -106,7 +107,14 @@ export default function Invoices() {
   }
 
   return (
-    <div>
+    <>
+      {/* The phone gets a screen of its own. The ageing buckets, bulk select,
+          date range and export below are a Monday-morning desk job; on a
+          phone this list exists to answer "where is my bill?". */}
+      <InvoicesMobile data={data} tab={tab} onTab={setTab} q={q} onQ={setQ}
+        onNew={() => setCreating(true)} />
+
+    <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
       <div className="flex items-center justify-between px-4 lg:px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
@@ -306,6 +314,7 @@ export default function Invoices() {
           onDone={(rid, amt, settled) => paid(rid, amt, payFor.id, settled)} />
       )}
     </div>
+    </>
   );
 }
 
