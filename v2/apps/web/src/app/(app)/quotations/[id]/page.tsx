@@ -19,6 +19,7 @@ import {
   QUOTE_STATUS, fmtDate, phonePretty, validOf, waNumber,
   type DocCompany, type QuoteFull,
 } from '../lib';
+import QuoteMobile from './mobile';
 
 const BTN_GHOST = 'flex items-center gap-1.5 h-8 px-3 rounded border border-line text-[12.5px] font-medium hover:bg-wash';
 const BTN_RED = 'flex items-center gap-1.5 h-8 px-3.5 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90';
@@ -267,7 +268,19 @@ export default function QuotationDetail() {
   const canEdit = me?.role !== 'client' && !q.contractId;
 
   return (
-    <div className="p-6 bg-wash min-h-full">
+    <>
+      {/* Opened to send it, chase it, or read the price out loud. Composing
+          one is desk work and stays there. */}
+      <QuoteMobile q={q} total={t.total}
+        rows={[['Subtotal', t.sub] as [string, number]]
+          .concat(t.disc ? [['Discount', -t.disc] as [string, number]] : [])
+          .concat(t.tax.rows)}
+        {...(typeof window === 'undefined'
+          ? { approveUrl: '', waText: '' }
+          : { approveUrl: window.location.origin + '/approve/' + q.id,
+              waText: messageFor(q, co, t.total) })} />
+
+    <div className="max-lg:hidden p-6 bg-wash min-h-full">
       <div className="no-print max-w-[820px] mx-auto">
         <Link href="/quotations"
           className="inline-flex items-center gap-1 text-[12.5px] text-muted hover:text-navy font-medium">
@@ -376,5 +389,6 @@ export default function QuotationDetail() {
           onSent={() => { load(); say('Chat opened — the quotation is marked sent'); }} />
       )}
     </div>
+    </>
   );
 }
