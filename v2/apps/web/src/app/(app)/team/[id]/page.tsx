@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { isFieldTech } from 'shared';
+import MemberMobile from './mobile';
 
 /* ------------------------------------------------------------ vocabulary */
 
@@ -632,7 +633,14 @@ export default function TeamMember() {
   if (isTech) kv.push(['Skills', m.skills.join(', ') || '—']);
 
   return (
-    <div>
+    <>
+      {/* Opened to ring somebody, or to see what they are doing today. The
+          employee record sits below both, quiet, because it is filled in
+          once at a desk and read only when it is needed. */}
+      <MemberMobile m={m} roleLabel={meta.label}
+        branchName={(bid) => branches.find((b) => b.id === bid)?.name || bid} />
+
+    <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/team" className="text-muted hover:text-navy flex items-center gap-1 text-[13px] shrink-0">
@@ -844,6 +852,7 @@ export default function TeamMember() {
         )}
       </div>
     </div>
+    </>
   );
 }
 
