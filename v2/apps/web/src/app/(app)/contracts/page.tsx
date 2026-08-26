@@ -18,6 +18,7 @@ import {
   type Boot, type ContractRow,
 } from './lib';
 import { useBranchFilter } from '@/components/branch-filter';
+import { ListScreen } from '@/components/mobile';
 
 const TABS = [
   { id: 'active', label: 'Live' },
@@ -82,7 +83,29 @@ export default function Contracts() {
   const canCreate = !!me && ['admin', 'ops', 'sales'].indexOf(me.role) >= 0;
 
   return (
-    <div>
+    <>
+      {/* How far through the visits, and is it still live. Editing a plan is a desk job and stays on the desktop. */}
+      <ListScreen
+        title="Contracts"
+        loading={!rows}
+        search={q}
+        onSearch={setQ}
+        rows={(rows || []).map((c) => ({
+          id: c.key,
+          href: '/contracts/' + c.key,
+          title: c.clientName || c.clientId,
+          amount: c.value ? money(c.value) : undefined,
+          meta: [c.planText, c.done + ' of ' + c.total + ' visits'].filter(Boolean).join(' \u00b7 '),
+          tone: (c.statusKey === 'active' ? 'good'
+            : c.statusKey === 'expired' ? 'bad'
+            : c.statusKey === 'due' ? 'warn' : 'plain') as 'good' | 'bad' | 'warn' | 'plain',
+          state: c.statusLabel || 'Contract',
+        }))}
+        empty={q ? 'Nothing matches that' : 'No contracts yet'}
+        emptyHint={q ? 'Try the customer name.'
+          : 'A contract is created from an approved quotation.'}
+      />
+    <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
@@ -292,5 +315,6 @@ export default function Contracts() {
         </div>
       )}
     </div>
+    </>
   );
 }

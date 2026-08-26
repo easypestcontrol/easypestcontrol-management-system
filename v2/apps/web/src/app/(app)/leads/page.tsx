@@ -17,6 +17,7 @@ import LeadDrawer from './lead-drawer';
 import NewLead from './new-lead';
 import StageDialog from './stage-dialog';
 import { useBranchFilter } from '@/components/branch-filter';
+import { ListScreen } from '@/components/mobile';
 
 export default function Leads() {
   const [rows, setRows] = useState<Lead[] | null>(null);
@@ -236,7 +237,29 @@ export default function Leads() {
 
   /* -------------------------------------------------------------- render */
   return (
-    <div>
+    <>
+      {/* A lead on the road is a name and a phone number. The pipeline board and the follow-up log are desk work. */}
+      <ListScreen
+        title="Leads"
+        loading={!rows}
+        search={q}
+        onSearch={setQ}
+        rows={(rows || []).map((l) => ({
+          id: l.id,
+          href: '/leads?open=' + l.id,
+          title: l.name,
+          meta: [l.phone, l.area].filter(Boolean).join(' \u00b7 ') || l.id,
+          amount: l.value ? money(l.value) : undefined,
+          tone: 'info' as const,
+          state: l.stage || 'New',
+        }))}
+        empty={q ? 'Nothing matches that' : 'No leads yet'}
+        emptyHint={q ? 'Try a phone number or part of the name.'
+          : 'Add the first one with the red button.'}
+        fabOnClick={() => setShowNew(true)}
+        fabLabel="New lead"
+      />
+    <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
           <h1 className="text-[17px] font-semibold">Leads</h1>
@@ -314,5 +337,6 @@ export default function Leads() {
           onDone={() => { setMove(null); reload(); }} />
       )}
     </div>
+    </>
   );
 }

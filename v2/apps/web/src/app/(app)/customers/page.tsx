@@ -7,6 +7,7 @@ import { Icon } from '@/components/icons';
 import { usePager } from '@/components/pager';
 import CustomerForm from './customer-form';
 import { useBranchFilter } from '@/components/branch-filter';
+import { ListScreen } from '@/components/mobile';
 
 export default function Customers() {
   const router = useRouter();
@@ -35,7 +36,33 @@ export default function Customers() {
   }, []);
 
   return (
-    <div>
+    <>
+      {/* On a phone this list answers one question: who is this person and how
+          do I reach them. The table below carries GST numbers and joining
+          dates, which nobody looks up standing at a gate. */}
+      <ListScreen
+        title="Customers"
+        loading={!rows}
+        search={q}
+        onSearch={setQ}
+        rows={(rows || []).map((c) => ({
+          id: c.id,
+          href: '/customers/' + c.id,
+          title: c.name,
+          meta: [c.contact, c.phone].filter(Boolean).join(' · ') || c.id,
+          right: c.area || c.city || '',
+          tone: 'info' as const,
+          state: c.type || 'Customer',
+        }))}
+        empty={q ? 'Nothing matches that' : 'No customers yet'}
+        emptyHint={q
+          ? 'Try a phone number, or part of the name.'
+          : 'Add the first one with the red button.'}
+        fabOnClick={() => setCreating(true)}
+        fabLabel="Add customer"
+      />
+
+    <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
           <h1 className="text-[17px] font-semibold">Customers</h1>
@@ -117,5 +144,6 @@ export default function Customers() {
           onDone={(c) => { setCreating(false); router.push('/customers/' + c.id); }} />
       )}
     </div>
+    </>
   );
 }

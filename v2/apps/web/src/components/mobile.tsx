@@ -16,6 +16,7 @@
      · nothing is smaller than 12px
    ========================================================================== */
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Icon, type IconName } from '@/components/icons';
 
@@ -257,7 +258,7 @@ export function Filters({ value, onChange, options }: {
 /** The screen's title bar for a top-level tab. */
 export function ScreenTitle({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
-    <div className="bg-white px-4 pt-2 pb-1 flex items-center justify-between gap-2">
+    <div className="relative bg-white px-4 pt-2 pb-1 flex items-center justify-between gap-2">
       <h1 className="text-[25px] font-bold tracking-[-0.025em]">{title}</h1>
       <span className="flex items-center gap-2">{children}</span>
     </div>
@@ -297,5 +298,109 @@ export function Alert({ href, children }: { href: string; children: React.ReactN
       <span className="flex-1 text-[14px] font-semibold text-rose-ink">{children}</span>
       <Icon name="chevRight" size={16} className="text-rose-ink shrink-0" />
     </Link>
+  );
+}
+
+/* ------------------------------------------------------------ list screen */
+
+export interface ListRow {
+  id: string;
+  href?: string;
+  title: string;
+  amount?: string;
+  right?: string;
+  meta?: string;
+  tone?: Tone;
+  state?: string;
+}
+
+/**
+ * A whole list screen: title, optional search, optional filters, the rows,
+ * and the states around them.
+ *
+ * Most of this app is a list of things with a name, a number and a state.
+ * Writing that page fifteen times is fifteen chances for the spacing to
+ * drift, and the one that drifts is always the one somebody is looking at.
+ */
+export function ListScreen({
+  title, rows, loading, filters, filter, onFilter, search, onSearch,
+  empty, emptyHint, fabHref, fabOnClick, fabLabel, headerRight, children,
+}: {
+  title: string;
+  rows: ListRow[];
+  loading?: boolean;
+  filters?: Array<{ key: string; label: string }>;
+  filter?: string;
+  onFilter?: (v: string) => void;
+  /** Passing a value turns the search control on. */
+  search?: string;
+  onSearch?: (v: string) => void;
+  empty?: string;
+  emptyHint?: string;
+  fabHref?: string;
+  fabOnClick?: () => void;
+  fabLabel?: string;
+  headerRight?: React.ReactNode;
+  /** Anything to sit above the list — a banner, a total. */
+  children?: React.ReactNode;
+}) {
+  return (
+    <Screen>
+      <ScreenTitle title={title}>
+        {headerRight}
+        {onSearch && <SearchToggle value={search || ''} onChange={onSearch} />}
+      </ScreenTitle>
+
+      {filters && filter !== undefined && onFilter && (
+        <Filters value={filter} onChange={onFilter} options={filters} />
+      )}
+
+      <div className="px-4 pt-3 flex flex-col gap-3">
+        {children}
+
+        {loading ? (
+          [0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-[84px] rounded-2xl bg-white animate-pulse" />
+          ))
+        ) : rows.length === 0 ? (
+          <Card>
+            <p className="text-[16px] font-bold text-center">{empty || 'Nothing here yet'}</p>
+            {emptyHint && (
+              <p className="text-muted text-[14px] mt-1.5 text-center leading-relaxed">{emptyHint}</p>
+            )}
+          </Card>
+        ) : (
+          <Card flush className="mb-4">
+            {rows.map((r) => (
+              <Row key={r.id} href={r.href}
+                title={r.title} amount={r.amount} right={r.right} meta={r.meta}
+                chip={r.state ? <Chip tone={r.tone || 'plain'}>{r.state}</Chip> : undefined} />
+            ))}
+          </Card>
+        )}
+      </div>
+
+      {(fabHref || fabOnClick) && (
+        <Fab href={fabHref} onClick={fabOnClick} label={fabLabel || 'New'} />
+      )}
+    </Screen>
+  );
+}
+
+/** The magnifier that opens a field, rather than a field always taking room. */
+function SearchToggle({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <IconButton name="search" label="Search" onClick={() => setOpen((v) => !v)} />
+      {open && (
+        <div className="absolute left-0 right-0 top-full bg-white px-4 pb-3 z-10">
+          <input value={value} onChange={(e) => onChange(e.target.value)} autoFocus
+            placeholder="Search…"
+            className="w-full h-11 px-3.5 rounded-xl bg-ground text-[15px] outline-none
+              focus:ring-2 focus:ring-accent/30" />
+        </div>
+      )}
+    </>
   );
 }

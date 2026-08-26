@@ -18,6 +18,7 @@ import {
 } from './lib';
 import { useBranchFilter } from '@/components/branch-filter';
 import { usePager } from '@/components/pager';
+import { ListScreen, niceDate } from '@/components/mobile';
 
 const TABS: Array<{ id: 'all' | QuoteStatusKey; label: string }> = [
   { id: 'all', label: 'All' },
@@ -77,7 +78,41 @@ export default function Quotations() {
   const pg = usePager(list);
 
   return (
-    <div>
+    <>
+      {/* A quotation on a phone is asked for at a gate. Name, price, and whether the customer has seen it -- the document itself is on the desktop. */}
+      <ListScreen
+        title="Quotations"
+        loading={!rows}
+        search={q}
+        onSearch={setQ}
+        filters={[
+          { key: 'all', label: 'All' },
+          { key: 'sent', label: 'Sent' },
+          { key: 'approved', label: 'Approved' },
+          { key: 'draft', label: 'Draft' },
+        ]}
+        filter={tab}
+        onFilter={(v) => setTab(v as typeof tab)}
+        rows={(rows || []).map((x) => ({
+          id: x.id,
+          href: '/quotations/' + x.id,
+          title: x.title || x.clientId,
+          amount: money(totalOf(x)),
+          meta: niceDate(x.date) + ' \u00b7 ' + x.id,
+          tone: (x.status === 'approved' ? 'good'
+            : x.status === 'rejected' ? 'bad'
+            : x.status === 'sent' ? 'info' : 'plain') as 'good' | 'bad' | 'info' | 'plain',
+          state: x.status === 'approved' ? 'Approved'
+            : x.status === 'rejected' ? 'Turned down'
+            : x.status === 'sent' ? 'With the customer' : 'Draft',
+        }))}
+        empty={q ? 'Nothing matches that' : 'No quotations yet'}
+        emptyHint={q ? 'Try the customer name or the quote number.'
+          : 'Raise one with the red button.'}
+        fabHref="/quotations/new"
+        fabLabel="New quotation"
+      />
+    <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
           <h1 className="text-[17px] font-semibold">Quotations</h1>
@@ -198,5 +233,6 @@ export default function Quotations() {
       )}
       {pg.el}
     </div>
+    </>
   );
 }

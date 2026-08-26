@@ -17,6 +17,7 @@ import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { usePager } from '@/components/pager';
 import { Modal, Field, inputCls, selectCls } from '../jobs/ui';
+import { ListScreen, money } from '@/components/mobile';
 
 interface Vendor {
   id: string; name: string; gstin: string; contact: string; phone: string;
@@ -86,7 +87,25 @@ export default function Vendors() {
   }
 
   return (
-    <div>
+    <>
+      {/* Who to ring when stock runs out, and what is still on order. */}
+      <ListScreen
+        title="Vendors"
+        loading={!rows}
+        rows={(rows || []).map((v) => ({
+          id: v.id,
+          title: v.name,
+          meta: [v.contact, v.phone, v.city].filter(Boolean).join(' \u00b7 ') || v.id,
+          amount: v.open ? money(v.open) : undefined,
+          tone: (v.open > 0 ? 'warn' : 'plain') as 'warn' | 'plain',
+          state: v.open > 0 ? v.orders + ' open orders' : 'Nothing outstanding',
+        }))}
+        empty="No vendors yet"
+        emptyHint="Add the ones you buy chemicals from."
+        fabOnClick={() => { setDraft(toDraft(null)); setEditing(''); }}
+        fabLabel="Add vendor"
+      />
+    <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-4 lg:px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
           <h1 className="text-[17px] font-semibold">Vendors</h1>
@@ -281,5 +300,6 @@ export default function Vendors() {
         </Modal>
       )}
     </div>
+    </>
   );
 }
