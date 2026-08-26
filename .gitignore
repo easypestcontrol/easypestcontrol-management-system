@@ -69,3 +69,6 @@ google-services*(*).json
 *firebase-adminsdk*.json
 firebase-sa.json
 secrets/
+
+# Source archives — the repository is the source.
+*.zip

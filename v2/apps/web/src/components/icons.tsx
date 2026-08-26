@@ -52,6 +52,10 @@ const PATHS = {
   bed: <><path d="M3 18V7" /><path d="M3 13h18v5" /><path d="M3 15h18" /><circle cx="7" cy="10" r="1.6" /><path d="M11 11.5h7a3 3 0 0 1 3 3" /></>,
   receipt: <><path d="M5 3h14v18l-2.3-1.5L14.4 21l-2.4-1.5L9.6 21l-2.3-1.5L5 21z" /><path d="M9 7.5h6M9 11h6M9 14.5h3.5" /></>,
   road: <><path d="M4 20 9 4h6l5 16" /><path d="M12 6.5v2.2M12 11v2.2M12 15.5v2.2" /></>,
+  // A warning triangle: the one shape a person reads as "this needs you"
+  // without reading anything. Used for work nobody is assigned to.
+  alert: <><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4.5M12 17.2h.01" /></>,
+  sort: <><path d="M4 6h16M7 12h10M10 18h4" /></>,
 } as const;
 
 export type IconName = keyof typeof PATHS;

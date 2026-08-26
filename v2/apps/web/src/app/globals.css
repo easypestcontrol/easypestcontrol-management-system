@@ -30,6 +30,29 @@
   --color-red-wash: rgb(255 0 0 / 0.06);
   --color-red-line: rgb(255 0 0 / 0.30);
 
+  /* --------------------------------------------------------------------
+     The phone's surfaces.
+
+     On a laptop the app is white on white and structure comes from
+     hairlines. That reads as a document. A phone needs the opposite: a grey
+     ground with white cards floating on it, which is most of what separates
+     an app from a web page folded up.
+
+     The tints carry meaning and are never saturated: rose is trouble, mint
+     is settled, sky is information. The brand red is reserved for things a
+     person PRESSES -- the active tab, the button, the plus. If red meant
+     both "tap me" and "this is wrong", neither would read.
+     -------------------------------------------------------------------- */
+  --color-ground: #F4F5F7;
+  --color-rose: #FDECEC;
+  --color-rose-ink: #C81E1E;
+  --color-mint: #EAF6EE;
+  --color-mint-ink: #1F7A4C;
+  --color-sky: #EEF2FA;
+  --color-sky-ink: #3A5A8C;
+  --color-amber: #FEF3E2;
+  --color-amber-ink: #B45309;
+
   /* the sidebar's internal palette — a white sidebar wears dark text */
   --color-side-text: rgb(20 20 20 / 0.80);
   --color-side-muted: rgb(20 20 20 / 0.45);
@@ -100,8 +123,8 @@ html, body {
     position: relative;
     /* 44px of right padding is the chevron's room; 64px tall because a
        thumb is about 45px wide and never lands where it aimed. */
-    padding: 13px 44px 13px 16px;
-    min-height: 64px;
+    padding: 14px 44px 14px 16px;
+    min-height: 68px;
     border-bottom: 1px solid var(--color-line-soft);
   }
   .ztable td { border: 0; padding: 0; max-width: none; }
@@ -109,15 +132,19 @@ html, body {
 
   /* The first cell is the name of the thing. */
   .ztable td:first-child {
-    font-size: 14px; font-weight: 600; color: var(--color-ink);
+    font-size: 15.5px; font-weight: 600; color: var(--color-ink);
     line-height: 1.35;
   }
   /* Everything after it is detail, on one wrapped line. */
   .ztable td ~ td {
-    display: inline; font-size: 12.5px; color: var(--color-muted);
-    line-height: 1.5;
+    display: inline; font-size: 13.5px; color: var(--color-muted);
+    line-height: 1.55;
   }
-  .ztable td ~ td ~ td::before { content: ' · '; color: var(--color-line); }
+  .ztable td ~ td ~ td::before {
+    /* A middle dot, written as an escape: a literal one depends on every
+       tool in the chain agreeing about UTF-8, and one of them never does. */
+    content: "\00b7"; color: var(--color-line); margin: 0 2px;
+  }
   .ztable td.text-right, .ztable td[align="right"] { text-align: left; }
   /* Money keeps its weight even in the detail line — it is what the row is
      usually being opened for. */
@@ -150,6 +177,44 @@ html, body {
 
   button.h-8, a.h-8, label.h-8, select.h-8, input.h-8,
   button.h-9, a.h-9, label.h-9, select.h-9, input.h-9 { height: 40px; }
+
+  /* --------------------------------------------------------------------
+     One type scale for the hand.
+
+     The app was drawn at desktop density — 13px body, 11px labels — which
+     is comfortable on a monitor an arm's length away and too small held at
+     forty centimetres in a van. Android's own body text is 15-16px, and
+     that is the size people's eyes are calibrated to on a phone.
+
+     Rather than touch a thousand class names, the scale is remapped here:
+     every size the app uses moves up one step, keeping the RELATIVE
+     hierarchy exactly as designed. Nothing gets smaller than 12px.
+     -------------------------------------------------------------------- */
+  .text-\[10px\] { font-size: 12px; }
+  .text-\[10\.5px\] { font-size: 12px; }
+  .text-\[11px\] { font-size: 12.5px; }
+  .text-\[11\.5px\] { font-size: 13px; }
+  .text-\[12px\] { font-size: 13.5px; }
+  .text-\[12\.5px\] { font-size: 14px; }
+  .text-\[13px\] { font-size: 15px; }
+  .text-\[13\.5px\] { font-size: 15px; }
+  .text-\[14px\] { font-size: 15.5px; }
+  .text-\[15px\] { font-size: 16.5px; }
+  .text-\[16px\] { font-size: 17px; }
+  .text-\[17px\] { font-size: 18.5px; }
+  .text-\[18px\] { font-size: 19px; }
+  .text-\[19px\] { font-size: 20px; }
+  .text-\[20px\] { font-size: 21px; }
+  .text-\[22px\] { font-size: 23px; }
+
+  /* --------------------------------------------------------------------
+     Nothing may push the page sideways.
+
+     Larger text makes long words wider, and one unbreakable string — an
+     email, an address, a document id — is enough to give the whole page a
+     horizontal scrollbar and shift every screen off centre.
+     -------------------------------------------------------------------- */
+  .ztable td, .ztable tr { overflow-wrap: anywhere; }
 }
 
 /* status pill */
