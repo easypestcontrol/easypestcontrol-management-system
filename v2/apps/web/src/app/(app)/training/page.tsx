@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, getToken, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import { ListScreen } from '@/components/mobile';
 
 const API_BASE = '/api'; // the Next proxy forwards to the API
 
@@ -45,7 +46,22 @@ export default function TrainingPage() {
   const canManage = !!me && ['admin', 'ops'].includes(me.role);
 
   return (
-    <div className="p-6 max-w-[980px]">
+    <>
+      {/* A lesson is read on the phone between jobs, which is the whole point of writing it down. */}
+      <ListScreen
+        title="Training"
+        loading={!rows}
+        rows={(rows || []).map((l) => ({
+          id: l.id,
+          title: l.title,
+          meta: [ROLE_LABEL[l.role] || l.role, l.by].filter(Boolean).join(' · '),
+          tone: (l.hasVideo ? 'info' : 'plain') as 'info' | 'plain',
+          state: l.hasVideo ? 'Video' : 'Reading',
+        }))}
+        empty="No lessons yet"
+        emptyHint="Write down how the work is done, once, so it can be handed over."
+      />
+    <div className="max-lg:hidden p-6 max-w-[980px]">
       <div className="flex items-start justify-between flex-wrap gap-3 mb-5">
         <div>
           <h1 className="text-[20px] font-semibold">Training</h1>
@@ -93,6 +109,7 @@ export default function TrainingPage() {
       {open && <Viewer lesson={open} onClose={() => setOpen(null)} onDeleted={() => { setOpen(null); load(); }} />}
       {adding && <AddDialog onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} />}
     </div>
+    </>
   );
 }
 
