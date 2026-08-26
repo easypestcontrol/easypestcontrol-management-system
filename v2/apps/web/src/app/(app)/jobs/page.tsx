@@ -321,7 +321,7 @@ function NewJobModal({ boot, onClose, onCreated }: {
   return (
     <Modal title="Schedule a service" wide
       sub="Assign it now or leave it in the unassigned queue" onClose={onClose}>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="Customer" required>
           <select value={clientId} onChange={(e) => setClientId(e.target.value)} className={selectCls}>
             {!clients && <option value="">Loading…</option>}

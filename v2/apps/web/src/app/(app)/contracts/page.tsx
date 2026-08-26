@@ -285,7 +285,7 @@ export default function Contracts() {
             <p className="text-muted text-[12.5px] mt-0.5 mb-5">
               Both are built on the same form — this only decides how the visits are scheduled.
             </p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button onClick={() => router.push('/contracts/new?mode=amc')}
                 className="text-left rounded-md border border-line p-4 hover:border-navy/40 hover:bg-wash">
                 <Icon name="contract" size={22} className="text-navy mb-3" />

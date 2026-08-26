@@ -363,7 +363,7 @@ function NewContractForm() {
     );
   }
   if (!draft || !boot || !clients || !totals) {
-    return <p className="p-6 text-muted text-[13px]">Loading…</p>;
+    return <p className="p-4 lg:p-6 text-muted text-[13px]">Loading…</p>;
   }
 
   const client = clients.find((c) => c.id === draft.clientId) || null;
@@ -380,7 +380,7 @@ function NewContractForm() {
   const card = 'rounded-md border border-line';
 
   return (
-    <div className="p-6 max-w-[1180px]">
+    <div className="p-4 lg:p-6 max-w-[1180px]">
       <Link href="/contracts" className="text-[12.5px] text-muted hover:text-navy">← All contracts</Link>
       <div className="mt-2 mb-5">
         <h1 className="text-[20px] font-semibold">{COPY[mode].title}</h1>
@@ -389,7 +389,7 @@ function NewContractForm() {
 
       {/* ------------------------------------------------------ header card */}
       <section className={card + ' p-5'}>
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <label className="block">
             <span className={label}>Contract number</span>
             <input className={input + ' font-mono bg-wash text-muted cursor-default'}
@@ -418,7 +418,7 @@ function NewContractForm() {
           </label>
         </div>
 
-        <div className="grid grid-cols-4 gap-4 mt-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
           <label className="block">
             <span className={label}>Sales executive *</span>
             <select className={input} value={draft.owner}
@@ -451,7 +451,7 @@ function NewContractForm() {
           </label>
         </div>
 
-        <div className="grid grid-cols-4 gap-4 mt-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
           <div>
             <span className={label}>Billing address</span>
             <textarea rows={4} className={input + ' h-auto py-2 leading-relaxed resize-none'}
@@ -519,7 +519,7 @@ function NewContractForm() {
       </section>
 
       {/* -------------------------------------------------- services + money */}
-      <div className="grid grid-cols-[1fr_320px] gap-4 mt-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 mt-5 items-start">
         <section className={card}>
           <h2 className="text-[13px] font-semibold px-4 py-3 border-b border-line-soft">
             Pest control services
@@ -858,7 +858,7 @@ function NewContractForm() {
       </div>
 
       {/* --------------------------------------- terms, signatures, notes */}
-      <div className="grid grid-cols-3 gap-4 mt-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-5 items-start">
         <section className={card + ' p-4'}>
           <h2 className="text-[13px] font-semibold mb-3">Terms &amp; conditions</h2>
           <ol className="list-decimal pl-5 text-[12.5px] leading-relaxed text-ink-2">
@@ -942,7 +942,7 @@ function FragmentRow({ children }: { children: React.ReactNode }) {
 
 export default function NewContractPage() {
   return (
-    <Suspense fallback={<p className="p-6 text-muted text-[13px]">Loading…</p>}>
+    <Suspense fallback={<p className="p-4 lg:p-6 text-muted text-[13px]">Loading…</p>}>
       <NewContractForm />
     </Suspense>
   );

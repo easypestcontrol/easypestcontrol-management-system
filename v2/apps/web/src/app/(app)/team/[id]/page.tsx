@@ -425,7 +425,7 @@ export default function TeamMember() {
 
           {/* --------------------------------------------- identity & contact */}
           <p className={sectionTitle + ' mt-7'}>Identity &amp; contact</p>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Full name" required>
               <input className={inputCls} value={draft.name} placeholder="e.g. Karthik R"
                 onChange={(e) => set('name', e.target.value)} />
@@ -463,7 +463,7 @@ export default function TeamMember() {
 
           {/* ------------------------------------------------------ employment */}
           <p className={sectionTitle}>Employment</p>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Role" required>
               <select className={inputCls} value={draft.role} onChange={(e) => onRole(e.target.value)}>
                 {ROLE_ORDER.map((r) => <option key={r} value={r}>{ROLE_META[r].label}</option>)}

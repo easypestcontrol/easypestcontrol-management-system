@@ -355,7 +355,7 @@ export default function Builder({ edit, presetClient, presetLead }: {
     if (!c) return null;
     return (
       <div className="rounded border border-line bg-wash p-4">
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div>
             <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted">Billing address</div>
             <div className="text-[12.5px] leading-relaxed mt-1.5">
@@ -416,9 +416,9 @@ export default function Builder({ edit, presetClient, presetLead }: {
         </div>
       </div>
 
-      <div className="p-6 max-w-[960px]">
+      <div className="p-4 lg:p-6 max-w-[960px]">
         {/* -------------------------------------------------- who and what */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Field label="Raise for" req
             hint="Customers and open leads — matches on name, contact, phone, city or GSTIN.">
             <div className="relative">
@@ -486,7 +486,7 @@ export default function Builder({ edit, presetClient, presetLead }: {
           </Field>
         </div>
 
-        <div className="grid grid-cols-4 gap-4 mt-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
           <Field label="Quotation no." hint="Assigned automatically by the system.">
             <input value={qNo || '…'} readOnly tabIndex={-1}
               className={INP + ' font-mono bg-wash text-muted cursor-default'} />
@@ -503,7 +503,7 @@ export default function Builder({ edit, presetClient, presetLead }: {
           </Field>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mt-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
           <Field label="Billing address" hint="Printed under 'Quotation for' on the document.">
             <textarea value={billAddr} onChange={(e) => setBillAddr(e.target.value)} rows={3}
               placeholder="Street, area — City PIN" className={AREA} />
@@ -518,7 +518,7 @@ export default function Builder({ edit, presetClient, presetLead }: {
           </Field>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mt-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
           <Field label="Place of supply"
             hint="Within the home state this splits into CGST + SGST; any other state is charged as a single IGST line.">
             <select value={pos} onChange={(e) => setPos(e.target.value)} className={INP}>
@@ -546,11 +546,11 @@ export default function Builder({ edit, presetClient, presetLead }: {
               <Icon name="plus" size={14} /> Add item
             </button>
           </div>
-          <div className="grid grid-cols-[1fr_84px_110px_110px_32px] gap-2 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">
+          <div className="max-lg:hidden grid grid-cols-[1fr_84px_110px_110px_32px] gap-2 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">
             <span>Service</span><span>Qty</span><span>Rate (₹)</span><span>Amount (₹)</span><span />
           </div>
           {(items || []).map((it, i) => (
-            <div key={i} className="grid grid-cols-[1fr_84px_110px_110px_32px] gap-2 items-start py-3 border-b border-line-soft">
+            <div key={i} className="grid grid-cols-1 lg:grid-cols-[1fr_84px_110px_110px_32px] gap-2 items-start py-3 border-b border-line-soft">
               <div>
                 <select value={it.svId} onChange={(e) => onSvc(i, e.target.value)} className={INP}>
                   <option value="__unset">Pick a service…</option>
@@ -577,23 +577,42 @@ export default function Builder({ edit, presetClient, presetLead }: {
                   </div>
                 )}
               </div>
-              <input type="number" min={0} step={1} value={it.qty}
-                onChange={(e) => onQty(i, Number(e.target.value) || 0)}
-                className={INP + ' text-right'} />
-              <input type="number" min={0} step={50} value={it.rate}
-                onChange={(e) => patchItem(i, { rate: Number(e.target.value) || 0 })}
-                className={INP + ' text-right'} />
-              <input readOnly value={money(it.qty * it.rate)} className={INP + ' text-right bg-wash'} />
+              {/* On a phone the column headings are gone, so each number
+                  carries its own label. Three unlabelled boxes in a row is
+                  the classic way a form becomes a guessing game.
+                  inputMode="numeric" gets the digit keypad, not the alphabet. */}
+              <label className="lg:contents">
+                <span className="lg:hidden block text-[12px] font-semibold uppercase
+                  tracking-[0.06em] text-muted mb-1 mt-2">Quantity</span>
+                <input type="number" inputMode="numeric" min={0} step={1} value={it.qty}
+                  onChange={(e) => onQty(i, Number(e.target.value) || 0)}
+                  className={INP + ' text-right'} />
+              </label>
+              <label className="lg:contents">
+                <span className="lg:hidden block text-[12px] font-semibold uppercase
+                  tracking-[0.06em] text-muted mb-1 mt-2">Rate (&#8377;)</span>
+                <input type="number" inputMode="numeric" min={0} step={50} value={it.rate}
+                  onChange={(e) => patchItem(i, { rate: Number(e.target.value) || 0 })}
+                  className={INP + ' text-right'} />
+              </label>
+              <label className="lg:contents">
+                <span className="lg:hidden block text-[12px] font-semibold uppercase
+                  tracking-[0.06em] text-muted mb-1 mt-2">Amount</span>
+                <input readOnly value={money(it.qty * it.rate)}
+                  className={INP + ' text-right bg-wash'} />
+              </label>
               <button onClick={() => rmItem(i)} title="Remove"
-                className="h-9 w-8 flex items-center justify-center text-muted-2 hover:text-accent">
-                <Icon name="x" size={15} />
+                className="max-lg:w-full max-lg:h-11 max-lg:mt-2 max-lg:rounded-lg max-lg:bg-wash
+                  max-lg:text-[14px] max-lg:font-semibold
+                  h-9 w-8 flex items-center justify-center gap-1.5 text-muted-2 hover:text-accent">
+                <Icon name="x" size={15} /><span className="lg:hidden">Remove this line</span>
               </button>
             </div>
           ))}
         </div>
 
         {/* ------------------------------------------------------- totals */}
-        <div className="grid grid-cols-2 gap-4 mt-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5">
           <Field label="Discount (₹)">
             <input type="number" min={0} step={500} value={discount}
               onChange={(e) => setDiscount(Number(e.target.value) || 0)} className={INP} />
@@ -627,7 +646,7 @@ export default function Builder({ edit, presetClient, presetLead }: {
         </div>
 
         {/* -------------------------------------------- notes, terms, sign */}
-        <div className="grid grid-cols-2 gap-4 mt-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
           <Field label="Customer notes" hint="Printed on the quotation.">
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
               placeholder="Timing restrictions, chemical preferences, access instructions…"
@@ -643,7 +662,7 @@ export default function Builder({ edit, presetClient, presetLead }: {
             <span className="text-[13.5px] font-semibold">Digital signatures</span>
             <span className="text-[11.5px] text-muted-2">Optional here, required before a contract</span>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="rounded border border-line p-4">
               <div className="text-[12px] font-semibold text-ink-2 mb-2">Customer signature</div>
               {edit?.signCustomer ? (

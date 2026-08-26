@@ -140,7 +140,7 @@ export default function CustomerForm({ initial, onDone, onClose }: {
   /* ------------------------------------------------------------ the tabs */
 
   const overview = (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <label className="block col-span-2">
         <L>Customer type</L>
         <span className="flex gap-5 h-9 items-center">
@@ -218,7 +218,7 @@ export default function CustomerForm({ initial, onDone, onClose }: {
   );
 
   const tax = (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <label className="block"><L>GST treatment</L>
         <select value={f.gstTreatment} onChange={(e) => set('gstTreatment', e.target.value)} className={SELECT}>
           <option value="">— select —</option>
