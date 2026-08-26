@@ -10,6 +10,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '@/lib/api';
 import { money, moneyShort, toISO } from 'shared';
 import { useBranchFilter } from '@/components/branch-filter';
+import ReportsMobile from './mobile';
+import { Filters } from '@/components/mobile';
 
 /* ---------------------------------------------------------------- payload */
 
@@ -174,7 +176,15 @@ export default function Reports() {
   }, [preset, bf.branch]);
 
   return (
-    <div>
+    <>
+      {/* A report is read by comparing charts side by side, which a phone
+          cannot do. So this is the figures people quote out loud, not the
+          desktop page shrunk. */}
+      <ReportsMobile s={data} rangeLabel={PRESETS.find((x) => x.id === preset)?.label || ''}
+        filterEl={<Filters value={preset} onChange={(v) => setPreset(v as Preset)}
+          options={PRESETS.map((x) => ({ key: x.id, label: x.label }))} />} />
+
+    <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
@@ -370,5 +380,6 @@ export default function Reports() {
         </div>
       )}
     </div>
+    </>
   );
 }

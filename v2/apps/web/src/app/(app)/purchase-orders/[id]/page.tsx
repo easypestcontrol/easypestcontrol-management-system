@@ -21,6 +21,7 @@ import { Modal } from '../../jobs/ui';
 import PoBuilder, { type PoDraft } from '../builder';
 import PoDoc from '../po-doc';
 import type { DocCompany } from '../../quotations/lib';
+import PoMobile from './mobile';
 
 interface Line {
   id: number; itemId: string; name: string; cat: string; baseUnit: string;
@@ -105,7 +106,13 @@ export default function PurchaseOrderPage() {
 
   /* ----------------------------------------------------------- document */
   return (
-    <div>
+    <>
+      {/* Opened standing at a delivery: does what arrived match what was
+          ordered. Counts lead; nobody argues about a rate while the driver
+          waits. */}
+      <PoMobile po={po} canReceive={canReceive} onReceive={() => setReceiving(true)} />
+
+    <div className="max-lg:hidden">
       <div className="flex items-center gap-3 px-4 lg:px-6 h-[56px] border-b border-line">
         <Link href="/purchase-orders" className="text-muted hover:text-navy shrink-0">
           <Icon name="chevRight" size={16} className="rotate-180" />
@@ -167,6 +174,7 @@ export default function PurchaseOrderPage() {
           onDone={() => { setReceiving(false); load(); }} />
       )}
     </div>
+    </>
   );
 }
 
