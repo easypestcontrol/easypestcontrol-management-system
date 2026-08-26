@@ -23,6 +23,7 @@ import {
 } from '../jobs/format';
 import { Avatar, PriorityPill, StatusPill, TypePill } from '../jobs/ui';
 import { useBranchFilter } from '@/components/branch-filter';
+import ScheduleMobile from './mobile';
 
 export default function Schedule() {
   const router = useRouter();
@@ -61,7 +62,22 @@ export default function Schedule() {
   }
 
   return (
-    <div>
+    <>
+      {/* Thirty squares at 390px hold nothing readable, so the phone gets a
+          week strip and the chosen day as a list -- which is how a calendar
+          is used away from a desk: not "show me October" but "what is on
+          tomorrow?". */}
+      <ScheduleMobile day={day} selDate={selDate} today={todayISO()}
+        onPick={(iso) => {
+          setSelDate(iso);
+          // Stepping off the edge of the loaded month has to fetch the next
+          // one, or the strip silently shows zeros.
+          if (iso.slice(0, 7) !== cursor) setCursor(iso.slice(0, 7));
+        }}
+        counts={Object.fromEntries(
+          Object.entries(month?.days || {}).map(([k, v]) => [k, v.length]))} />
+
+    <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
@@ -170,6 +186,7 @@ export default function Schedule() {
           onOpen={(id) => router.push('/jobs/' + id)} />
       )}
     </div>
+    </>
   );
 }
 
