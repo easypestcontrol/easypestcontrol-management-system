@@ -20,6 +20,7 @@ import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { usePager } from '@/components/pager';
 import { Modal, Field, inputCls, selectCls } from '../jobs/ui';
+import { ListScreen } from '@/components/mobile';
 
 interface Chem {
   id: string; name: string; cat: string; unit: string; note: string;
@@ -121,7 +122,26 @@ export default function Chemicals() {
   const unitOf = (u: string) => BASE_UNITS.find((x) => x.v === u);
 
   return (
-    <div>
+    <>
+      {/* What is on the shelf and what is running out. Editing a chemical is set-up work and stays on the desktop. */}
+      <ListScreen
+        title="Chemicals"
+        loading={!rows}
+        search={q}
+        onSearch={setQ}
+        rows={(rows || []).map((c) => ({
+          id: c.id,
+          title: c.name,
+          right: c.stock + ' ' + c.unit,
+          meta: [c.cat, c.onOrder ? c.onOrder + ' ' + c.unit + ' on order' : ''].filter(Boolean).join(' \u00b7 '),
+          tone: (c.stock <= 0 ? 'bad' : c.stock < c.reorder ? 'warn' : 'good') as 'bad' | 'warn' | 'good',
+          state: c.stock <= 0 ? 'Out of stock'
+            : c.stock < c.reorder ? 'Below reorder level' : 'In stock',
+        }))}
+        empty="No chemicals yet"
+        emptyHint="Add what you treat with, then they can be put on a purchase order."
+      />
+    <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-4 lg:px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
           <h1 className="text-[17px] font-semibold">Chemicals</h1>
@@ -332,5 +352,6 @@ export default function Chemicals() {
         </Modal>
       )}
     </div>
+    </>
   );
 }

@@ -13,6 +13,7 @@ import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { usePager } from '@/components/pager';
 import { money } from 'shared';
+import { ListScreen } from '@/components/mobile';
 
 const CATS = ['All', 'Residential', 'Commercial', 'Industrial', 'Specialised'];
 const MAX_PDF_KB = 1500; // v1 services.js:14
@@ -151,7 +152,25 @@ export default function Services() {
   }
 
   return (
-    <div>
+    <>
+      {/* The price list, for when somebody asks what a treatment costs. */}
+      <ListScreen
+        title="Service catalogue"
+        loading={!rows}
+        search={q}
+        onSearch={setQ}
+        rows={(rows || []).map((sv) => ({
+          id: sv.id,
+          title: sv.name,
+          amount: sv.price ? money(sv.price) : undefined,
+          meta: [sv.code, sv.cat, sv.mins ? sv.mins + ' min' : ''].filter(Boolean).join(' \u00b7 '),
+          tone: 'plain' as const,
+          state: sv.used ? sv.used + ' on contracts' : 'Not used yet',
+        }))}
+        empty="Nothing in the catalogue"
+        emptyHint="List what you sell before raising a quotation."
+      />
+    <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
           <h1 className="text-[17px] font-semibold">Service Catalogue</h1>
@@ -365,5 +384,6 @@ export default function Services() {
         </div>
       )}
     </div>
+    </>
   );
 }

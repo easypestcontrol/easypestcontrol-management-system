@@ -14,6 +14,7 @@ import { api, type Bootstrap } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { useBranchFilter } from '@/components/branch-filter';
 import { usePager } from '@/components/pager';
+import { ListScreen, niceDate } from '@/components/mobile';
 
 /* ------------------------------------------------------------------ types */
 
@@ -161,7 +162,25 @@ export default function TasksPage() {
   );
 
   return (
-    <div>
+    <>
+      {/* A to-do read on the move: what, who, and by when. */}
+      <ListScreen
+        title="Tasks"
+        loading={!data}
+        rows={(data?.rows || []).map((t) => ({
+          id: t.id,
+          title: t.title,
+          right: t.due ? niceDate(t.due) : '',
+          meta: [t.assigneeName || 'Nobody', t.dueTime].filter(Boolean).join(' \u00b7 '),
+          tone: (t.status === 'done' ? 'good'
+            : t.priority === 'high' ? 'bad' : 'info') as 'good' | 'bad' | 'info',
+          state: t.status === 'done' ? 'Done'
+            : t.priority === 'high' ? 'High priority' : 'Open',
+        }))}
+        empty="No tasks"
+        emptyHint="Anything that has to happen by a date, given to a person."
+      />
+    <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
       <div className="flex items-center justify-between px-4 lg:px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
@@ -319,6 +338,7 @@ export default function TasksPage() {
           onSaved={() => { setDraft(null); setEditing(''); load(); }} />
       )}
     </div>
+    </>
   );
 }
 

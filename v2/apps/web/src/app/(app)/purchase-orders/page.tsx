@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { usePager } from '@/components/pager';
 import { useBranchFilter } from '@/components/branch-filter';
+import { ListScreen, niceDate } from '@/components/mobile';
 
 interface Row {
   id: string; vendorId: string; vendorName: string; date: string; expected: string;
@@ -65,7 +66,31 @@ export default function PurchaseOrders() {
   const bName = (id: string) => branches.find((b) => b.id === id)?.name || id || '—';
 
   return (
-    <div>
+    <>
+      {/* What has been ordered and how much of it has turned up. */}
+      <ListScreen
+        title="Purchase orders"
+        loading={!data}
+        rows={(data?.rows || []).map((r) => ({
+          id: r.id,
+          href: '/purchase-orders/' + r.id,
+          title: r.vendorName || r.vendorId,
+          right: r.packsReceived + '/' + r.packsOrdered,
+          meta: niceDate(r.date) + ' \u00b7 ' + r.id + ' \u00b7 ' + r.lines
+            + (r.lines === 1 ? ' item' : ' items'),
+          tone: (r.status === 'received' ? 'good'
+            : r.status === 'cancelled' ? 'plain'
+            : r.packsReceived > 0 ? 'warn' : 'info') as 'good' | 'plain' | 'warn' | 'info',
+          state: r.status === 'received' ? 'Received'
+            : r.status === 'cancelled' ? 'Cancelled'
+            : r.packsReceived > 0 ? 'Part received' : 'Ordered',
+        }))}
+        empty="No purchase orders"
+        emptyHint="Stock only enters the system through one of these."
+        fabHref="/purchase-orders/new"
+        fabLabel="New purchase order"
+      />
+    <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-4 lg:px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
           <h1 className="text-[17px] font-semibold">Purchase orders</h1>
@@ -183,5 +208,6 @@ export default function PurchaseOrders() {
         </>
       )}
     </div>
+    </>
   );
 }

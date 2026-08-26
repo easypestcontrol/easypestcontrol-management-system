@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import { ListScreen } from '@/components/mobile';
 
 interface BranchRow {
   id: string; name: string; code: string; phone: string; areas: string[];
@@ -120,7 +121,23 @@ export default function Branches() {
   }
 
   return (
-    <div>
+    <>
+      {/* Set up once and rarely touched, so the phone only reads it. */}
+      <ListScreen
+        title="Branches"
+        loading={!rows}
+        rows={(rows || []).map((b) => ({
+          id: b.id,
+          title: b.name,
+          right: b.code,
+          meta: [b.phone, b.areas.length ? b.areas.length + ' areas' : ''].filter(Boolean).join(' \u00b7 '),
+          tone: 'plain' as const,
+          state: b.staff + (b.staff === 1 ? ' person' : ' people'),
+        }))}
+        empty="No branches yet"
+        emptyHint="Every customer, service and invoice belongs to one."
+      />
+    <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
           <h1 className="text-[17px] font-semibold">Branches</h1>
@@ -294,5 +311,6 @@ export default function Branches() {
         </div>
       )}
     </div>
+    </>
   );
 }

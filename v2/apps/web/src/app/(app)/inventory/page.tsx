@@ -13,6 +13,7 @@ import {
   MoveDialog, isLow, moveLabel, stockPct,
   type Item, type Move,
 } from './move-dialog';
+import { ListScreen } from '@/components/mobile';
 
 type Tab = 'Chemical' | 'Equipment' | 'Consumable' | 'moves';
 
@@ -63,7 +64,27 @@ export default function Inventory() {
   ];
 
   return (
-    <div>
+    <>
+      {/* Stock is counted at the store. On the road this is a lookup: have we got any, and is more coming. */}
+      <ListScreen
+        title="Inventory"
+        loading={!items}
+        search={q}
+        onSearch={setQ}
+        rows={(items || []).map((i) => ({
+          id: i.id,
+          href: '/inventory/' + i.id,
+          title: i.name,
+          right: i.stock + ' ' + i.unit,
+          meta: [i.cat, i.onOrder ? i.onOrder + ' on order' : ''].filter(Boolean).join(' \u00b7 '),
+          tone: (i.stock <= 0 ? 'bad' : i.stock < i.reorder ? 'warn' : 'good') as 'bad' | 'warn' | 'good',
+          state: i.stock <= 0 ? 'Out of stock'
+            : i.stock < i.reorder ? 'Below reorder level' : 'In stock',
+        }))}
+        empty="Nothing in stock yet"
+        emptyHint="Stock arrives by receiving a purchase order."
+      />
+    <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
@@ -256,5 +277,6 @@ export default function Inventory() {
       )}
 
     </div>
+    </>
   );
 }
