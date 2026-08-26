@@ -12,6 +12,7 @@ import {
   MoveDialog, TransferDialog, isLow, moveLabel, stockPct,
   type Item, type Move,
 } from '../move-dialog';
+import ItemMobile from './mobile';
 
 type ItemDetail = Item & { moves: Move[] };
 
@@ -23,6 +24,14 @@ export default function InventoryItem({ params }: { params: Promise<{ id: string
   const [issuing, setIssuing] = useState(false);
   const [moving, setMoving] = useState(false);
   const [flash, setFlash] = useState('');
+  // The per-branch split is meaningless as ids: twelve litres in BR-02 tells
+  // nobody anything. One small read gives it names.
+  const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    api.get<Array<{ id: string; name: string }>>('/branches')
+      .then(setBranches).catch(() => setBranches([]));
+  }, []);
 
   const reload = useCallback(() => {
     api.get<ItemDetail>('/inventory/' + id)
@@ -64,7 +73,13 @@ export default function InventoryItem({ params }: { params: Promise<{ id: string
   });
 
   return (
-    <div>
+    <>
+      {/* How much is left, where it is, and is more coming. */}
+      <ItemMobile item={item} canManage
+        branchName={(bid) => branches.find((b) => b.id === bid)?.name || bid}
+        onIssue={() => setIssuing(true)} onMove={() => setMoving(true)} />
+
+    <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
         <div className="flex items-center gap-3 min-w-0">
@@ -196,5 +211,6 @@ export default function InventoryItem({ params }: { params: Promise<{ id: string
           }} />
       )}
     </div>
+    </>
   );
 }
