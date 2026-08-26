@@ -19,6 +19,7 @@ import {
   durationText, fmtDate, fmtShort, fmtTime, initials, ordinal, statusPill,
   type Boot, type BootUser, type ContractDetail, type PlanLineDto,
 } from '../lib';
+import ContractMobile from './mobile';
 
 /* --------------------------------------------------------------- utilities */
 
@@ -171,7 +172,12 @@ export default function ContractPage() {
   ];
 
   return (
-    <div className="p-6 max-w-[1220px]">
+    <>
+      {/* How far through, and is the money coming in. Editing the plan is
+          surgery and stays on the desktop. */}
+      <ContractMobile c={c} />
+
+    <div className="max-lg:hidden p-6 max-w-[1220px]">
       <Link href="/contracts" className="text-[12.5px] text-muted hover:text-navy">← All contracts</Link>
 
       {/* -------------------------------------------------------- header */}
@@ -596,6 +602,7 @@ export default function ContractPage() {
         </div>
       )}
     </div>
+    </>
   );
 }
 
