@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { isFieldTech } from 'shared';
+import { ListScreen } from '@/components/mobile';
 
 interface TechPerf {
   total: number; done: number; today: number; todayDone: number;
@@ -65,7 +66,28 @@ export default function Team() {
   const branchCode = (id: string) => branches.find((b) => b.id === id)?.code || id;
 
   return (
-    <div>
+    <>
+      {/* Who works here and how to reach them. Hiring paperwork is a desk job. */}
+      <ListScreen
+        title="Team"
+        loading={!data}
+        rows={(data?.members || []).map((m) => ({
+          id: m.id,
+          href: '/team/' + m.id,
+          title: m.name,
+          right: m.phone,
+          meta: [ROLE_LABEL[m.role] || m.role, m.branches.length
+            ? m.branches.length + (m.branches.length === 1 ? ' branch' : ' branches') : 'No branch']
+            .filter(Boolean).join(' \u00b7 '),
+          tone: (m.active ? 'good' : 'plain') as 'good' | 'plain',
+          state: m.active ? 'Working' : 'Not active',
+        }))}
+        empty="Nobody on the team yet"
+        emptyHint="Add your technicians and office staff."
+        fabHref="/team/new"
+        fabLabel="Add someone"
+      />
+    <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
           <h1 className="text-[17px] font-semibold">Team</h1>
@@ -172,5 +194,6 @@ export default function Team() {
         </table>
       )}
     </div>
+    </>
   );
 }

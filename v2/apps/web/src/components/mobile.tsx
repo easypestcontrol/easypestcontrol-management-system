@@ -404,3 +404,33 @@ function SearchToggle({ value, onChange }: { value: string; onChange: (v: string
     </>
   );
 }
+
+/* ------------------------------------------------------------- desk only */
+
+/**
+ * For the handful of screens a phone genuinely cannot do.
+ *
+ * The dispatch board is drag-and-drop across a day's timeline; a print view
+ * is a sheet of A4. Shrinking either produces something that looks usable and
+ * is not, which is worse than saying so — a person who knows a screen needs a
+ * laptop stops fighting it and goes to find one.
+ */
+export function DeskOnly({ title, why, goHref, goLabel }: {
+  title: string; why: string; goHref: string; goLabel: string;
+}) {
+  return (
+    <Screen>
+      <div className="px-4 pt-6">
+        <Card>
+          <p className="text-[17px] font-bold text-center">{title}</p>
+          <p className="text-muted text-[14.5px] mt-2 text-center leading-relaxed">{why}</p>
+          <Link href={goHref}
+            className="mt-5 flex items-center justify-center h-12 rounded-xl bg-accent
+              text-white font-bold text-[15px] active:brightness-90">
+            {goLabel}
+          </Link>
+        </Card>
+      </div>
+    </Screen>
+  );
+}

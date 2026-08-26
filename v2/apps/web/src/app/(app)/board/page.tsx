@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { addDays, dayOfWeek, parseISO, toHHMM, toISO, toMin } from 'shared';
+import { DeskOnly } from '@/components/mobile';
 
 /* ------------------------------------------------------------- constants */
 
@@ -822,7 +823,14 @@ export default function Board() {
   /* --------------------------------------------------------------- render */
 
   return (
-    <div>
+    <>
+      <DeskOnly
+        title="The board needs a bigger screen"
+        why="Dispatch is dragging work between technicians across a whole day. A phone can show you the day, but it cannot let you rearrange it without a mouse."
+        goHref="/jobs"
+        goLabel="See today&rsquo;s services"
+      />
+    <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
       <div className="flex items-center justify-between gap-3 px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3 min-w-0">
@@ -1097,6 +1105,7 @@ export default function Board() {
         </div>
       )}
     </div>
+    </>
   );
 }
 

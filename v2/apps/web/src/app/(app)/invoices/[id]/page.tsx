@@ -23,6 +23,7 @@ import {
   PayDialog, STATUS_LABEL, amountInWords, fmtDate, pillClass,
   type InvoiceDetail,
 } from '../ui';
+import InvoiceMobile from './mobile';
 
 const PRINT_CSS = `
 @media print {
@@ -88,7 +89,13 @@ export default function InvoicePage() {
     : 'text-muted border-line';
 
   return (
-    <div className="p-4 sm:p-6">
+    <>
+      {/* The end of the money path: the balance, who owes it, what it was
+          for, and one button to take the payment. */}
+      <InvoiceMobile inv={inv} t={t} canPay={canBill} onPay={() => setPaying(true)}
+        shareHref={'/invoice/' + inv.id} />
+
+    <div className="max-lg:hidden p-4 sm:p-6">
       <style>{PRINT_CSS}</style>
       <div className="no-print"><BackLink /></div>
 
@@ -413,6 +420,7 @@ export default function InvoicePage() {
         />
       )}
     </div>
+    </>
   );
 }
 

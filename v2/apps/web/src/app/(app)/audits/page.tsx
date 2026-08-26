@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { api, type Client } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { useBranchFilter } from '@/components/branch-filter';
+import { ListScreen, niceDate } from '@/components/mobile';
 
 interface Finding { area: string; note: string; severity: string; closed?: boolean }
 interface Audit {
@@ -40,7 +41,25 @@ export default function Audits() {
   }
 
   return (
-    <div>
+    <>
+      {/* The score and what was found. Filling one in happens at the site, on the technician screens. */}
+      <ListScreen
+        title="Audits"
+        loading={!rows}
+        rows={(rows || []).map((a) => ({
+          id: a.id,
+          title: name(a.clientId),
+          right: a.score ? a.score + '%' : '',
+          meta: [niceDate(a.date), a.auditor, a.findings.length
+            ? a.findings.length + (a.findings.length === 1 ? ' finding' : ' findings')
+            : 'No findings'].filter(Boolean).join(' · '),
+          tone: (a.score >= 85 ? 'good' : a.score >= 60 ? 'warn' : 'bad') as 'good' | 'warn' | 'bad',
+          state: a.status || (a.score >= 85 ? 'Passed' : a.score >= 60 ? 'Needs work' : 'Failed'),
+        }))}
+        empty="No audits yet"
+        emptyHint="An audit records what was found at a site and scores it."
+      />
+    <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
           <h1 className="text-[17px] font-semibold">Audits</h1>
@@ -140,6 +159,7 @@ export default function Audits() {
           onClose={() => setCreating(false)} />
       )}
     </div>
+    </>
   );
 }
 
