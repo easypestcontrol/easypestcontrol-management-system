@@ -219,7 +219,7 @@ export default function Credentials() {
             foot: s.accounts.length ? s.accounts[0] : 'none recorded',
           },
         ].map((t) => (
-          <div key={t.label} className="rounded-xl border border-line bg-white p-4 shadow-card">
+          <div key={t.label} className="rounded-xl border border-line bg-white p-4 shadow-card max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{t.label}</p>
             <p className="mt-1.5 text-[20px] font-bold leading-none text-navy">{t.value}</p>
             <p className="mt-1.5 text-[11.5px] text-muted-2 truncate">{t.foot}</p>
@@ -262,7 +262,7 @@ export default function Credentials() {
       </div>
 
       {data.items.length === 0 ? (
-        <div className="rounded-xl border border-line bg-white p-10 text-center">
+        <div className="rounded-xl border border-line bg-white p-10 text-center max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
           <p className="text-[15px] font-medium">Loading the services…</p>
           <p className="text-muted text-[13px] mt-1">
             VPS, Cloudflare R2, Ola Maps and Razorpay appear by themselves.
@@ -635,7 +635,7 @@ function OperationalKeys() {
     );
 
   return (
-    <section className="rounded-xl border border-line bg-white shadow-card overflow-hidden">
+    <section className="rounded-xl border border-line bg-white shadow-card overflow-hidden max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
       <header className="px-4 py-3 border-b border-line-soft flex items-center justify-between gap-3">
         <span>
           <span className="text-[14px] font-bold text-navy">Operational keys</span>

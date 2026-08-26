@@ -123,7 +123,8 @@ export default function EditContract() {
             Cancel
           </Link>
           <button onClick={save} disabled={busy}
-            className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-60">
+            className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-60
+              max-lg:h-11 max-lg:px-5 max-lg:rounded-xl max-lg:text-[14.5px]">
             {busy ? 'Saving…' : 'Save changes'}
           </button>
         </div>

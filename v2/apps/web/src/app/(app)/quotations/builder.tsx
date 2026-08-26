@@ -409,14 +409,30 @@ export default function Builder({ edit, presetClient, presetLead }: {
         </div>
         <div className="flex items-center gap-3">
           {err && <span className="text-accent text-[12.5px] max-w-[380px] truncate">{err}</span>}
+          {/* On a phone the save button lives at the bottom, where the thumb
+              is after filling a form -- not at the top, where it would be
+              scrolled away by the time it is wanted. */}
           <button onClick={save} disabled={saving}
-            className="flex items-center gap-1.5 h-8 px-3.5 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-60">
+            className="max-lg:hidden flex items-center gap-1.5 h-8 px-3.5 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-60">
             <Icon name="check" size={14} /> {edit ? 'Save changes' : 'Save quotation'}
           </button>
         </div>
       </div>
 
-      <div className="p-4 lg:p-6 max-w-[960px]">
+      {/* The phone's save bar. Errors sit above the button rather than beside
+          it, because a message truncated to fit next to a button is a
+          message nobody reads. */}
+      <div className="lg:hidden fixed left-0 right-0 bottom-0 z-30 bg-white border-t border-line
+        px-4 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)]">
+        {err && <p className="text-accent text-[13px] mb-2 leading-snug">{err}</p>}
+        <button onClick={save} disabled={saving}
+          className="w-full h-[52px] rounded-xl bg-accent text-white font-bold text-[16px]
+            active:brightness-90 disabled:opacity-60">
+          {saving ? 'Saving…' : edit ? 'Save changes' : 'Save quotation'}
+        </button>
+      </div>
+
+      <div className="p-4 lg:p-6 max-w-[960px] max-lg:pb-[calc(env(safe-area-inset-bottom)+92px)]">
         {/* -------------------------------------------------- who and what */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Field label="Raise for" req

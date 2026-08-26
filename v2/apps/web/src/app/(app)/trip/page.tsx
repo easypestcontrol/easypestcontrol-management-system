@@ -177,7 +177,7 @@ export default function TripPage() {
   const canSeeAll = !!me && ['admin', 'ops'].includes(me.role);
 
   return (
-    <div className="p-4 lg:p-6 max-w-[860px]">
+    <div className="p-4 lg:p-6 max-w-[860px] max-lg:bg-ground max-lg:min-h-full">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-[20px] font-semibold">Trips</h1>
@@ -274,7 +274,7 @@ export default function TripPage() {
 
       {/* ----------------------------------------- 1. today's services */}
       {!active && today && today.length > 0 && (
-        <section className="rounded-md border border-line mb-5 overflow-hidden">
+        <section className="rounded-md border border-line mb-5 overflow-hidden max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
           <h2 className="px-4 py-3 text-[13px] font-semibold border-b border-line-soft">
             Today&rsquo;s services — tap to start the trip
           </h2>
@@ -314,7 +314,7 @@ export default function TripPage() {
           </button>
         )}
       </div>
-      <section className="rounded-md border border-line overflow-hidden">
+      <section className="rounded-md border border-line overflow-hidden max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
         {/* phones: trip cards */}
         <div className="lg:hidden flex flex-col divide-y divide-line-soft">
           {!rows ? (

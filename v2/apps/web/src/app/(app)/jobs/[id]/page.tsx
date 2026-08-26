@@ -111,7 +111,7 @@ export default function JobDetailPage() {
       </div>
     );
   }
-  if (!j || !me) return <p className="p-6 text-muted text-[13px]">Loading…</p>;
+  if (!j || !me) return <p className="p-4 lg:p-6 text-muted text-[13px]">Loading…</p>;
 
   return isFieldTech(me.role)
     ? <TechDetail j={j} me={me} reload={load} />
@@ -222,7 +222,7 @@ function ReportCard({ j, onZoom }: { j: JobDetail; onZoom: (src: string) => void
         <p className="text-[12.5px] text-muted mb-4">GPS verified at check-in — {x.geo}</p>
       )}
 
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div>
           <p className="text-[12px] font-semibold text-ink-2 mb-2">Before treatment</p>
           {photoGrid(x.photosBefore, 'Before')}
@@ -380,7 +380,7 @@ function ManagerDetail({ j, me, reload }: {
   }
 
   return (
-    <div className="p-6 max-w-[1100px]">
+    <div className="p-4 lg:p-6 max-w-[1100px]">
       <BackLink label="All services" />
 
       {/* -------------------------------------------------------- header */}

@@ -921,13 +921,21 @@ function NewContractForm() {
           {err}
         </p>
       )}
-      <div className="flex justify-end gap-3 mt-5 pb-10">
+      {/* On a phone this is pinned: after a long form the buttons must be
+          where the thumb already is, not at the end of a scroll. */}
+      <div className="flex justify-end gap-3 mt-5 pb-10
+        max-lg:fixed max-lg:left-0 max-lg:right-0 max-lg:bottom-0 max-lg:z-30
+        max-lg:bg-white max-lg:border-t max-lg:border-line
+        max-lg:px-4 max-lg:pt-2.5 max-lg:pb-[calc(env(safe-area-inset-bottom)+10px)]
+        max-lg:mt-0">
         <button onClick={() => router.push('/contracts')}
-          className="h-9 px-4 rounded border border-line text-[13px] font-medium hover:bg-wash">
+          className="h-9 px-4 rounded border border-line text-[13px] font-medium hover:bg-wash
+            max-lg:h-[52px] max-lg:px-5 max-lg:rounded-xl max-lg:text-[15px] max-lg:font-semibold">
           Cancel
         </button>
         <button onClick={create} disabled={busy}
-          className="h-9 px-5 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-60">
+          className="h-9 px-5 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-60
+            max-lg:flex-1 max-lg:h-[52px] max-lg:rounded-xl max-lg:text-[16px] max-lg:font-bold">
           {busy ? 'Creating…' : COPY[mode].cta}
         </button>
       </div>

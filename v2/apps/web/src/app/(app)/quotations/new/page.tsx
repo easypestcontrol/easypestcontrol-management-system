@@ -19,7 +19,7 @@ function NewInner() {
 
 export default function NewQuotation() {
   return (
-    <Suspense fallback={<p className="p-6 text-muted text-[13px]">Loading…</p>}>
+    <Suspense fallback={<p className="p-4 lg:p-6 text-muted text-[14px]">Loading…</p>}>
       <NewInner />
     </Suspense>
   );

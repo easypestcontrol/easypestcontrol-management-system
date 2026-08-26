@@ -27,7 +27,7 @@ export default function EditQuotation() {
 
   if (missing) {
     return (
-      <div className="p-16 text-center">
+      <div className="p-8 lg:p-16 text-center">
         <p className="text-[15px] font-medium">Quotation not found</p>
         <p className="text-muted text-[13px] mt-1">It may have been deleted.</p>
         <Link href="/quotations" className="inline-block mt-4 text-[13px] text-navy font-medium hover:underline">
@@ -36,11 +36,11 @@ export default function EditQuotation() {
       </div>
     );
   }
-  if (!q) return <p className="p-6 text-muted text-[13px]">Loading…</p>;
+  if (!q) return <p className="p-4 lg:p-6 text-muted text-[14px]">Loading…</p>;
 
   if (q.contractId) {
     return (
-      <div className="p-16 text-center">
+      <div className="p-8 lg:p-16 text-center">
         <p className="text-[15px] font-medium">{q.id} can no longer be edited</p>
         <p className="text-muted text-[13px] mt-1">
           Contract {q.contractId} was generated from it — the quotation is the record of what was agreed.

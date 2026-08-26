@@ -37,7 +37,7 @@ function NewOrderForm() {
     });
   }, [params]);
 
-  if (!draft) return <p className="p-6 text-muted text-[13px]">Loading…</p>;
+  if (!draft) return <p className="p-4 lg:p-6 text-muted text-[14px]">Loading…</p>;
 
   return <PoBuilder initial={draft} onSaved={(id) => router.push('/purchase-orders/' + id)} />;
 }
@@ -51,7 +51,7 @@ export default function NewPurchaseOrder() {
         </Link>
         <h1 className="text-[17px] font-semibold">New purchase order</h1>
       </div>
-      <Suspense fallback={<p className="p-6 text-muted text-[13px]">Loading…</p>}>
+      <Suspense fallback={<p className="p-4 lg:p-6 text-muted text-[14px]">Loading…</p>}>
         <NewOrderForm />
       </Suspense>
     </div>

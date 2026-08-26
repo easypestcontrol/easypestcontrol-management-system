@@ -72,7 +72,7 @@ export default function InvoicesPrint() {
   }
 
   return (
-    <div className="inv-wrap p-4 lg:p-6">
+    <div className="inv-wrap p-4 lg:p-6 max-lg:overflow-x-auto">
       <style>{PRINT_CSS}</style>
 
       <div className="no-print max-w-[820px] mx-auto mb-4 flex items-center gap-3 flex-wrap">

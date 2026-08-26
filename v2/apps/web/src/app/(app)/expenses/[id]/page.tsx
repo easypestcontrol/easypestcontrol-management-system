@@ -87,7 +87,7 @@ export default function ExpenseFolder() {
   }
 
   return (
-    <div className="p-4 lg:p-6 max-w-[1100px]">
+    <div className="p-4 lg:p-6 max-w-[1100px] max-lg:bg-ground max-lg:min-h-full">
       <Link href="/expenses" className="text-[12.5px] text-muted hover:text-ink">← All expenses</Link>
 
       {/* ------------------------------------------------------- header */}
@@ -131,7 +131,7 @@ export default function ExpenseFolder() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
         {/* --------------------------------------------------- the lines */}
         <div className="lg:col-span-2">
-          <div className="rounded-md border border-line bg-white shadow-card">
+          <div className="rounded-md border border-line bg-white shadow-card max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
             {f.expenses.length === 0 ? (
               <p className="p-6 text-center text-[12.5px] text-muted">
                 Empty folder — add the first expense below.
@@ -201,7 +201,7 @@ export default function ExpenseFolder() {
         {/* ---------------------------------------- summary + the diary */}
         <div className="flex flex-col gap-4">
           {f.expenses.length > 0 && (
-            <section className="rounded-md border border-line bg-white shadow-card p-4">
+            <section className="rounded-md border border-line bg-white shadow-card p-4 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
               <h2 className="text-[12.5px] font-bold mb-2.5">Summary</h2>
               {Array.from(catSum.entries()).map(([cat, v]) => (
                 <div key={cat} className="flex items-center justify-between gap-2 py-1 text-[12px]">
@@ -219,7 +219,7 @@ export default function ExpenseFolder() {
           )}
 
           {f.history.length > 0 && (
-            <section className="rounded-md border border-line bg-white shadow-card p-4">
+            <section className="rounded-md border border-line bg-white shadow-card p-4 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
               <h2 className="text-[12.5px] font-bold mb-3">History</h2>
               <div className="flex flex-col">
                 {f.history.slice().reverse().map((h, i) => (
@@ -328,7 +328,7 @@ function AddForm({ folderId, kmRate, onAdded }: {
   const tripAmount = Math.round((Number(km) || 0) * kmRate);
 
   return (
-    <div className="rounded-md border border-line bg-white shadow-card p-4">
+    <div className="rounded-md border border-line bg-white shadow-card p-4 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
       <div className="flex gap-2 mb-3">
         {(['expense', 'trip'] as const).map((k) => (
           <button key={k} onClick={() => setKind(k)}
