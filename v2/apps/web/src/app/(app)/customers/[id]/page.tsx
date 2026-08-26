@@ -13,6 +13,7 @@ import { api, type Bootstrap, type Client } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import CustomerForm from '../customer-form';
 import { isOpen, phoneKey } from '../../leads/lib';
+import CustomerMobile from './mobile';
 
 interface PlanLine { svId: string; crew: number; techIds: string[]; visits: number }
 interface Contract {
@@ -138,7 +139,11 @@ export default function CustomerDetail() {
   const done = c.jobs.filter((j) => j.status === 'completed').length;
 
   return (
-    <div>
+    <>
+      {/* Opened to ring them, or to answer what they owe. Both are one tap. */}
+      <CustomerMobile c={c} />
+
+    <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
       <div className="flex items-center gap-4 px-6 h-[64px] border-b border-line">
         <Link href="/customers" className="text-muted hover:text-ink flex items-center gap-1 text-[13px]">
@@ -395,5 +400,6 @@ export default function CustomerDetail() {
           onDone={() => { setEditing(false); load(); }} />
       )}
     </div>
+    </>
   );
 }
