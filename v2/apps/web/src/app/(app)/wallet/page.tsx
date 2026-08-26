@@ -17,6 +17,7 @@ import { money } from 'shared';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { initials } from '../contracts/lib';
+import WalletMobile from './mobile';
 
 interface Entry {
   receipt: string; invoiceId: string; customer: string;
@@ -88,7 +89,12 @@ export default function WalletPage() {
   const receiptsOut = holders.reduce((a, t) => a + t.entries.filter((e) => !e.settled).length, 0);
 
   return (
-    <div className="p-4 lg:p-6 max-w-[900px]">
+    <>
+      {/* Unhanded cash is the only thing on this screen that can go wrong,
+          so it leads -- your own, or the team's. */}
+      <WalletMobile data={data} />
+
+    <div className="max-lg:hidden p-4 lg:p-6 max-w-[900px]">
       <h1 className="text-[20px] font-semibold">Collections &amp; wallets</h1>
       <p className="text-muted text-[13px] mt-0.5 mb-4">
         Cash collected against invoices sits in the collector&rsquo;s wallet until it
@@ -200,6 +206,7 @@ export default function WalletPage() {
         </>
       )}
     </div>
+    </>
   );
 }
 

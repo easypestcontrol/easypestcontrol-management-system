@@ -14,6 +14,7 @@ import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { initials } from '../contracts/lib';
 import { catIcon, STATUS_CHIP } from './ui';
+import { ListScreen, niceDate } from '@/components/mobile';
 
 interface Row {
   id: string; title: string; date: string; status: string; branch: string;
@@ -98,7 +99,45 @@ export default function ExpensesPage() {
   const hasSpend = data.byMonth.some((m) => m.total > 0);
 
   return (
-    <div className="p-4 lg:p-6">
+    <>
+      {/* A claim is photographed and filed on a phone, at a fuel pump or a
+          shop counter, so this is the screen that matters most on one. */}
+      <ListScreen
+        title="Expenses"
+        loading={!data}
+        search={q}
+        onSearch={setQ}
+        filters={TABS.map((t) => ({ key: t.key, label: t.label }))}
+        filter={tab}
+        onFilter={setTab}
+        // The desktop groups by month below and filters as it goes; the phone
+        // list must apply the chosen tab itself, or the chip highlights and
+        // changes nothing.
+        rows={rows.filter(TABS.find((t) => t.key === tab)?.match || (() => true))
+          .map((r) => ({
+          id: r.id,
+          href: '/expenses/' + r.id,
+          title: r.title || 'Claim',
+          amount: money(r.total),
+          meta: [niceDate(r.date), r.byName,
+            r.count + (r.count === 1 ? ' item' : ' items')].filter(Boolean).join(' · '),
+          tone: (r.status === 'paid' ? 'good'
+            : r.status === 'rejected' ? 'bad'
+            : r.status === 'approved' ? 'info'
+            : r.status === 'submitted' ? 'warn' : 'plain') as 'good' | 'bad' | 'info' | 'warn' | 'plain',
+          state: r.status === 'paid' ? 'Paid out'
+            : r.status === 'rejected' ? 'Rejected'
+            : r.status === 'approved' ? 'Approved, awaiting payout'
+            : r.status === 'submitted' ? 'Waiting on the office' : 'Draft',
+          }))}
+        empty={q ? 'Nothing matches that' : 'No claims yet'}
+        emptyHint={q ? 'Try the title or who filed it.'
+          : 'Photograph a receipt and file it with the red button.'}
+        fabOnClick={() => setCreating(true)}
+        fabLabel="New claim"
+      />
+
+    <div className="max-lg:hidden p-4 lg:p-6">
       <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-[20px] font-semibold">Expenses</h1>
@@ -226,6 +265,7 @@ export default function ExpensesPage() {
         </p>
       )}
     </div>
+    </>
   );
 }
 
