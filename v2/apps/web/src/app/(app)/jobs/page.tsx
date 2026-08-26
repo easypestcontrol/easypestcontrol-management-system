@@ -18,6 +18,7 @@ import {
 } from './format';
 import { Avatar, Field, Modal, PriorityPill, StatusPill, inputCls, selectCls } from './ui';
 import { useBranchFilter } from '@/components/branch-filter';
+import JobsMobile from './mobile';
 
 const TABS = [
   { id: 'today', label: 'Today' },
@@ -74,7 +75,15 @@ export default function Jobs() {
   const counts = data?.counts;
 
   return (
-    <div>
+    <>
+      {/* The phone gets the day as a list, with unassigned work lifted into a
+          banner. The board below is drag-and-drop across a whole day and
+          needs a mouse. */}
+      <JobsMobile data={data} tab={tab} onTab={setTab}
+        techName={(id) => usersById.get(id)?.name || ''}
+        onNew={canManage ? () => setShowNew(true) : undefined} />
+
+    <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
       <div className="flex items-center justify-between px-4 lg:px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
@@ -259,6 +268,7 @@ export default function Jobs() {
         />
       )}
     </div>
+    </>
   );
 }
 

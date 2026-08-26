@@ -455,10 +455,21 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         {me && (() => {
           const visibleAll = [HOME, TASKS, ...GROUPS.flatMap((g) => g.items), SETTINGS, CREDENTIALS]
             .filter((n) => allowed(n.href) ?? (!n.roles || n.roles.includes(me.role)));
+          /*
+           * The four the office actually opens away from a desk: who they
+           * are, what they owe, what is happening today. Leads and contracts
+           * moved into More -- both are worked through at a desk, and a tab
+           * is too valuable to spend on something opened once a week.
+           *
+           * Order matters: it is left to right in the order of a working
+           * day, not alphabetical.
+           */
+          const PHONE_TABS = ['/dashboard', '/customers', '/invoices', '/jobs'];
           const primary = isFieldTech(me.role)
             ? TECH_NAV.filter((n) => allowed(n.href) !== false)
-            : visibleAll
-                .filter((n) => ['/dashboard', '/leads', '/contracts', '/jobs'].includes(n.href))
+            : PHONE_TABS
+                .map((h) => visibleAll.find((n) => n.href === h))
+                .filter((n): n is NavItem => !!n)
                 .slice(0, 4);
           const rest = visibleAll.filter((n) => !primary.some((x) => x.href === n.href));
           const moreActive = rest.some((n) => path === n.href || path.startsWith(n.href + '/'));
