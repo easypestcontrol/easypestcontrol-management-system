@@ -124,6 +124,7 @@ export default function Branches() {
     <>
       {/* Set up once and rarely touched, so the phone only reads it. */}
       <ListScreen
+        back="/dashboard"
         title="Branches"
         loading={!rows}
         rows={(rows || []).map((b) => ({
@@ -136,6 +137,8 @@ export default function Branches() {
         }))}
         empty="No branches yet"
         emptyHint="Every customer, service and invoice belongs to one."
+        fabOnClick={() => open(null)}
+        fabLabel="Add branch"
       />
     <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
@@ -211,6 +214,7 @@ export default function Branches() {
       )}
 
       {/* ------------------------------------------------------------ editor */}
+    </div>
       {draft && (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-navy/40 overflow-y-auto py-10"
           onClick={(e) => { if (e.target === e.currentTarget) setDraft(null); }}>
@@ -310,7 +314,6 @@ export default function Branches() {
           </div>
         </div>
       )}
-    </div>
     </>
   );
 }

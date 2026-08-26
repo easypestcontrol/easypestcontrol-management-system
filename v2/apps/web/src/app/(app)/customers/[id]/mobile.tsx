@@ -13,7 +13,7 @@
 
 import Link from 'next/link';
 import { Icon } from '@/components/icons';
-import { Card, Chip, Row, Screen, money, niceDate, type Tone } from '@/components/mobile';
+import { BackBar, Card, Chip, Row, Screen, money, niceDate, type Tone } from '@/components/mobile';
 
 interface Job { id: string; date: string; slot: string; status: string; type: string }
 interface Invoice {
@@ -59,6 +59,7 @@ export default function CustomerMobile({ c }: {
 
   return (
     <Screen>
+      <BackBar title={c.name} fallback={'/customers'} />
       {/* ------------------------------------------------------ who it is */}
       <div className="bg-white px-4 pt-4 pb-5 text-center">
         <span className="w-16 h-16 rounded-full text-white text-[22px] font-bold

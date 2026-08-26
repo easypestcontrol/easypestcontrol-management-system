@@ -69,6 +69,7 @@ export default function Team() {
     <>
       {/* Who works here and how to reach them. Hiring paperwork is a desk job. */}
       <ListScreen
+        back="/dashboard"
         title="Team"
         loading={!data}
         rows={(data?.members || []).map((m) => ({
@@ -121,6 +122,7 @@ export default function Team() {
         ))}
       </div>
 
+    </div>
       {data && data.unposted > 0 && (
         <div className="mx-6 mt-4 px-4 py-3 rounded border border-red-line bg-red-wash text-[13px]">
           <span className="font-semibold">
@@ -193,7 +195,6 @@ export default function Team() {
           </tbody>
         </table>
       )}
-    </div>
     </>
   );
 }

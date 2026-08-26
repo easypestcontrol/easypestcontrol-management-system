@@ -44,6 +44,7 @@ export default function Audits() {
     <>
       {/* The score and what was found. Filling one in happens at the site, on the technician screens. */}
       <ListScreen
+        back="/dashboard"
         title="Audits"
         loading={!rows}
         rows={(rows || []).map((a) => ({

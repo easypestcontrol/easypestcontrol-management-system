@@ -11,7 +11,7 @@
 
 import Link from 'next/link';
 import { Icon } from '@/components/icons';
-import { Card, Chip, Screen, money, niceDate, type Tone } from '@/components/mobile';
+import { BackBar, Card, Chip, Screen, money, niceDate, type Tone } from '@/components/mobile';
 
 interface Line {
   id: number; itemId: string; name: string; baseUnit: string;
@@ -44,6 +44,7 @@ export default function PoMobile({ po, onReceive, canReceive }: {
 
   return (
     <Screen>
+      <BackBar title={po.id} fallback={'/purchase-orders'} sub={po.vendor?.name || undefined} />
       <div className="bg-white px-4 pt-3 pb-5 text-center">
         <p className="text-[12px] font-bold uppercase tracking-[0.09em] text-muted">
           Packs received

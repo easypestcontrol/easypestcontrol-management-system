@@ -138,12 +138,12 @@ export default function Customers() {
       )}
       {pg.el}
 
+    </div>
       {creating && (
         <CustomerForm
           onClose={() => setCreating(false)}
           onDone={(c) => { setCreating(false); router.push('/customers/' + c.id); }} />
       )}
-    </div>
     </>
   );
 }

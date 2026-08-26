@@ -103,6 +103,7 @@ export default function ExpensesPage() {
       {/* A claim is photographed and filed on a phone, at a fuel pump or a
           shop counter, so this is the screen that matters most on one. */}
       <ListScreen
+        back="/dashboard"
         title="Expenses"
         loading={!data}
         search={q}
@@ -259,12 +260,12 @@ export default function ExpensesPage() {
         </div>
       ))}
 
+    </div>
       {data.canManage && !data.kmRate && (
         <p className="mt-2 text-[12px] text-muted">
           Trip allowances need a rate: set <b>₹ per km</b> in Settings → Organisation.
         </p>
       )}
-    </div>
     </>
   );
 }

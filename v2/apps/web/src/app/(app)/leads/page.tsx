@@ -240,6 +240,7 @@ export default function Leads() {
     <>
       {/* A lead on the road is a name and a phone number. The pipeline board and the follow-up log are desk work. */}
       <ListScreen
+        back="/dashboard"
         title="Leads"
         loading={!rows}
         search={q}
@@ -322,6 +323,7 @@ export default function Leads() {
         </div>
       ) : view === 'board' && !narrow ? board() : list()}
 
+    </div>
       {openId && boot && (
         <LeadDrawer id={openId} boot={boot}
           onClose={() => setOpenId(null)} onChanged={reload} />
@@ -336,7 +338,6 @@ export default function Leads() {
           onClose={() => setMove(null)}
           onDone={() => { setMove(null); reload(); }} />
       )}
-    </div>
     </>
   );
 }

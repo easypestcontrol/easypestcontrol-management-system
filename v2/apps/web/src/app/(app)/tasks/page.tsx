@@ -165,6 +165,7 @@ export default function TasksPage() {
     <>
       {/* A to-do read on the move: what, who, and by when. */}
       <ListScreen
+        back="/dashboard"
         title="Tasks"
         loading={!data}
         rows={(data?.rows || []).map((t) => ({
@@ -179,6 +180,8 @@ export default function TasksPage() {
         }))}
         empty="No tasks"
         emptyHint="Anything that has to happen by a date, given to a person."
+        fabOnClick={() => { setDraft(blank()); setEditing(''); setErr(''); }}
+        fabLabel="New task"
       />
     <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
@@ -332,12 +335,12 @@ export default function TasksPage() {
       )}
 
       {/* --------------------------------------------------- new / edit */}
+    </div>
       {draft && boot && (
         <TaskForm draft={draft} setDraft={setDraft} boot={boot} editing={editing}
           onClose={() => { setDraft(null); setEditing(''); }}
           onSaved={() => { setDraft(null); setEditing(''); load(); }} />
       )}
-    </div>
     </>
   );
 }

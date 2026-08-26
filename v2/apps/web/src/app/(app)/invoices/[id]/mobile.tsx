@@ -16,7 +16,7 @@
 
 import Link from 'next/link';
 import { Icon } from '@/components/icons';
-import { Card, Chip, Screen, money, niceDate, type Tone } from '@/components/mobile';
+import { BackBar, Card, Chip, Screen, money, niceDate, type Tone } from '@/components/mobile';
 import type { InvoiceDetail, Totals } from '../ui';
 
 function stateOf(inv: InvoiceDetail): { tone: Tone; label: string } {
@@ -64,6 +64,7 @@ export default function InvoiceMobile({ inv, t, onPay, canPay, shareHref }: {
 
   return (
     <Screen>
+      <BackBar title={inv.id} fallback={'/invoices'} sub={inv.client?.name || undefined} />
       {/* ------------------------------------------------------- the money */}
       <div className="bg-white px-4 pt-3 pb-5 text-center">
         <p className="text-[12px] font-bold uppercase tracking-[0.09em] text-muted">

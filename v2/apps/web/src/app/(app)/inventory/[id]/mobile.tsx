@@ -10,7 +10,7 @@
    a question asked after the fact.
    ========================================================================== */
 
-import { Card, Chip, Screen, niceDate, type Tone } from '@/components/mobile';
+import { BackBar, Card, Chip, Screen, niceDate, type Tone } from '@/components/mobile';
 
 interface Move {
   id: number; date: string; qty: number; dir: string;
@@ -47,6 +47,7 @@ export default function ItemMobile({ item, branchName, onIssue, onMove, canManag
 
   return (
     <Screen>
+      <BackBar title={item.name} fallback={'/inventory'} sub={item.cat || undefined} />
       <div className="bg-white px-4 pt-3 pb-5 text-center">
         <p className="text-[12px] font-bold uppercase tracking-[0.09em] text-muted">On the shelf</p>
         <p className="text-[38px] font-bold tracking-[-0.03em] tabular-nums mt-1">

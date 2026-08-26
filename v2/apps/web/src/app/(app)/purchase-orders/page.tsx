@@ -69,6 +69,7 @@ export default function PurchaseOrders() {
     <>
       {/* What has been ordered and how much of it has turned up. */}
       <ListScreen
+        back="/dashboard"
         title="Purchase orders"
         loading={!data}
         rows={(data?.rows || []).map((r) => ({

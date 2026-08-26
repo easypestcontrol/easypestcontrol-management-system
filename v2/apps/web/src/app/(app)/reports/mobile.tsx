@@ -12,7 +12,7 @@
    rather than serving a chart too small to read.
    ========================================================================== */
 
-import { Card, Screen, compact, money } from '@/components/mobile';
+import { BackBar, Card, Screen, compact, money } from '@/components/mobile';
 
 interface MonthPoint { label: string; billed: number; collected: number }
 
@@ -32,9 +32,9 @@ export default function ReportsMobile({ s, rangeLabel, filterEl }: {
 
   return (
     <Screen>
-      <div className="bg-white px-4 pt-2 pb-3">
-        <h1 className="text-[25px] font-bold tracking-[-0.025em]">Reports</h1>
-        <p className="text-[13.5px] text-muted mt-0.5">{rangeLabel}</p>
+      <BackBar title="Reports" fallback={'/dashboard'} />
+      <div className="bg-white px-4 pt-1 pb-3">
+        <p className="text-[13.5px] text-muted">{rangeLabel}</p>
         {filterEl && <div className="mt-3">{filterEl}</div>}
       </div>
 

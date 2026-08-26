@@ -86,6 +86,7 @@ export default function Contracts() {
     <>
       {/* How far through the visits, and is it still live. Editing a plan is a desk job and stays on the desktop. */}
       <ListScreen
+        back="/dashboard"
         title="Contracts"
         loading={!rows}
         search={q}
@@ -104,6 +105,8 @@ export default function Contracts() {
         empty={q ? 'Nothing matches that' : 'No contracts yet'}
         emptyHint={q ? 'Try the customer name.'
           : 'A contract is created from an approved quotation.'}
+        fabOnClick={() => setChoose(true)}
+        fabLabel="New contract"
       />
     <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
@@ -276,6 +279,7 @@ export default function Contracts() {
       {pg.el}
 
       {/* ------------------------------------------------------- chooser */}
+    </div>
       {choose && (
         <div className="fixed inset-0 z-50 bg-navy/40 flex items-center justify-center p-6"
           onClick={() => setChoose(false)}>
@@ -314,7 +318,6 @@ export default function Contracts() {
           </div>
         </div>
       )}
-    </div>
     </>
   );
 }

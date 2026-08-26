@@ -155,6 +155,7 @@ export default function Services() {
     <>
       {/* The price list, for when somebody asks what a treatment costs. */}
       <ListScreen
+        back="/dashboard"
         title="Service catalogue"
         loading={!rows}
         search={q}
@@ -169,6 +170,8 @@ export default function Services() {
         }))}
         empty="Nothing in the catalogue"
         emptyHint="List what you sell before raising a quotation."
+        fabOnClick={() => open(null)}
+        fabLabel="Add service"
       />
     <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
@@ -244,6 +247,7 @@ export default function Services() {
       {pg.el}
 
       {/* ------------------------------------------------------------ editor */}
+    </div>
       {draft && (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-navy/40 overflow-y-auto py-10"
           onClick={(e) => { if (e.target === e.currentTarget) setDraft(null); }}>
@@ -383,7 +387,6 @@ export default function Services() {
           </div>
         </div>
       )}
-    </div>
     </>
   );
 }

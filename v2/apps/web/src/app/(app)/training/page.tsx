@@ -49,6 +49,7 @@ export default function TrainingPage() {
     <>
       {/* A lesson is read on the phone between jobs, which is the whole point of writing it down. */}
       <ListScreen
+        back="/dashboard"
         title="Training"
         loading={!rows}
         rows={(rows || []).map((l) => ({

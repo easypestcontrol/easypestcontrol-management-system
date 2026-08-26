@@ -260,6 +260,7 @@ export default function Jobs() {
         </>
       )}
 
+    </div>
       {showNew && boot && (
         <NewJobModal
           boot={boot}
@@ -267,7 +268,6 @@ export default function Jobs() {
           onCreated={(id) => { setShowNew(false); router.push('/jobs/' + id); }}
         />
       )}
-    </div>
     </>
   );
 }

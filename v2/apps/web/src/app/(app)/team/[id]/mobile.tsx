@@ -12,7 +12,7 @@
    ========================================================================== */
 
 import { Icon } from '@/components/icons';
-import { Card, Chip, Row, Screen, niceDate } from '@/components/mobile';
+import { BackBar, Card, Chip, Row, Screen, niceDate } from '@/components/mobile';
 
 /* Mirrors the shape the team endpoint sends -- no `type` on it, so the row
    shows the time and the state and does not invent a service name. */
@@ -35,6 +35,7 @@ export default function MemberMobile({ m, branchName, roleLabel }: {
 
   return (
     <Screen>
+      <BackBar title={m.name} fallback={'/team'} sub={roleLabel || undefined} />
       <div className="bg-white px-4 pt-4 pb-5 text-center">
         <span className="w-16 h-16 rounded-full text-white text-[22px] font-bold
           flex items-center justify-center mx-auto"

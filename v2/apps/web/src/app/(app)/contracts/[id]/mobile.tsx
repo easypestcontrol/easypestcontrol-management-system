@@ -14,7 +14,7 @@
 
 import Link from 'next/link';
 import { Icon } from '@/components/icons';
-import { Card, Chip, Row, Screen, money, niceDate, type Tone } from '@/components/mobile';
+import { BackBar, Card, Chip, Row, Screen, money, niceDate, type Tone } from '@/components/mobile';
 
 interface Job { id: string; type: string; date: string; slot: string; status: string; techIds: string[] }
 interface BillingRow {
@@ -56,6 +56,7 @@ export default function ContractMobile({ c }: {
 
   return (
     <Screen>
+      <BackBar title={c.id} fallback={'/contracts'} sub={c.client?.name || undefined} />
       {/* --------------------------------------------------- how far through */}
       <div className="bg-white px-4 pt-3 pb-5">
         <div className="text-center">

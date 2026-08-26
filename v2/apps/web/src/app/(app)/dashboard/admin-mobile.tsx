@@ -15,7 +15,7 @@
 import Link from 'next/link';
 import { Icon, type IconName } from '@/components/icons';
 import {
-  Card, Chip, Row, Screen, Stack, Stat, QuickTiles, Fab,
+  Card, Chip, Row, Screen, Stack, Stat, QuickTiles,
   money, compact, niceDate,
 } from '@/components/mobile';
 import type { DashboardStats, SessionUser } from '@/lib/api';
@@ -208,7 +208,6 @@ export default function AdminMobile({ s, me, actions, branchEl }: {
         </Stack>
       )}
 
-      <Fab href="/invoices?new=1" label="New invoice" />
     </Screen>
   );
 }

@@ -13,7 +13,7 @@
 
 import Link from 'next/link';
 import { Icon } from '@/components/icons';
-import { Card, Chip, Screen, money, niceDate, type Tone } from '@/components/mobile';
+import { BackBar, Card, Chip, Screen, money, niceDate, type Tone } from '@/components/mobile';
 
 interface Item { svId: string; desc: string; qty: number; rate: number }
 interface Party { name: string; contact: string; phone: string; city: string }
@@ -41,6 +41,7 @@ export default function QuoteMobile({ q, total, rows, approveUrl, waText }: {
 
   return (
     <Screen>
+      <BackBar title={q.id} fallback={'/quotations'} sub={q.party?.name || undefined} />
       <div className="bg-white px-4 pt-3 pb-5 text-center">
         <p className="text-[12px] font-bold uppercase tracking-[0.09em] text-muted">
           {q.mode === 'amc' ? 'Contract value' : 'Quoted'}

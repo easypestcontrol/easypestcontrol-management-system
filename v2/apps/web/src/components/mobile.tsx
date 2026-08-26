@@ -18,6 +18,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Icon, type IconName } from '@/components/icons';
 
 /* ------------------------------------------------------------------ money */
@@ -324,9 +325,13 @@ export interface ListRow {
  */
 export function ListScreen({
   title, rows, loading, filters, filter, onFilter, search, onSearch,
-  empty, emptyHint, fabHref, fabOnClick, fabLabel, headerRight, children,
+  empty, emptyHint, fabHref, fabOnClick, fabLabel, headerRight, children, back,
 }: {
   title: string;
+  /** Set on any screen that is not one of the four tabs: reached from More,
+      it needs a way out, and inside the Android shell there is no browser
+      chrome to fall back on. */
+  back?: string;
   rows: ListRow[];
   loading?: boolean;
   filters?: Array<{ key: string; label: string }>;
@@ -346,10 +351,21 @@ export function ListScreen({
 }) {
   return (
     <Screen>
-      <ScreenTitle title={title}>
-        {headerRight}
-        {onSearch && <SearchToggle value={search || ''} onChange={onSearch} />}
-      </ScreenTitle>
+      {/* A tab gets the big title; anything reached from More gets the back bar
+          instead, carrying the same name. Showing both says it twice. */}
+      {back ? (
+        <BackBar title={title} fallback={back} right={
+          <>
+            {headerRight}
+            {onSearch && <SearchToggle value={search || ''} onChange={onSearch} />}
+          </>
+        } />
+      ) : (
+        <ScreenTitle title={title}>
+          {headerRight}
+          {onSearch && <SearchToggle value={search || ''} onChange={onSearch} />}
+        </ScreenTitle>
+      )}
 
       {filters && filter !== undefined && onFilter && (
         <Filters value={filter} onChange={onFilter} options={filters} />
@@ -415,11 +431,13 @@ function SearchToggle({ value, onChange }: { value: string; onChange: (v: string
  * is not, which is worse than saying so — a person who knows a screen needs a
  * laptop stops fighting it and goes to find one.
  */
-export function DeskOnly({ title, why, goHref, goLabel }: {
-  title: string; why: string; goHref: string; goLabel: string;
+export function DeskOnly({ title, why, goHref, goLabel, back = '/dashboard' }: {
+  title: string; why: string; goHref: string; goLabel: string; back?: string;
 }) {
   return (
     <Screen>
+      {/* Even a screen that refuses needs a way out of itself. */}
+      <BackBar title="Dispatch board" fallback={back} />
       <div className="px-4 pt-6">
         <Card>
           <p className="text-[17px] font-bold text-center">{title}</p>
@@ -432,5 +450,47 @@ export function DeskOnly({ title, why, goHref, goLabel }: {
         </Card>
       </div>
     </Screen>
+  );
+}
+
+/* ------------------------------------------------------------------- back */
+
+/**
+ * The way out of a screen.
+ *
+ * A phone screen that can be opened must be closable, and inside the Android
+ * shell there is no browser chrome to fall back on — without this a person is
+ * stranded on an invoice with only the hardware key, which was closing the
+ * whole app.
+ *
+ * router.back() where there is history, and the named fallback where there is
+ * not: opening a link straight into a detail screen leaves nothing to go back
+ * to, and a dead button is worse than no button.
+ */
+export function BackBar({ title, sub, fallback = '/dashboard', right }: {
+  title: string;
+  sub?: string;
+  fallback?: string;
+  right?: React.ReactNode;
+}) {
+  const router = useRouter();
+  return (
+    <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-line-soft
+      relative flex items-center gap-2 h-[52px] px-2">
+      <button
+        onClick={() => {
+          if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+          else router.push(fallback);
+        }}
+        aria-label="Back"
+        className="w-11 h-11 rounded-full flex items-center justify-center active:bg-wash shrink-0">
+        <Icon name="chevRight" size={22} className="rotate-180" />
+      </button>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[16.5px] font-bold truncate leading-tight">{title}</span>
+        {sub && <span className="block text-[12.5px] text-muted truncate">{sub}</span>}
+      </span>
+      {right}
+    </div>
   );
 }

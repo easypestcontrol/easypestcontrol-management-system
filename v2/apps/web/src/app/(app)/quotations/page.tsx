@@ -81,6 +81,7 @@ export default function Quotations() {
     <>
       {/* A quotation on a phone is asked for at a gate. Name, price, and whether the customer has seen it -- the document itself is on the desktop. */}
       <ListScreen
+        back="/dashboard"
         title="Quotations"
         loading={!rows}
         search={q}

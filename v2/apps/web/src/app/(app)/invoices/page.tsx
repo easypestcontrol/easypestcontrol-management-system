@@ -302,6 +302,7 @@ export default function Invoices() {
       {pg.el}
 
       {/* ------------------------------------------------------ dialogs */}
+    </div>
       {creating && (
         <CreateDialog onClose={() => setCreating(false)}
           onCreated={(id) => { setCreating(false); router.push('/invoices/' + id); }} />
@@ -313,7 +314,6 @@ export default function Invoices() {
         <PayDialog inv={payFor} onClose={() => setPayFor(null)}
           onDone={(rid, amt, settled) => paid(rid, amt, payFor.id, settled)} />
       )}
-    </div>
     </>
   );
 }

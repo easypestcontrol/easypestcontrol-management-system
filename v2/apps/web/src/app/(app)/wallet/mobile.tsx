@@ -12,7 +12,7 @@
    this screen that can go wrong.
    ========================================================================== */
 
-import { Card, Chip, Screen, money, niceDate } from '@/components/mobile';
+import { BackBar, Card, Chip, Screen, money, niceDate } from '@/components/mobile';
 
 interface Entry {
   receipt: string; invoiceId: string; customer: string;
@@ -53,6 +53,7 @@ export default function WalletMobile({ data }: { data: Mine | Office | null }) {
   if (!data) {
     return (
       <Screen>
+      <BackBar title="Collections" fallback={'/dashboard'} />
         <div className="px-4 pt-4 flex flex-col gap-3">
           {[0, 1].map((i) => <div key={i} className="h-[120px] rounded-2xl bg-white animate-pulse" />)}
         </div>
@@ -64,6 +65,7 @@ export default function WalletMobile({ data }: { data: Mine | Office | null }) {
   if (data.kind === 'mine') {
     return (
       <Screen>
+      <BackBar title="Collections" fallback={'/dashboard'} />
         <div className="bg-white px-4 pt-3 pb-5 text-center">
           <p className="text-[12px] font-bold uppercase tracking-[0.09em] text-muted">
             Cash in your hand
@@ -101,6 +103,7 @@ export default function WalletMobile({ data }: { data: Mine | Office | null }) {
 
   return (
     <Screen>
+      <BackBar title="Collections" fallback={'/dashboard'} />
       <div className="bg-white px-4 pt-3 pb-5 text-center">
         <p className="text-[12px] font-bold uppercase tracking-[0.09em] text-muted">
           Cash out with the team

@@ -67,6 +67,7 @@ export default function Inventory() {
     <>
       {/* Stock is counted at the store. On the road this is a lookup: have we got any, and is more coming. */}
       <ListScreen
+        back="/dashboard"
         title="Inventory"
         loading={!items}
         search={q}
@@ -83,6 +84,8 @@ export default function Inventory() {
         }))}
         empty="Nothing in stock yet"
         emptyHint="Stock arrives by receiving a purchase order."
+        fabHref="/purchase-orders/new"
+        fabLabel="Order stock"
       />
     <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
@@ -269,14 +272,14 @@ export default function Inventory() {
       )}
 
       {/* -------------------------------------------------------- dialogs */}
+
+    </div>
       {dialog && (
         <MoveDialog item={dialog.item} kind={dialog.kind}
           onClose={() => setDialog(null)}
           onDone={(it) => done(
             `Stock issued — ${it.name} · new balance ${it.stock} ${it.unit}`)} />
       )}
-
-    </div>
     </>
   );
 }

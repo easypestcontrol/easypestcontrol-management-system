@@ -90,6 +90,7 @@ export default function Vendors() {
     <>
       {/* Who to ring when stock runs out, and what is still on order. */}
       <ListScreen
+        back="/dashboard"
         title="Vendors"
         loading={!rows}
         rows={(rows || []).map((v) => ({
@@ -223,6 +224,7 @@ export default function Vendors() {
         </>
       )}
 
+    </div>
       {draft && (
         <Modal title={editing ? 'Edit vendor' : 'New vendor'}
           sub={editing || 'Who we buy from'}
@@ -299,7 +301,6 @@ export default function Vendors() {
           </div>
         </Modal>
       )}
-    </div>
     </>
   );
 }

@@ -12,7 +12,7 @@
    The full month, and dragging work between technicians, stay on the desktop.
    ========================================================================== */
 
-import { Card, Chip, Row, Screen, niceDate, type Tone } from '@/components/mobile';
+import { BackBar, Card, Chip, Row, Screen, niceDate, type Tone } from '@/components/mobile';
 import type { DayBoard, DayJob } from '../jobs/format';
 
 function stateOf(j: DayJob): { tone: Tone; label: string } {
@@ -56,10 +56,7 @@ export default function ScheduleMobile({ day, selDate, onPick, counts, today }: 
 
   return (
     <Screen>
-      <div className="bg-white px-4 pt-2 pb-3">
-        <h1 className="text-[25px] font-bold tracking-[-0.025em]">Schedule</h1>
-      </div>
-
+      <BackBar title="Schedule" fallback={'/dashboard'} />
       {/* The week strip. Swipes sideways; the chosen day is solid red. */}
       <div className="bg-white pb-3">
         <div className="flex gap-2 px-4 overflow-x-auto no-scrollbar">

@@ -125,6 +125,7 @@ export default function Chemicals() {
     <>
       {/* What is on the shelf and what is running out. Editing a chemical is set-up work and stays on the desktop. */}
       <ListScreen
+        back="/dashboard"
         title="Chemicals"
         loading={!rows}
         search={q}
@@ -140,6 +141,8 @@ export default function Chemicals() {
         }))}
         empty="No chemicals yet"
         emptyHint="Add what you treat with, then they can be put on a purchase order."
+        fabOnClick={() => { setDraft(toDraft(null)); setEditing(null); }}
+        fabLabel="Add chemical"
       />
     <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-4 lg:px-6 h-[56px] border-b border-line">
@@ -273,6 +276,7 @@ export default function Chemicals() {
         </>
       )}
 
+    </div>
       {draft && (
         <Modal title={editing ? 'Edit chemical' : 'Add chemical'}
           sub={editing ? editing.id + ' · ' + editing.stock.toLocaleString('en-IN') + ' ' + editing.unit + ' in hand' : 'It starts at zero — stock comes from a purchase order'}
@@ -351,7 +355,6 @@ export default function Chemicals() {
           </div>
         </Modal>
       )}
-    </div>
     </>
   );
 }
