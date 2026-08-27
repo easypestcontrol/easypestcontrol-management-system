@@ -467,7 +467,8 @@ export function PayDialog({ inv, onClose, onDone }: {
                 * allows, and a way to open it full size for a customer holding
                 * their phone across a counter.
                 */}
-              <UpiQr src={'/api/pay/upi/' + qr.qrId + '/image'} size={236} />
+              <UpiQr src={'/api/pay/upi/' + qr.qrId + '/image'}
+            fallback={qr.image} size={236} />
               <p className="text-[14px] font-semibold mt-3">
                 Show this to the customer — {money(qr.amount)}
               </p>

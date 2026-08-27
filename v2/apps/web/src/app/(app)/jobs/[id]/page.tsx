@@ -1598,7 +1598,8 @@ function CollectDialog({ invoiceId, balance, jobId, onClose, onDone }: {
         <div className="text-center mb-3">
           {/* Held up to a customer at their door, so it wants the width it can
               get — the code inside Razorpay's poster is only a third of it. */}
-          <UpiQr src={'/api/pay/upi/' + qr.qrId + '/image'} size={250} />
+          <UpiQr src={'/api/pay/upi/' + qr.qrId + '/image'}
+            fallback={qr.image} size={250} />
           <p className="text-[13px] text-muted mt-2">
             {money(qr.amount)} — waiting for the customer to scan and pay…
           </p>
