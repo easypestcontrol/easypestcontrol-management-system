@@ -423,20 +423,38 @@ export function PayDialog({ inv, onClose, onDone }: {
         <div className="mt-4 rounded-md border border-line overflow-hidden">
           {qr ? (
             <div className="p-4 text-center">
+              {/*
+                * Razorpay hands back a whole branded poster, not a bare code —
+                * header, UPI logos, the company name, and the actual QR maybe a
+                * third of its height. This used to be forced into a 190px
+                * SQUARE, which both squashed a portrait image and left the
+                * scannable part around 60px. Phones could not read it.
+                *
+                * So: natural aspect ratio, as wide as the dialog sensibly
+                * allows, and a way to open it full size for a customer holding
+                * their phone across a counter.
+                */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={qr.image} alt="UPI QR code"
-                className="w-[190px] h-[190px] mx-auto border border-line rounded bg-white" />
-              <p className="text-[13.5px] font-semibold mt-3">
+              <img src={qr.image} alt="Scan to pay with any UPI app"
+                className="block w-full max-w-[300px] h-auto mx-auto rounded bg-white" />
+              <p className="text-[14px] font-semibold mt-3">
                 Show this to the customer — {money(qr.amount)}
               </p>
               <p className="text-[12px] text-muted mt-1">
                 Any UPI app. The receipt is issued by itself the moment it is paid;
                 this window is watching.
               </p>
-              <button onClick={() => { setQr(null); stopPolling(); }}
-                className="mt-3 h-8 px-3 rounded border border-line text-[12px] font-medium hover:bg-wash">
-                Close the QR
-              </button>
+              <div className="flex items-center justify-center gap-2 mt-3">
+                <a href={qr.image} target="_blank" rel="noreferrer"
+                  className="h-8 px-3 rounded border border-line text-[12px] font-medium
+                    hover:bg-wash flex items-center">
+                  Open it full size ↗
+                </a>
+                <button onClick={() => { setQr(null); stopPolling(); }}
+                  className="h-8 px-3 rounded border border-line text-[12px] font-medium hover:bg-wash">
+                  Close the QR
+                </button>
+              </div>
             </div>
           ) : (
             <div className="p-3.5 flex items-center gap-3 flex-wrap">

@@ -1575,9 +1575,12 @@ function CollectDialog({ invoiceId, balance, jobId, onClose, onDone }: {
       )}
       {qr && (
         <div className="text-center mb-3">
+          {/* Held up to a customer at their door, so it wants the width it can
+              get — the code inside Razorpay's poster is only a third of it. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={qr.image} alt="UPI QR" className="mx-auto w-[220px] rounded border border-line" />
-          <p className="text-[12.5px] text-muted mt-2">
+          <img src={qr.image} alt="Scan to pay with any UPI app"
+            className="block mx-auto w-full max-w-[320px] h-auto rounded bg-white" />
+          <p className="text-[13px] text-muted mt-2">
             {money(qr.amount)} — waiting for the customer to scan and pay…
           </p>
         </div>
