@@ -8,6 +8,9 @@
    ========================================================================== */
 import { PrismaService } from './prisma.service';
 import { billingPlan, addDays } from 'shared';
+import { docTotals } from 'shared';
+import { attachLink } from './pay/autolink';
+import { drawCredit } from './pay/credits';
 
 export function todayISO(): string {
   const d = new Date();
@@ -92,6 +95,25 @@ export async function raiseDueBilling(prisma: PrismaService, contractId?: string
           items: [{ desc: r.label + ' — ' + c.id, qty: 1, rate: r.amount }] as never,
         },
       });
+      // Any advance the customer already paid comes off, then a way to pay
+      // the rest is attached. Both are best-effort: the instalment is owed
+      // whether or not either succeeds.
+      const fresh = await prisma.invoice.findFirst({
+        where: { contractId: c.id, kind: c.billingMode, seq: r.seq },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (fresh) {
+        // The engine, not a formula. r.amount is the net figure; what the
+        // customer owes includes tax, and the tax rules live in one place.
+        const co = await prisma.company.findFirst();
+        const gross = Math.round(docTotals(
+          (Array.isArray(fresh.items) ? fresh.items : []) as never,
+          fresh.discount || 0, fresh.placeOfSupply || '',
+          co?.state || 'Tamil Nadu', co?.gstRate ?? 18,
+        ).total);
+        await drawCredit(prisma, fresh.id, c.clientId, gross, todayISO()).catch(() => {});
+        await attachLink(prisma, fresh.id);
+      }
       raised++;
     }
   }

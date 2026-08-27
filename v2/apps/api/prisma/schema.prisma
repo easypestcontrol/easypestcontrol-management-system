@@ -256,6 +256,10 @@ model Lead {
 
 model Quotation {
   id            String       @id // QT-2042
+  /// Percent asked for up front when the customer approves. 0 = none.
+  /// Per quotation rather than a company setting: a two-lakh termite job
+  /// and a one-visit spray do not deserve the same demand.
+  advancePct    Int          @default(0)
   leadId        String       @default("")
   clientId      String       @default("")
   date          String
@@ -443,6 +447,9 @@ model PaymentIntent {
   invoiceId  String   @default("")
   quoteId    String   @default("")
   clientId   String   @default("")
+  /// Whose money this concerns when it is not a customer's — a technician
+  /// transferring in the cash they are carrying.
+  userId     String   @default("")
   /// PAISE. Converted once at the boundary and never divided mid-sum.
   amountPaise Int
   status     String   @default("pending") // pending | paid | failed | refunded | cancelled

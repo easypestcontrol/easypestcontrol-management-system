@@ -42,9 +42,22 @@ export class PayController {
     });
     if (!inv) throw new NotFoundException('No such invoice');
     const co = await this.prisma.company.findFirst();
-    const items = (Array.isArray(inv.items) ? inv.items : []) as Array<{ qty: number; rate: number }>;
-    const sub = items.reduce((a, i) => a + (i.qty || 1) * (i.rate || 0), 0) - (inv.discount || 0);
-    const total = Math.round(sub * (1 + (co?.gstRate || 18) / 100));
+    /*
+     * The shared engine, not a second copy of the tax rules.
+     *
+     * This used to be sub * (1 + gstRate/100), which ignores place of supply:
+     * an inter-state invoice splits into IGST rather than CGST + SGST, and a
+     * discount applies before tax, not after. The QR could therefore ask a
+     * customer for an amount the invoice did not say. One set of tax rules,
+     * in one file.
+     */
+    const total = Math.round(docTotals(
+      (Array.isArray(inv.items) ? inv.items : []) as never,
+      inv.discount || 0,
+      inv.placeOfSupply || '',
+      co?.state || 'Tamil Nadu',
+      co?.gstRate ?? 18,
+    ).total);
     const paid = inv.payments.reduce((a, p) => a + p.amount, 0);
     return { inv, balance: Math.max(0, total - paid) };
   }
@@ -150,6 +163,122 @@ export class PayController {
     return {
       paid: true, receipt, amount: fromPaise(hit.amount),
       allocations: res.allocations, credited: res.credited,
+    };
+  }
+
+  /* ======================================================= payment links */
+
+  /**
+   * A link the customer can pay from anywhere, at any hour.
+   *
+   * The QR needs somebody standing there holding a phone. A link is the same
+   * money without the appointment — which is the whole point: most invoices
+   * are settled in the evening, not at the door.
+   *
+   * The link is raised for the balance AT THIS MOMENT and recorded as an
+   * intent. If the invoice is edited afterwards the link is cancelled rather
+   * than left quietly asking for the wrong figure.
+   */
+  @Post('link/:invoiceId')
+  async openLink(@Param('invoiceId') invoiceId: string, @Req() req: Request & Jwt) {
+    const { auth } = await this.keys();
+    const { inv, balance } = await this.balanceOf(invoiceId);
+    if (balance <= 0) throw new BadRequestException('Nothing left to collect on this invoice');
+
+    // An open link for this invoice is reused rather than duplicated: two live
+    // links for one balance is two ways to pay the same money twice.
+    const live = await this.prisma.paymentIntent.findFirst({
+      where: { invoiceId, kind: 'link', status: 'pending' },
+    });
+    if (live && live.amountPaise === balance * 100) {
+      return { linkId: live.gatewayRef, url: live.shortUrl, amount: balance, reused: true };
+    }
+    if (live) await this.cancelLink(live.gatewayRef, auth).catch(() => {});
+
+    const client = await this.prisma.client.findUnique({ where: { id: inv.clientId } });
+    const co = await this.prisma.company.findFirst();
+
+    const r = await fetch(RZP + '/payment_links', {
+      method: 'POST',
+      headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: balance * 100,
+        currency: 'INR',
+        accept_partial: false,
+        description: (co?.name || 'Pest control') + ' — invoice ' + invoiceId,
+        customer: {
+          name: client?.name || '',
+          contact: client?.phone || '',
+          email: client?.email || '',
+        },
+        // Razorpay chases it too. A reminder we do not have to write.
+        notify: { sms: !!client?.phone, email: !!client?.email },
+        reminder_enable: true,
+        // The webhook reads these when an intent cannot be found, so a
+        // capture can still find its way home.
+        notes: { invoiceId, clientId: inv.clientId, by: req.user?.sub || '' },
+      }),
+    });
+    const link = (await r.json()) as {
+      id?: string; short_url?: string; error?: { description?: string };
+    };
+    if (!r.ok || !link.id) {
+      throw new BadRequestException('Razorpay refused: ' + (link.error?.description || 'unknown error'));
+    }
+
+    const seq = await this.prisma.seq.upsert({
+      where: { key: 'intent' }, create: { key: 'intent', value: 1 },
+      update: { value: { increment: 1 } },
+    });
+    await this.prisma.paymentIntent.create({
+      data: {
+        id: 'PI-' + seq.value, gatewayRef: link.id, kind: 'link',
+        invoiceId, clientId: inv.clientId,
+        amountPaise: balance * 100, status: 'pending',
+        shortUrl: link.short_url || '',
+      },
+    });
+    return { linkId: link.id, url: link.short_url, amount: balance, reused: false };
+  }
+
+  private async cancelLink(linkId: string, auth: string) {
+    await fetch(RZP + '/payment_links/' + linkId + '/cancel', {
+      method: 'POST', headers: { Authorization: auth },
+    });
+    await this.prisma.paymentIntent.updateMany({
+      where: { gatewayRef: linkId, status: 'pending' }, data: { status: 'cancelled' },
+    });
+  }
+
+  /** Withdraw a link — used when an invoice is edited, or by hand. */
+  @Post('link/:invoiceId/cancel')
+  async killLink(@Param('invoiceId') invoiceId: string) {
+    const { auth } = await this.keys();
+    const live = await this.prisma.paymentIntent.findMany({
+      where: { invoiceId, kind: 'link', status: 'pending' },
+    });
+    for (const l of live) await this.cancelLink(l.gatewayRef, auth).catch(() => {});
+    return { cancelled: live.length };
+  }
+
+  /** Where an invoice's collection stands, for the screen to show. */
+  @Get('state/:invoiceId')
+  async state(@Param('invoiceId') invoiceId: string) {
+    const intents = await this.prisma.paymentIntent.findMany({
+      where: { invoiceId }, orderBy: { createdAt: 'desc' }, take: 5,
+    });
+    return {
+      link: intents.find((i) => i.kind === 'link' && i.status === 'pending')
+        ? {
+            url: intents.find((i) => i.kind === 'link' && i.status === 'pending')!.shortUrl,
+            amount: intents.find((i) => i.kind === 'link' && i.status === 'pending')!.amountPaise / 100,
+          }
+        : null,
+      history: intents.map((i) => ({
+        kind: i.kind, status: i.status,
+        amount: i.amountPaise / 100, at: i.paidAt || '',
+        receipt: i.receiptId,
+      })),
     };
   }
 }

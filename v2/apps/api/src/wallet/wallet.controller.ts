@@ -10,6 +10,7 @@ import type { Request } from 'express';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { branchScope } from '../branch.util';
+import { open as open2 } from '../secrets.util';
 
 interface Jwt { user?: { sub?: string; role?: string } }
 
@@ -108,5 +109,81 @@ export class WalletController {
       },
     });
     return { settled: open.length, amount: total };
+  }
+
+  /* ================================================= settle without travel */
+
+  /**
+   * Let a technician transfer in the cash they are holding.
+   *
+   * Note the DIRECTION. The technician owes the company money; a payout would
+   * send money the other way. So this raises a link for them to pay, exactly
+   * as a customer would — the money lands in the company account and the cash
+   * entries clear.
+   *
+   * It saves a trip that otherwise happens for no reason other than physically
+   * moving notes. Cash actually handed over at the office still settles the
+   * old way, because that is what happened and the ledger should say so.
+   */
+  @Post('settle-online')
+  async settleOnline(@Req() req: Request & Jwt) {
+    const techId = req.user?.sub || '';
+    if (!techId) throw new BadRequestException('Who are you?');
+
+    const open = await this.prisma.payment.findMany({
+      where: { mode: 'Cash', by: techId, settled: false },
+    });
+    const total = open.reduce((a, b) => a + b.amount, 0);
+    if (total <= 0) throw new BadRequestException('You are not holding any cash');
+
+    const co = await this.prisma.company.findFirst();
+    const ig = (co?.integrations || {}) as Record<string, string>;
+    if (!ig.rzpKeyId || !ig.rzpKeySecret) {
+      throw new BadRequestException(
+        'Online transfer is not connected yet — hand the cash in at the office',
+      );
+    }
+    const auth = 'Basic ' + Buffer.from(
+      open2(ig.rzpKeyId) + ':' + open2(ig.rzpKeySecret),
+    ).toString('base64');
+
+    const live = await this.prisma.paymentIntent.findFirst({
+      where: { kind: 'settlement', userId: techId, status: 'pending' },
+    });
+    if (live && live.amountPaise === total * 100) {
+      return { url: live.shortUrl, amount: total, reused: true };
+    }
+
+    const me = await this.prisma.user.findUnique({ where: { id: techId } });
+    const r = await fetch('https://api.razorpay.com/v1/payment_links', {
+      method: 'POST',
+      headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: total * 100,
+        currency: 'INR',
+        accept_partial: false,
+        description: 'Cash handover — ' + (me?.name || techId),
+        customer: { name: me?.name || '', contact: me?.phone || '' },
+        notify: { sms: false, email: false }, // they are standing here
+        notes: { settleUserId: techId },
+      }),
+    });
+    const link = (await r.json()) as { id?: string; short_url?: string; error?: { description?: string } };
+    if (!r.ok || !link.id) {
+      throw new BadRequestException('Razorpay refused: ' + (link.error?.description || 'unknown'));
+    }
+
+    const seq = await this.prisma.seq.upsert({
+      where: { key: 'intent' }, create: { key: 'intent', value: 1 },
+      update: { value: { increment: 1 } },
+    });
+    await this.prisma.paymentIntent.create({
+      data: {
+        id: 'PI-' + seq.value, gatewayRef: link.id, kind: 'settlement',
+        userId: techId, amountPaise: total * 100,
+        status: 'pending', shortUrl: link.short_url || '',
+      },
+    });
+    return { url: link.short_url, amount: total, reused: false };
   }
 }

@@ -28,6 +28,7 @@ import { PrismaService } from '../prisma.service';
 import { raiseDueBilling } from '../billing.util';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { branchScope, branchWhere, clampScope, clientBranch, inScope } from '../branch.util';
+import { drawCredit } from '../pay/credits';
 
 interface Item { desc: string; qty: number; rate: number; svId?: string }
 
@@ -396,6 +397,25 @@ export class InvoicesController {
         items: items as never,
       },
     });
+
+    /*
+     * Money the customer already handed over comes off immediately.
+     *
+     * An advance paid when a quotation was approved is real money sitting on
+     * their record. If it did not apply itself here, the customer would be
+     * invoiced for the full amount after having already paid part of it — and
+     * somebody would have to remember. Drafts are left alone: a draft is not
+     * a demand for money yet.
+     */
+    if (body.status !== 'draft') {
+      const co = await this.company();
+      const fresh = await this.prisma.invoice.findUnique({ where: { id } });
+      if (fresh) {
+        const total = Math.round(this.totalsFor(fresh, [], co).total);
+        await drawCredit(this.prisma as never, id, clientId, total, today)
+          .catch(() => { /* an invoice must exist even if credit cannot apply */ });
+      }
+    }
     return this.detail(id);
   }
 
