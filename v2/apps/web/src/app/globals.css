@@ -232,3 +232,28 @@ html, body {
    scrollbar — on a phone the bar is thumb-driven and the track is just noise. */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ----------------------------------------------------------- money landed
+
+   A payment that records itself is the best thing this app does and the
+   easiest to miss: the screen simply changes behind a dialog somebody is
+   still looking at. So it is drawn — the ring closes, the tick strikes, the
+   amount rises — and only then does the dialog stand aside.
+
+   Somebody just handed over money. Half a second of acknowledgement is not
+   decoration.                                                              */
+@keyframes paid-draw { to { stroke-dashoffset: 0; } }
+@keyframes paid-rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+@keyframes paid-pop  { 0% { transform: scale(0.86); } 60% { transform: scale(1.04); } 100% { transform: scale(1); } }
+
+.paid-pop  { animation: paid-pop .45s cubic-bezier(.2,.8,.3,1) both; }
+.paid-ring { stroke-dasharray: 170; stroke-dashoffset: 170; animation: paid-draw .5s ease-out forwards; }
+.paid-mark { stroke-dasharray: 40;  stroke-dashoffset: 40;  animation: paid-draw .28s .42s ease-out forwards; }
+.paid-rise { opacity: 0; animation: paid-rise .34s .5s ease-out forwards; }
+.paid-rise-2 { opacity: 0; animation: paid-rise .34s .64s ease-out forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .paid-pop, .paid-ring, .paid-mark, .paid-rise, .paid-rise-2 {
+    animation-duration: 1ms; animation-delay: 0ms;
+  }
+}

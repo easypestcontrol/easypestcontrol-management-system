@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { money } from 'shared';
+import PaidTick from '@/components/paid-tick';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
 
@@ -198,6 +199,11 @@ export function PayDialog({ inv, onClose, onDone }: {
   const [date, setDate] = useState(todayISO());
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  /* Set the instant money is confirmed, from whichever path confirmed it.
+     The dialog then shows the tick and closes itself. */
+  const [landed, setLanded] = useState<
+    { amount: number; receiptId: string; settled?: number } | null
+  >(null);
 
   /* ---------------------------------------------------------- the UPI QR
 
@@ -214,6 +220,15 @@ export function PayDialog({ inv, onClose, onDone }: {
   const [qrBusy, setQrBusy] = useState(false);
   const [qrErr, setQrErr] = useState('');
   const poll = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  /* Let it be seen before the screen moves. */
+  useEffect(() => {
+    if (!landed) return;
+    const t = setTimeout(
+      () => onDone(landed.receiptId, landed.amount, landed.settled), 1900,
+    );
+    return () => clearTimeout(t);
+  }, [landed, onDone]);
 
   const stopPolling = () => {
     if (poll.current) { clearInterval(poll.current); poll.current = null; }
@@ -235,7 +250,7 @@ export function PayDialog({ inv, onClose, onDone }: {
           );
           if (st.paid) {
             stopPolling();
-            onDone(st.receipt || '', st.amount || r.amount);
+            setLanded({ receiptId: st.receipt || '', amount: st.amount || r.amount });
           }
         } catch { /* a blip should not kill the wait — keep polling */ }
       }, 4000);
@@ -283,7 +298,7 @@ export function PayDialog({ inv, onClose, onDone }: {
         if (st.link) return;                       // still waiting
         const done = st.history.find((h) => h.status === 'paid' && h.receipt);
         stopWatch();
-        if (done) onDone(done.receipt || '', done.amount);
+        if (done) setLanded({ receiptId: done.receipt || '', amount: done.amount });
         else setLink(null);                        // withdrawn elsewhere
       } catch { /* a blip should not kill the wait */ }
     }, 6000);
@@ -357,7 +372,7 @@ export function PayDialog({ inv, onClose, onDone }: {
       }
       // The receipt for this invoice if there is one, else the first raised.
       const mine = parts.find((a) => a.invoiceId === inv.id) || parts[0];
-      onDone(mine?.receiptId || '', amount, parts.length);
+      setLanded({ receiptId: mine?.receiptId || '', amount, settled: parts.length });
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : 'Could not record the payment');
       setBusy(false);
@@ -366,6 +381,17 @@ export function PayDialog({ inv, onClose, onDone }: {
 
   const label = 'block text-[12px] font-semibold text-ink-2 mb-1.5';
   const input = 'w-full h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy';
+
+  /* Nothing to argue with once the money is in — no buttons, no form. */
+  if (landed) {
+    return (
+      <Dialog title="Payment received" sub={inv.id + ' · ' + inv.clientName}
+        onClose={() => onDone(landed.receiptId, landed.amount, landed.settled)}
+        footer={null}>
+        <PaidTick {...landed} />
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog title="Record payment" sub={inv.id + ' · ' + inv.clientName} onClose={onClose}

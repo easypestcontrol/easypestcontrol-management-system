@@ -82,7 +82,9 @@ export class PublicDocsController {
       })),
       totals: {
         sub: t.sub, disc: t.disc, rows: t.tax.rows, total: t.total,
-        paid, balance: Math.max(0, t.total - paid),
+        // Whole rupees on both sides, so the customer's copy and ours can
+        // never disagree about whether a thing is settled.
+        paid, balance: Math.max(0, Math.round(t.total - paid)),
       },
       payments: inv.payments.map((p) => ({
         id: p.id, amount: p.amount, mode: p.mode, date: p.date,

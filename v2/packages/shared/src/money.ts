@@ -44,11 +44,30 @@ export interface DocTotals {
   sub: number;
   disc: number;
   gst: number;
+  /** A WHOLE number of rupees. See the note in docTotals. */
   total: number;
+  /** What rounding moved, so a tax invoice can show it. Usually 0. */
+  roundOff: number;
   tax: TaxSplit;
 }
 
-/** Quotation / invoice totals: sum(qty × rate) − discount, then GST on top. */
+/**
+ * Quotation / invoice totals: sum(qty × rate) − discount, then GST on top,
+ * and the total rounded to a whole rupee.
+ *
+ * That rounding is not cosmetic, and leaving it out was a real defect. GST on
+ * ₹1 is 18 paise, so the total was 1.18 — but every screen renders through
+ * money(), which rounds, so the invoice SAID ₹1. Every collection path rounds
+ * too, so the QR ASKED for ₹1. The customer paid ₹1, and the invoice was left
+ * quietly owing eighteen paise: marked paid inside the app, "PAYMENT DUE" on
+ * the copy the customer sees. Two answers to the same question.
+ *
+ * A rupee is the smallest unit this business actually moves. Rounding the
+ * total here means the figure billed, the figure asked for, the figure paid
+ * and the figure displayed are the same number everywhere, which is the whole
+ * point of having one tax engine. It is also what an Indian tax invoice does
+ * — hence roundOff, so the document can say so.
+ */
 export function docTotals(
   items: Array<{ qty?: number; rate?: number }>,
   discount: number,
@@ -59,5 +78,10 @@ export function docTotals(
   const sub = items.reduce((a, i) => a + (i.qty || 0) * (i.rate || 0), 0);
   const disc = Math.min(Math.max(0, discount || 0), sub);
   const tax = taxSplit(sub - disc, place, homeState, rate);
-  return { sub, disc, gst: tax.gst, total: sub - disc + tax.gst, tax };
+  const exact = sub - disc + tax.gst;
+  const total = Math.round(exact);
+  // Guard the float: 1.18 - 1 is 0.17999999999999994, and money that reads
+  // like that in a ledger is money somebody stops trusting.
+  const roundOff = Math.round((total - exact) * 100) / 100;
+  return { sub, disc, gst: tax.gst, total, roundOff, tax };
 }

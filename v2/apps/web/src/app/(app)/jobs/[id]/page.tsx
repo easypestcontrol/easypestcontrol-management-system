@@ -24,6 +24,7 @@ import NavigateSheet from '@/components/navigate-sheet';
 import ShareLink from '@/components/share-link';
 import { isFieldTech, money, toMin } from 'shared';
 import { Icon } from '@/components/icons';
+import PaidTick from '@/components/paid-tick';
 import {
   SLOTS, durationText, fmtDate, fmtLong, fmtTime, relDay,
   type AreaFinding, type DayBoard, type ExecRecord, type JobDetail,
@@ -1513,7 +1514,20 @@ function CollectDialog({ invoiceId, balance, jobId, onClose, onDone }: {
   const [qr, setQr] = useState<{ qrId: string; image: string; amount: number } | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const [landed, setLanded] = useState<
+    { amount: number; receiptId: string; note?: string } | null
+  >(null);
+
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  /* Let it be seen before the screen moves. */
+  useEffect(() => {
+    if (!landed) return;
+    const t = setTimeout(() => onDone(
+      money(landed.amount) + ' received on UPI — receipt ' + (landed.receiptId || '') + '.',
+    ), 1900);
+    return () => clearTimeout(t);
+  }, [landed, onDone]);
 
   async function recordManual() {
     const amt = Math.round(Number(amount) || 0);
@@ -1541,7 +1555,12 @@ function CollectDialog({ invoiceId, balance, jobId, onClose, onDone }: {
             '/pay/upi/' + r.qrId + '/status?invoiceId=' + invoiceId);
           if (st.paid) {
             if (pollRef.current) clearInterval(pollRef.current);
-            onDone(money(st.amount || r.amount) + ' received on UPI — receipt ' + (st.receipt || '') + '.');
+            /* The customer is standing right there. Say it, then stand aside. */
+            setLanded({
+              amount: st.amount || r.amount,
+              receiptId: st.receipt || '',
+              note: 'Receipt ' + (st.receipt || 'issued') + ' — the office has been told.',
+            });
           }
         } catch { /* keep polling */ }
       }, 4000);
@@ -1573,7 +1592,8 @@ function CollectDialog({ invoiceId, balance, jobId, onClose, onDone }: {
           {busy ? 'Opening…' : 'Show the QR code'}
         </button>
       )}
-      {qr && (
+      {landed && <PaidTick {...landed} />}
+      {qr && !landed && (
         <div className="text-center mb-3">
           {/* Held up to a customer at their door, so it wants the width it can
               get — the code inside Razorpay's poster is only a third of it. */}
@@ -1586,7 +1606,7 @@ function CollectDialog({ invoiceId, balance, jobId, onClose, onDone }: {
         </div>
       )}
 
-      {(mode !== 'UPI' || err) && (
+      {(mode !== 'UPI' || err) && !landed && (
         <>
           <label className="block mb-3">
             <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">Amount collected (₹)</span>
