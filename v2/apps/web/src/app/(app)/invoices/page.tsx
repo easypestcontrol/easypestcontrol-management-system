@@ -424,6 +424,9 @@ function CreateDialog({ onClose, onCreated }: {
   const [items, setItems] = useState<Array<{ desc: string; qty: number; rate: number }>>([
     { desc: '', qty: 1, rate: 0 },
   ]);
+  /* What the company actually sells, so a line can be picked rather than
+     typed from memory — and priced from the list rather than guessed. */
+  const [catalogue, setCatalogue] = useState<Bootstrap['services']>([]);
 
   useEffect(() => {
     api.get<ContractOption[]>('/invoices/contract-options').then(setOptions).catch(() => setOptions([]));
@@ -431,6 +434,8 @@ function CreateDialog({ onClose, onCreated }: {
     api.get<Bootstrap>('/org/bootstrap').then((b) => {
       setHome(b.company.state || 'Tamil Nadu');
       setGstRate(b.company.gstRate || 18);
+      // The price list was already in this payload and was never offered.
+      setCatalogue(b.services || []);
     }).catch(() => {});
   }, []);
 
@@ -494,8 +499,15 @@ function CreateDialog({ onClose, onCreated }: {
     }
   }
 
-  const labelCls = 'block text-[12px] font-semibold text-ink-2 mb-1.5';
-  const inputCls = 'w-full h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy';
+  const labelCls = 'block text-[12px] font-semibold text-ink-2 mb-1';
+  /* Split so nothing has to fight w-full. Appending `w-[70px]` to a class
+     that already says w-full is a coin toss decided by stylesheet order, and
+     in Tailwind v4 the `!` escape hatch is a SUFFIX — `w-[70px]!` — so the
+     v3-style `!w-[70px]` I first reached for would have generated nothing at
+     all. A field that sets its own width simply starts from the width-free
+     base instead. */
+  const fieldCls = 'h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy';
+  const inputCls = 'w-full ' + fieldCls;
 
   return (
     <Dialog title="New invoice" wide onClose={onClose}
@@ -657,7 +669,10 @@ function CreateDialog({ onClose, onCreated }: {
         </>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 mb-3">
+          {/* Three short fields sat one per row with a blank cell padding the
+              gap — four rows of height for six inputs. They are numbers and
+              dates; they fit side by side. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2.5 mb-3">
             <label className="block">
               <span className={labelCls}>Customer *</span>
               <select value={clientId} onChange={(e) => setClientId(e.target.value)}
@@ -671,45 +686,99 @@ function CreateDialog({ onClose, onCreated }: {
               <input value={period} onChange={(e) => setPeriod(e.target.value)}
                 placeholder="e.g. One-time service" className={inputCls} />
             </label>
-            <label className="block">
-              <span className={labelCls}>Invoice no. (blank = automatic)</span>
-              <input value={invNo} onChange={(e) => setInvNo(e.target.value)}
-                placeholder="Auto — next INV number" className={inputCls + ' font-mono'} />
-            </label>
-            <span className="block" aria-hidden="true" />
-            <label className="block">
-              <span className={labelCls}>Invoice date</span>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
-            </label>
-            <label className="block">
-              <span className={labelCls}>Due date (blank = 15 days)</span>
-              <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className={inputCls} />
-            </label>
-            <label className="block col-span-2">
-              <span className={labelCls}>Place of supply (decides CGST/SGST vs IGST)</span>
+
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-2.5">
+              <label className="block">
+                <span className={labelCls}>Invoice no.</span>
+                <input value={invNo} onChange={(e) => setInvNo(e.target.value)}
+                  placeholder="Auto" className={inputCls + ' font-mono'} />
+              </label>
+              <label className="block">
+                <span className={labelCls}>Invoice date</span>
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+                  className={inputCls} />
+              </label>
+              <label className="block">
+                <span className={labelCls}>Due date</span>
+                <input type="date" value={due} onChange={(e) => setDue(e.target.value)}
+                  className={inputCls} />
+              </label>
+            </div>
+
+            <label className="block sm:col-span-2">
+              <span className={labelCls}>Place of supply</span>
               <input value={place} onChange={(e) => setPlace(e.target.value)}
                 placeholder={home} className={inputCls} />
+              <span className="block text-[11.5px] text-muted-2 mt-1">
+                Decides CGST + SGST or IGST. Blank means {home}.
+              </span>
             </label>
           </div>
 
           <span className={labelCls}>Line items (rates ex-GST)</span>
+
+          {/* A grid, not a flex row with widths bolted onto the inputs.
+              inputCls begins with w-full, so every `w-[70px]` alongside it was
+              a coin toss decided by stylesheet order — and the description,
+              the one field somebody actually needs to read, lost. Columns are
+              declared here instead and the inputs carry no width at all.
+
+              Column headings only from sm up: on a phone the row stacks and
+              headings over stacked fields are noise. */}
+          <div className="hidden sm:grid grid-cols-[1fr_70px_116px_96px_22px] gap-2 mb-1">
+            {['Service', 'Qty', 'Rate', 'Amount'].map((h, n) => (
+              <span key={h} className={'text-[11px] font-semibold uppercase tracking-wide text-muted-2 '
+                + (n === 0 ? '' : 'text-right')}>{h}</span>
+            ))}
+            <span />
+          </div>
+
           <div className="flex flex-col gap-2 mb-2">
             {items.map((it, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input value={it.desc} onChange={(e) => setItem(i, { desc: e.target.value })}
-                  placeholder="Description of service" className={inputCls + ' flex-1'} />
-                <input type="number" value={it.qty} min={1}
+              <div key={i}
+                className="grid grid-cols-[1fr_60px_22px] sm:grid-cols-[1fr_70px_116px_96px_22px]
+                  gap-2 items-center">
+                {/* The catalogue on the left of the description, so a price
+                    list that already existed is finally reachable. Typing
+                    something not on it stays perfectly allowed. */}
+                <span className="col-span-3 sm:col-span-1 flex gap-2 min-w-0">
+                  {catalogue.length > 0 && (
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const sv = catalogue.find((x) => x.id === e.target.value);
+                        if (sv) setItem(i, { desc: sv.name, rate: sv.price || 0 });
+                      }}
+                      title="Pick from the price list"
+                      className={fieldCls + ' w-[136px] shrink-0 bg-white text-[12.5px]'}>
+                      <option value="">Pick a service…</option>
+                      {catalogue.map((sv) => (
+                        <option key={sv.id} value={sv.id}>
+                          {sv.name}{sv.price ? ' — ' + money(sv.price) : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <input value={it.desc} onChange={(e) => setItem(i, { desc: e.target.value })}
+                    placeholder="Description of service"
+                    className={inputCls + ' min-w-0 flex-1'} />
+                </span>
+
+                <input type="number" inputMode="numeric" value={it.qty} min={1}
+                  aria-label="Quantity"
                   onChange={(e) => setItem(i, { qty: Number(e.target.value) || 1 })}
-                  className={inputCls + ' w-[70px] text-right'} />
-                <input type="number" value={it.rate}
+                  className={inputCls + ' text-right'} />
+                <input type="number" inputMode="numeric" value={it.rate}
+                  aria-label="Rate"
                   onChange={(e) => setItem(i, { rate: Number(e.target.value) || 0 })}
-                  className={inputCls + ' w-[110px] text-right'} />
-                <span className="w-[92px] text-right text-[13px] font-semibold">
+                  className={inputCls + ' col-span-2 sm:col-span-1 text-right'} />
+                <span className="hidden sm:block text-right text-[13px] font-semibold tabular-nums">
                   {money(it.qty * it.rate)}
                 </span>
                 <button onClick={() => setItems((xs) => xs.filter((_, j) => j !== i))}
                   disabled={items.length === 1}
-                  className="text-muted-2 hover:text-accent disabled:opacity-30" aria-label="Remove line">
+                  className="text-muted-2 hover:text-accent disabled:opacity-30 justify-self-end"
+                  aria-label="Remove line">
                   <Icon name="x" size={14} />
                 </button>
               </div>

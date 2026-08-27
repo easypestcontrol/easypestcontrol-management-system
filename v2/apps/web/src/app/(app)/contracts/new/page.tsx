@@ -376,7 +376,12 @@ function NewContractForm() {
   const winMins = (() => { const d = toMin(draft.slotEnd) - toMin(draft.slot); return d > 0 ? d : 120; })();
 
   const label = 'block text-[12px] font-semibold text-ink-2 mb-1.5';
-  const input = 'w-full h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy bg-white';
+  /* Split so a field that sets its own width does not have to fight w-full.
+     Appending `w-[90px]` to a class that already says w-full is a coin toss
+     decided by stylesheet order — which is how a description box ended up
+     narrower than the quantity beside it. */
+  const field = 'h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy bg-white';
+  const input = 'w-full ' + field;
   const card = 'rounded-md border border-line';
 
   return (
@@ -569,7 +574,7 @@ function NewContractForm() {
                         onChange={(e) => setLine(i, { desc: e.target.value })} />
                     </td>
                     <td className="text-right">
-                      <input className={input + ' h-8 w-[90px] text-right text-[12.5px]'}
+                      <input className={field + ' h-8 w-[90px] text-right text-[12.5px]'}
                         type="number" min={0} step={50} value={l.rate}
                         onChange={(e) => setLine(i, { rate: parseFloat(e.target.value) || 0 })} />
                     </td>
@@ -739,7 +744,7 @@ function NewContractForm() {
                         {isOne ? (
                           <span className="text-[12.5px]">{fmtDate(draft.start)}</span>
                         ) : (
-                          <input className={input + ' h-8 w-[140px] text-[12.5px]'} type="date"
+                          <input className={field + ' h-8 w-[140px] text-[12.5px]'} type="date"
                             value={l.startAt}
                             onChange={(e) => setLine(i, { startAt: e.target.value || draft.start })} />
                         )}
@@ -753,7 +758,7 @@ function NewContractForm() {
                           ) : (
                             <>
                               <span className="inline-flex items-center gap-1">
-                                <input className={input + ' h-8 w-[58px] text-center text-[12.5px]'}
+                                <input className={field + ' h-8 w-[58px] text-center text-[12.5px]'}
                                   type="number" min={0} max={60} value={l.months}
                                   title="0 = the whole contract period"
                                   onChange={(e) => setLine(i, {
@@ -775,10 +780,10 @@ function NewContractForm() {
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                            <input className={input + ' h-8 w-[92px] text-[12px]'} type="time" value={l.slot}
+                            <input className={field + ' h-8 w-[92px] text-[12px]'} type="time" value={l.slot}
                               onChange={(e) => setLine(i, { slot: e.target.value })} />
                             <span className="text-muted text-[11px]">to</span>
-                            <input className={input + ' h-8 w-[92px] text-[12px]'} type="time"
+                            <input className={field + ' h-8 w-[92px] text-[12px]'} type="time"
                               value={l.slotEnd || addMinsHHMM(l.slot, 120)}
                               onChange={(e) => setLine(i, { slotEnd: e.target.value })} />
                           </span>

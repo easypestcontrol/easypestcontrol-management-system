@@ -165,10 +165,13 @@ export function Dialog({ title, sub, wide, onClose, children, footer }: {
   children: React.ReactNode; footer?: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
       <div className="absolute inset-0 bg-navy/40" onClick={onClose} />
-      <div className={'relative bg-white rounded-md shadow-pop w-full flex flex-col max-h-[90vh] ' +
-        (wide ? 'max-w-[680px]' : 'max-w-[480px]')}>
+      {/* Wider and a little shorter. A form squeezed into 680px wraps onto
+          more rows, and the extra rows are what made this thing tower over
+          the screen — width costs nothing and buys back height. */}
+      <div className={'relative bg-white rounded-md shadow-pop w-full flex flex-col max-h-[86vh] ' +
+        (wide ? 'max-w-[780px]' : 'max-w-[480px]')}>
         <div className="flex items-start justify-between px-5 pt-4 pb-3 border-b border-line-soft">
           <div>
             <h2 className="text-[15px] font-semibold">{title}</h2>

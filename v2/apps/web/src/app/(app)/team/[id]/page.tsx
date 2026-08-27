@@ -130,8 +130,13 @@ function durationText(mins: number) {
   return h + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : '');
 }
 
-const inputCls =
-  'w-full h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy bg-white';
+/* Split so a field that sets its own width does not have to fight w-full.
+   Appending `w-[90px]` to a class that already says w-full is a coin toss
+   decided by stylesheet order — which is how a description box ended up
+   narrower than the quantity beside it. */
+const fieldCls =
+  'h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy bg-white';
+const inputCls = 'w-full ' + fieldCls;
 const labelCls = 'block text-[12px] font-semibold text-ink-2 mb-1.5';
 const sectionTitle =
   'text-[11.5px] font-semibold uppercase tracking-wider text-muted-2 mb-3 mt-7 first:mt-0';
@@ -533,11 +538,11 @@ export default function TeamMember() {
           </p>
           <div className="flex items-end gap-4 flex-wrap">
             <Field label="From">
-              <input type="time" className={inputCls + ' w-[120px]'} value={draft.hoursFrom}
+              <input type="time" className={fieldCls + ' w-[120px]'} value={draft.hoursFrom}
                 onChange={(e) => set('hoursFrom', e.target.value)} />
             </Field>
             <Field label="To">
-              <input type="time" className={inputCls + ' w-[120px]'} value={draft.hoursTo}
+              <input type="time" className={fieldCls + ' w-[120px]'} value={draft.hoursTo}
                 onChange={(e) => set('hoursTo', e.target.value)} />
             </Field>
             <div>
