@@ -298,12 +298,19 @@ export class PayWebhookController {
       todayISO(),
     );
 
-    if (intent) {
-      await this.prisma.paymentIntent.update({
-        where: { id: intent.id },
-        data: { receiptId: res.allocations[0]?.receiptId || '' },
-      }).catch(() => {});
-    }
+    /*
+     * Stamp the receipt onto whichever intent carries this capture.
+     *
+     * By id would have missed the common case: money we did not raise an
+     * intent for — a QR paid at a door — has its intent created a few lines
+     * above, so `intent` is null here and the receipt was never written back.
+     * The screen watching for that receipt then saw a paid intent with no
+     * receipt on it. By paymentRef there is exactly one row, whoever made it.
+     */
+    await this.prisma.paymentIntent.updateMany({
+      where: { paymentRef },
+      data: { receiptId: res.allocations[0]?.receiptId || '' },
+    }).catch(() => {});
     return { ok: true, allocations: res.allocations.length, credited: res.credited };
   }
 

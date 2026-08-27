@@ -260,7 +260,7 @@ export function PayDialog({ inv, onClose, onDone }: {
             setLanded({ receiptId: st.receipt || '', amount: st.amount || r.amount });
           }
         } catch { /* a blip should not kill the wait — keep polling */ }
-      }, 4000);
+      }, 2500);
     } catch (e) {
       setQrErr(e instanceof ApiError ? e.message : 'Could not open the QR');
       setQrBusy(false);
@@ -280,37 +280,62 @@ export function PayDialog({ inv, onClose, onDone }: {
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkErr, setLinkErr] = useState('');
   const [copied, setCopied] = useState(false);
-  const watch = useRef<ReturnType<typeof setInterval> | null>(null);
+  /*
+   * How many payments this invoice had when the dialog opened.
+   *
+   * The comparison has to be against a baseline rather than against zero: an
+   * invoice may already be part paid, and an old settled intent must not read
+   * as money arriving right now.
+   */
+  const before = useRef<number | null>(null);
 
-  const stopWatch = () => {
-    if (watch.current) { clearInterval(watch.current); watch.current = null; }
-  };
-  useEffect(() => stopWatch, []);
-
-  /* A link raised earlier is still live and still asking — show that one
-     rather than quietly raising a second way to pay the same money. */
   useEffect(() => {
     let alive = true;
     api.get<PayState>(`/pay/state/${inv.id}`)
-      .then((r) => { if (alive && r.link) setLink(r.link); })
-      .catch(() => {});
+      .then((r) => {
+        if (!alive) return;
+        // A link raised earlier is still live and still asking — show that one
+        // rather than quietly raising a second way to pay the same money.
+        if (r.link) setLink(r.link);
+        before.current = r.history.filter((h) => h.status === 'paid').length;
+      })
+      .catch(() => { before.current = 0; });
     return () => { alive = false; };
   }, [inv.id]);
 
+  /*
+   * While this dialog is open, watch the INVOICE — not the QR, and not the
+   * link.
+   *
+   * This used to watch only the thing it had just raised, and that was the
+   * bug: a customer paid a QR, the webhook recorded it perfectly, and the
+   * dialog showed nothing because the QR's own poll had been stopped when the
+   * picture was closed. Whoever took the money was left staring at a screen
+   * that looked like nothing had happened.
+   *
+   * Money can land here by four routes — the QR, a link, the webhook, another
+   * person in another tab — and the person watching this dialog wants to know
+   * about all of them. So the question asked is the simple one: does this
+   * invoice have more payments than it did a moment ago.
+   */
   useEffect(() => {
-    if (!link) { stopWatch(); return; }
-    watch.current = setInterval(async () => {
+    if (landed) return;
+    const id = setInterval(async () => {
+      if (before.current === null) return;      // baseline not taken yet
       try {
         const st = await api.get<PayState>(`/pay/state/${inv.id}`);
-        if (st.link) return;                       // still waiting
-        const done = st.history.find((h) => h.status === 'paid' && h.receipt);
-        stopWatch();
-        if (done) setLanded({ receiptId: done.receipt || '', amount: done.amount });
-        else setLink(null);                        // withdrawn elsewhere
+        const settled = st.history.filter((h) => h.status === 'paid');
+        if (settled.length > before.current) {
+          // history is newest first
+          setLanded({ receiptId: settled[0].receipt || '', amount: settled[0].amount });
+          return;
+        }
+        // The link was withdrawn somewhere else, or has expired.
+        setLink((cur) => (cur && !st.link ? null : cur));
       } catch { /* a blip should not kill the wait */ }
-    }, 6000);
-    return stopWatch;
-  }, [link, inv.id, onDone]);
+    }, 3000);
+    return () => clearInterval(id);
+  }, [inv.id, landed]);
 
   async function openLink() {
     setLinkBusy(true); setLinkErr('');
@@ -326,7 +351,7 @@ export function PayDialog({ inv, onClose, onDone }: {
     setLinkBusy(true); setLinkErr('');
     try {
       await api.post(`/pay/link/${inv.id}/cancel`, {});
-      setLink(null); stopWatch();
+      setLink(null);
     } catch (e) {
       setLinkErr(e instanceof ApiError ? e.message : 'Could not withdraw it');
     } finally { setLinkBusy(false); }
