@@ -14,7 +14,9 @@
    standing next to you will want to see it rather than a summary of it.
    ========================================================================== */
 
+import { useState } from 'react';
 import Link from 'next/link';
+import { api } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { BackBar, Card, Chip, Screen, money, niceDate, type Tone } from '@/components/mobile';
 import type { InvoiceDetail, Totals } from '../ui';
@@ -62,6 +64,34 @@ export default function InvoiceMobile({ inv, t, onPay, canPay, shareHref }: {
   const st = stateOf(inv);
   const owed = t.balance > 0;
 
+  /*
+   * A link the customer can pay from anywhere.
+   *
+   * The QR needs them standing next to you. Most invoices are settled in the
+   * evening by somebody who was not at the door, so this is the button that
+   * actually collects money.
+   */
+  const [link, setLink] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function makeLink() {
+    setBusy(true); setErr('');
+    try {
+      const r = await api.post<{ url: string; amount: number }>('/pay/link/' + inv.id, {});
+      setLink(r.url);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not create the link');
+    } finally { setBusy(false); }
+  }
+
+  const waLink = link && inv.client?.phone
+    ? 'https://wa.me/91' + inv.client.phone.replace(/\D/g, '').slice(-10)
+      + '?text=' + encodeURIComponent(
+        'Invoice ' + inv.id + ' — ' + money(t.balance) + ' due.'
+        + '\n\nPay here: ' + link)
+    : '';
+
   return (
     <Screen>
       <BackBar title={inv.id} fallback={'/invoices'} sub={inv.client?.name || undefined} />
@@ -97,6 +127,38 @@ export default function InvoiceMobile({ inv, t, onPay, canPay, shareHref }: {
       </div>
 
       <div className="px-4 pt-3 flex flex-col gap-3">
+        {/* --------------------------------------------- a way to pay it */}
+        {canPay && owed && (
+          <Card title="Collect this">
+            {link ? (
+              <>
+                <button onClick={() => navigator.clipboard?.writeText(link).catch(() => {})}
+                  className="w-full text-left rounded-xl bg-ground px-3.5 py-3 active:brightness-95">
+                  <span className="block text-[13px] break-all">{link}</span>
+                  <span className="block text-[12.5px] text-accent font-semibold mt-1.5">Tap to copy</span>
+                </button>
+                {waLink && (
+                  <a href={waLink}
+                    className="mt-2.5 flex items-center justify-center h-12 rounded-xl bg-mint
+                      text-mint-ink font-bold text-[15px] active:brightness-95">
+                    Send on WhatsApp
+                  </a>
+                )}
+              </>
+            ) : (
+              <button onClick={makeLink} disabled={busy}
+                className="w-full h-12 rounded-xl bg-wash font-bold text-[15px]
+                  active:brightness-95 disabled:opacity-60">
+                {busy ? 'Creating…' : 'Send a payment link'}
+              </button>
+            )}
+            {err && <p className="text-accent text-[13px] mt-2 leading-snug">{err}</p>}
+            <p className="text-muted text-[12.5px] mt-2 leading-relaxed">
+              They can pay by UPI or card, whenever suits them. It records itself.
+            </p>
+          </Card>
+        )}
+
         {/* ------------------------------------------------- the customer */}
         {inv.client && (
           <Card>

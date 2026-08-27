@@ -28,12 +28,40 @@ export default function ApprovePage() {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [thanks, setThanks] = useState('');
+  /*
+   * The advance, if this quotation asks for one.
+   *
+   * Fetched rather than assumed: a customer who has already paid must never
+   * be shown the button again, and the only place that knows is the server.
+   */
+  const [adv, setAdv] = useState<{ asked: number; paid: number; url: string } | null>(null);
+  const [advBusy, setAdvBusy] = useState(false);
 
   const load = useCallback(() => {
     api.get<PublicQuote>('/public/quotes/' + id).then(setQ).catch(() => setMissing(true));
   }, [id]);
 
   useEffect(() => { if (id) load(); }, [id, load]);
+
+  useEffect(() => {
+    if (!id) return;
+    api.get<{ asked: number; paid: number; url: string }>('/advance/' + id)
+      .then((r) => setAdv(r.asked > 0 ? r : null))
+      .catch(() => setAdv(null));
+  }, [id, thanks]);
+
+  async function payAdvance() {
+    if (advBusy) return;
+    setAdvBusy(true);
+    try {
+      const r = await api.post<{ url: string }>('/advance/' + id + '/link', {});
+      // Straight to Razorpay's page. Nothing about the money is handled here.
+      if (r.url) window.location.href = r.url;
+    } catch {
+      setThanks('Could not open the payment page — please reply on WhatsApp.');
+    }
+    setAdvBusy(false);
+  }
 
   async function decide(decision: 'approved' | 'rejected', why = '') {
     if (busy) return;
@@ -103,6 +131,29 @@ export default function ApprovePage() {
                 : 'Thank you for letting us know. ' + co.name + ' may be in touch to understand what would work better.'}
             </p>
             {thanks && <p className="text-[12.5px] text-navy font-medium mt-1.5">{thanks}</p>}
+
+            {/* Asked for at the moment of agreement, which is when it is
+                easiest to pay and hardest to forget. */}
+            {q.status === 'approved' && adv && adv.paid <= 0 && (
+              <div className="mt-3 pt-3 border-t border-line">
+                <p className="text-[13.5px] font-semibold">
+                  Advance of {money(adv.asked)} to confirm the booking
+                </p>
+                <button onClick={payAdvance} disabled={advBusy}
+                  className="mt-2 h-11 px-5 rounded bg-accent text-white text-[14px] font-bold
+                    hover:brightness-90 disabled:opacity-60">
+                  {advBusy ? 'Opening…' : 'Pay ' + money(adv.asked) + ' now'}
+                </button>
+                <p className="text-[12px] text-muted mt-1.5">
+                  UPI or card. It comes off your first invoice automatically.
+                </p>
+              </div>
+            )}
+            {adv && adv.paid > 0 && (
+              <p className="mt-3 pt-3 border-t border-line text-[13.5px] font-semibold text-navy">
+                Advance of {money(adv.paid)} received — thank you.
+              </p>
+            )}
           </div>
         ) : expired ? (
           <div className="no-print rounded border border-red-line bg-red-wash p-4 mb-4">

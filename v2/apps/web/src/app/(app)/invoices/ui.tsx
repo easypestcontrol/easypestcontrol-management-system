@@ -37,6 +37,12 @@ export interface ListResponse {
  * invoice first and carries forward, so several receipts can come back from
  * one collection.
  */
+/** What /pay/state answers: what is still asking, and what has been paid. */
+interface PayState {
+  link: { url: string; amount: number } | null;
+  history: { kind: string; status: string; amount: number; at: string; receipt: string }[];
+}
+
 export interface PaymentResult {
   allocations: Array<{ invoiceId: string; receiptId: string; amount: number }>;
   settled: number;
@@ -237,6 +243,71 @@ export function PayDialog({ inv, onClose, onDone }: {
     }
   }
 
+  /* ------------------------------------------------------ a link to pay by
+
+     The QR needs somebody standing there. Most invoices are settled in the
+     evening, by whoever actually signs the cheques, from a message on their
+     phone — so the same dialog offers a link that can be sent.
+
+     It is watched the same way the QR is: when the pending intent stops being
+     pending and a receipt appears against it, the payment recorded itself and
+     this window says so rather than making anyone refresh.                   */
+  const [link, setLink] = useState<{ url: string; amount: number } | null>(null);
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkErr, setLinkErr] = useState('');
+  const [copied, setCopied] = useState(false);
+  const watch = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopWatch = () => {
+    if (watch.current) { clearInterval(watch.current); watch.current = null; }
+  };
+  useEffect(() => stopWatch, []);
+
+  /* A link raised earlier is still live and still asking — show that one
+     rather than quietly raising a second way to pay the same money. */
+  useEffect(() => {
+    let alive = true;
+    api.get<PayState>(`/pay/state/${inv.id}`)
+      .then((r) => { if (alive && r.link) setLink(r.link); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [inv.id]);
+
+  useEffect(() => {
+    if (!link) { stopWatch(); return; }
+    watch.current = setInterval(async () => {
+      try {
+        const st = await api.get<PayState>(`/pay/state/${inv.id}`);
+        if (st.link) return;                       // still waiting
+        const done = st.history.find((h) => h.status === 'paid' && h.receipt);
+        stopWatch();
+        if (done) onDone(done.receipt || '', done.amount);
+        else setLink(null);                        // withdrawn elsewhere
+      } catch { /* a blip should not kill the wait */ }
+    }, 6000);
+    return stopWatch;
+  }, [link, inv.id, onDone]);
+
+  async function openLink() {
+    setLinkBusy(true); setLinkErr('');
+    try {
+      const r = await api.post<{ url: string; amount: number }>(`/pay/link/${inv.id}`, {});
+      setLink({ url: r.url, amount: r.amount });
+    } catch (e) {
+      setLinkErr(e instanceof ApiError ? e.message : 'Could not raise the link');
+    } finally { setLinkBusy(false); }
+  }
+
+  async function killLink() {
+    setLinkBusy(true); setLinkErr('');
+    try {
+      await api.post(`/pay/link/${inv.id}/cancel`, {});
+      setLink(null); stopWatch();
+    } catch (e) {
+      setLinkErr(e instanceof ApiError ? e.message : 'Could not withdraw it');
+    } finally { setLinkBusy(false); }
+  }
+
   function changeMode(m: string) {
     setMode(m);
     setErr('');
@@ -366,6 +437,69 @@ export function PayDialog({ inv, onClose, onDone }: {
           )}
           {qrErr && (
             <p className="px-3.5 pb-3 text-accent text-[12px] leading-relaxed">{qrErr}</p>
+          )}
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- pay by link */}
+      {inv.balance > 0 && (
+        <div className="mt-3 rounded-md border border-line overflow-hidden">
+          {link ? (
+            <div className="p-3.5">
+              <p className="text-[12.5px] font-semibold">
+                A link for {money(link.amount)} is out with the customer
+              </p>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <input readOnly value={link.url}
+                  onFocus={(e) => e.currentTarget.select()}
+                  className="flex-1 min-w-[190px] h-9 px-3 rounded border border-line bg-wash text-[12.5px] outline-none" />
+                <button
+                  onClick={() => {
+                    navigator.clipboard?.writeText(link.url).then(() => {
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 1600);
+                    }).catch(() => {});
+                  }}
+                  className="h-9 px-3 rounded border border-line text-[12.5px] font-medium hover:bg-wash">
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+                <a target="_blank" rel="noreferrer"
+                  href={'https://wa.me/?text=' + encodeURIComponent(
+                    inv.clientName + ', here is the payment link for invoice ' + inv.id
+                    + ' — ' + money(link.amount) + '.' + String.fromCharCode(10) + link.url,
+                  )}
+                  className="h-9 px-3 rounded bg-navy text-white text-[12.5px] font-semibold
+                    flex items-center hover:brightness-110">
+                  WhatsApp
+                </a>
+              </div>
+              <p className="text-[11.5px] text-muted mt-2 leading-relaxed">
+                Razorpay reminds them by SMS and email. The receipt is issued by
+                itself the moment it is paid — this window is watching.
+              </p>
+              <button onClick={killLink} disabled={linkBusy}
+                className="mt-2.5 h-8 px-3 rounded border border-line text-[12px] font-medium
+                  text-accent hover:bg-wash disabled:opacity-60">
+                Withdraw the link
+              </button>
+            </div>
+          ) : (
+            <div className="p-3.5 flex items-center gap-3 flex-wrap">
+              <span className="flex-1 min-w-[170px]">
+                <span className="block text-[12.5px] font-semibold">Not in front of them?</span>
+                <span className="block text-[11.5px] text-muted">
+                  Send a link for {money(inv.balance)} — it records itself when they pay.
+                </span>
+              </span>
+              <button onClick={openLink} disabled={linkBusy}
+                className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold
+                  hover:bg-wash disabled:opacity-60">
+                {linkBusy ? 'Raising…' : 'Send a payment link'}
+              </button>
+            </div>
+          )}
+          {linkErr && (
+            <p className="px-3.5 pb-3 text-accent text-[12px] leading-relaxed">{linkErr}</p>
           )}
         </div>
       )}

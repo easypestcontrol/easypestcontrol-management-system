@@ -15,6 +15,7 @@
 import Link from 'next/link';
 import { Icon } from '@/components/icons';
 import { BackBar, Card, Chip, Row, Screen, money, niceDate, type Tone } from '@/components/mobile';
+import Mandate, { mandatePossible } from '@/components/mandate';
 
 interface Job { id: string; type: string; date: string; slot: string; status: string; techIds: string[] }
 interface BillingRow {
@@ -38,9 +39,10 @@ function billState(r: BillingRow): { tone: Tone; label: string } {
   return { tone: 'info', label: 'Raised' };
 }
 
-export default function ContractMobile({ c }: {
+export default function ContractMobile({ c, role }: {
+  role: string;
   c: {
-    id: string; mode: string; start: string; end: string; value: number;
+    id: string; mode: string; billingMode: string; start: string; end: string; value: number;
     freq: string; planSummaryText: string; daysLeft: number;
     client: { id: string; name: string; phone?: string } | null;
     jobs: Job[];
@@ -131,6 +133,12 @@ export default function ContractMobile({ c }: {
               );
             })}
           </Card>
+        )}
+
+        {/* An instalment that collects itself is one phone call a quarter
+            that nobody has to make. */}
+        {mandatePossible(c.billingMode) && (
+          <Mandate contractId={c.id} role={role} variant="phone" />
         )}
 
         <p className="text-[13px] text-muted text-center px-4 pb-4 leading-relaxed">

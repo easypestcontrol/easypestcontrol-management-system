@@ -40,6 +40,8 @@ export interface Quote {
   billAddr: string;
   shipAddr: string;
   discount: number;
+  /** 0-100. What the customer is asked for the moment they approve. */
+  advancePct: number;
   notes: string;
   terms: string[];
   signCustomer: string;

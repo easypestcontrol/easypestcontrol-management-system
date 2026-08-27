@@ -20,6 +20,7 @@ import {
   type Boot, type BootUser, type ContractDetail, type PlanLineDto,
 } from '../lib';
 import ContractMobile from './mobile';
+import Mandate, { mandatePossible } from '@/components/mandate';
 
 /* --------------------------------------------------------------- utilities */
 
@@ -175,7 +176,7 @@ export default function ContractPage() {
     <>
       {/* How far through, and is the money coming in. Editing the plan is
           surgery and stays on the desktop. */}
-      <ContractMobile c={c} />
+      <ContractMobile c={c} role={me?.role || ''} />
 
     <div className="max-lg:hidden p-6 max-w-[1220px]">
       <Link href="/contracts" className="text-[12.5px] text-muted hover:text-navy">← All contracts</Link>
@@ -526,6 +527,9 @@ export default function ContractPage() {
                   })}
                 </div>
               </div>
+            )}
+            {mandatePossible(c.billingMode) && (
+              <Mandate contractId={c.id} role={me?.role || ''} />
             )}
             </div>
               <div>

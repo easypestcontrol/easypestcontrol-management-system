@@ -12,6 +12,8 @@
    this screen that can go wrong.
    ========================================================================== */
 
+import { useState } from 'react';
+import { api } from '@/lib/api';
 import { BackBar, Card, Chip, Screen, money, niceDate } from '@/components/mobile';
 
 interface Entry {
@@ -49,6 +51,52 @@ function Receipts({ entries }: { entries: Entry[] }) {
   );
 }
 
+/**
+ * Paying in the cash without the journey.
+ *
+ * Note the direction: the technician OWES this money to the company, so they
+ * pay it in exactly as a customer would. A payout would send money the other
+ * way. Handing notes over at the office still clears the wallet the old way,
+ * because that is what actually happened.
+ */
+function HandIn({ amount }: { amount: number }) {
+  const [url, setUrl] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function go() {
+    setBusy(true); setErr('');
+    try {
+      const r = await api.post<{ url: string }>('/wallet/settle-online', {});
+      if (r.url) { setUrl(r.url); window.location.href = r.url; }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not start the transfer');
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="px-4 pt-3">
+      <Card>
+        <button onClick={go} disabled={busy}
+          className="w-full h-12 rounded-xl bg-accent text-white font-bold text-[15.5px]
+            active:brightness-90 disabled:opacity-60">
+          {busy ? 'Opening…' : 'Transfer ' + money(amount) + ' to the office'}
+        </button>
+        {url && (
+          <a href={url} className="block text-center text-[13px] text-accent font-semibold mt-2">
+            Open the payment page again
+          </a>
+        )}
+        {err && <p className="text-accent text-[13px] mt-2 leading-snug">{err}</p>}
+        <p className="text-muted text-[12.5px] mt-2 leading-relaxed text-center">
+          Pay it in by UPI and your wallet clears. Handing the notes over at the
+          office works exactly as before.
+        </p>
+      </Card>
+    </div>
+  );
+}
+
 export default function WalletMobile({ data }: { data: Mine | Office | null }) {
   if (!data) {
     return (
@@ -79,6 +127,7 @@ export default function WalletMobile({ data }: { data: Mine | Office | null }) {
               : 'Nothing to hand over'}
           </p>
         </div>
+        {data.inHand > 0 && <HandIn amount={data.inHand} />}
         <div className="px-4 pt-3">
           {data.entries.length > 0 ? (
             <Card title="What you collected" flush className="mb-4">
