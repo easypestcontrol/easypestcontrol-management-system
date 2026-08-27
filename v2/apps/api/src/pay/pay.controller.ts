@@ -6,9 +6,9 @@
    ========================================================================== */
 import {
   BadRequestException, Controller, Get, NotFoundException, Param, Post,
-  Query, Req, UseGuards,
+  Query, Req, UseGuards, Res,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { Request, Response} from 'express';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { open } from '../secrets.util';
@@ -84,6 +84,37 @@ export class PayController {
       throw new BadRequestException('Razorpay refused: ' + (qr.error?.description || 'unknown error'));
     }
     return { qrId: qr.id, image: qr.image_url, amount: balance };
+  }
+
+  /**
+   * The QR image, served from our own origin.
+   *
+   * Razorpay hands back a whole branded poster — header, UPI logos, the
+   * company name — with the actual code about a third of it. The screen wants
+   * just the code, and cropping means reading the pixels, and reading the
+   * pixels of an image from rzp.io taints the canvas. So it comes through
+   * here instead, same-origin, and the browser can look at it.
+   *
+   * The id is looked up at Razorpay rather than trusting a URL from the
+   * client: a server that fetches whatever address it is handed is a server
+   * that can be pointed at things it should not see.
+   */
+  @Get('upi/:qrId/image')
+  async qrImage(@Param('qrId') qrId: string, @Res() res: Response) {
+    const { auth } = await this.keys();
+    const r = await fetch(RZP + '/payments/qr_codes/' + qrId, { headers: { Authorization: auth } });
+    const qr = (await r.json()) as { image_url?: string };
+    const url = String(qr.image_url || '');
+    if (!r.ok || !/^https:\/\/(rzp\.io|[a-z0-9.-]+\.razorpay\.com)\//.test(url)) {
+      throw new NotFoundException('No image for that QR');
+    }
+    const img = await fetch(url);
+    if (!img.ok) throw new NotFoundException('No image for that QR');
+    const buf = Buffer.from(await img.arrayBuffer());
+    res.setHeader('Content-Type', img.headers.get('content-type') || 'image/png');
+    // A single-use QR is worth caching for as long as it can be paid.
+    res.setHeader('Cache-Control', 'private, max-age=900');
+    res.send(buf);
   }
 
   /** Poll until the customer pays; the first captured payment records itself. */

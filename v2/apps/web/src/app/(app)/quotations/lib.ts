@@ -170,16 +170,9 @@ export function amountInWords(n: number): string {
 
 /* -------------------------------------------------------------- whatsapp */
 
-/**
- * A dialable wa.me number, or null. A bare 10-digit number is Indian;
- * anything 11-15 digits is taken as already carrying its country code.
- */
-export function waNumber(raw: string): string | null {
-  const d = String(raw || '').replace(/\D/g, '');
-  if (d.length === 10) return '91' + d;
-  if (d.length >= 11 && d.length <= 15) return d;
-  return null;
-}
+// One implementation, in the shared engine — this used to be a second copy
+// that did not know what to do with a leading zero.
+export { waNumber } from 'shared';
 
 export function phonePretty(num: string): string {
   if (num.length === 12 && num.startsWith('91')) {

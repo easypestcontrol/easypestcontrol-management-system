@@ -220,10 +220,13 @@ export class InvoicesController {
         include: { payments: true },
         orderBy: [{ date: 'desc' }, { id: 'desc' }],
       }),
-      this.prisma.client.findMany({ select: { id: true, name: true } }),
+      // The phone comes along so a WhatsApp send from the list lands on the
+      // customer rather than the contact picker.
+      this.prisma.client.findMany({ select: { id: true, name: true, phone: true } }),
       this.company(),
     ]);
     const names = new Map(clients.map((c) => [c.id, c.name]));
+    const phones = new Map(clients.map((c) => [c.id, c.phone]));
     const today = todayISO();
 
     const updates: Array<Promise<unknown>> = [];
@@ -235,6 +238,7 @@ export class InvoicesController {
       }
       return {
         id: i.id, clientId: i.clientId, clientName: names.get(i.clientId) || '—',
+        clientPhone: phones.get(i.clientId) || '',
         contractId: i.contractId, date: i.date, due: i.due, period: i.period,
         status: st, total: t.total, paid: t.paid, balance: t.balance,
         daysLate: daysBetween(i.due, today),

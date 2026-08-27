@@ -8,7 +8,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { money } from 'shared';
+import { waLink } from 'shared';
 import PaidTick from '@/components/paid-tick';
+import UpiQr from '@/components/upi-qr';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
 
@@ -21,7 +23,8 @@ import { Icon } from '@/components/icons';
 export type InvStatus = 'draft' | 'sent' | 'partial' | 'paid' | 'overdue' | 'cancelled';
 
 export interface InvoiceRow {
-  id: string; clientId: string; clientName: string; contractId: string;
+  id: string; clientId: string; clientName: string; clientPhone?: string;
+  contractId: string;
   date: string; due: string; period: string; status: InvStatus;
   total: number; paid: number; balance: number; daysLate: number;
 }
@@ -187,7 +190,11 @@ export function Dialog({ title, sub, wide, onClose, children, footer }: {
 /* ------------------------------------------------- record-payment dialog */
 
 export function PayDialog({ inv, onClose, onDone }: {
-  inv: { id: string; clientName: string; total: number; paid: number; balance: number };
+  inv: {
+    id: string; clientName: string; total: number; paid: number; balance: number;
+    /** So the WhatsApp send lands on THIS customer, not the contact picker. */
+    phone?: string;
+  };
   onClose: () => void;
   /** receipt, amount, and how many invoices that amount settled. */
   onDone: (receiptId: string, amount: number, settled?: number) => void;
@@ -460,9 +467,7 @@ export function PayDialog({ inv, onClose, onDone }: {
                 * allows, and a way to open it full size for a customer holding
                 * their phone across a counter.
                 */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={qr.image} alt="Scan to pay with any UPI app"
-                className="block w-full max-w-[300px] h-auto mx-auto rounded bg-white" />
+              <UpiQr src={'/api/pay/upi/' + qr.qrId + '/image'} size={236} />
               <p className="text-[14px] font-semibold mt-3">
                 Show this to the customer — {money(qr.amount)}
               </p>
@@ -471,11 +476,6 @@ export function PayDialog({ inv, onClose, onDone }: {
                 this window is watching.
               </p>
               <div className="flex items-center justify-center gap-2 mt-3">
-                <a href={qr.image} target="_blank" rel="noreferrer"
-                  className="h-8 px-3 rounded border border-line text-[12px] font-medium
-                    hover:bg-wash flex items-center">
-                  Open it full size ↗
-                </a>
                 <button onClick={() => { setQr(null); stopPolling(); }}
                   className="h-8 px-3 rounded border border-line text-[12px] font-medium hover:bg-wash">
                   Close the QR
@@ -525,7 +525,8 @@ export function PayDialog({ inv, onClose, onDone }: {
                   {copied ? 'Copied' : 'Copy'}
                 </button>
                 <a target="_blank" rel="noreferrer"
-                  href={'https://wa.me/?text=' + encodeURIComponent(
+                  href={waLink(
+                    inv.phone,
                     inv.clientName + ', here is the payment link for invoice ' + inv.id
                     + ' — ' + money(link.amount) + '.' + String.fromCharCode(10) + link.url,
                   )}

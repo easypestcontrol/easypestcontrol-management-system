@@ -9,6 +9,7 @@
    ========================================================================== */
 
 import { useState } from 'react';
+import { waLink, waNumber } from 'shared';
 import { Icon } from '@/components/icons';
 
 export default function ShareLink({ path, title, phone, text }: {
@@ -19,9 +20,9 @@ export default function ShareLink({ path, title, phone, text }: {
 
   const url = (typeof window !== 'undefined' ? window.location.origin : '') + path;
   const msg = (text || title || 'Here is your document') + '\n' + url;
-  const digits = (phone || '').replace(/\D/g, '');
-  const wa = 'https://wa.me/' + (digits ? (digits.length === 10 ? '91' + digits : digits) : '')
-    + '?text=' + encodeURIComponent(msg);
+  const wa = waLink(phone, msg);
+  // Whether we can land on the customer's own chat, or must ask.
+  const known = !!waNumber(phone);
 
   function copy() {
     // The async clipboard API needs https. The textarea trick works
@@ -72,7 +73,7 @@ export default function ShareLink({ path, title, phone, text }: {
                 className="h-12 rounded text-white text-[14px] font-semibold flex items-center
                   justify-center gap-2 hover:brightness-95"
                 style={{ background: '#25D366' }}>
-                Share via WhatsApp{digits ? '' : '…'}
+                Share via WhatsApp{known ? '' : '…'}
               </a>
               <button onClick={copy}
                 className="h-12 rounded border border-navy text-navy text-[14px] font-semibold hover:bg-wash">
@@ -80,7 +81,7 @@ export default function ShareLink({ path, title, phone, text }: {
               </button>
             </div>
             <p className="text-[11.5px] text-muted mt-3">
-              {digits
+              {known
                 ? 'WhatsApp opens the customer’s chat with the link ready to send.'
                 : 'WhatsApp opens with the link ready — pick who to send it to.'}
             </p>

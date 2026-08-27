@@ -404,7 +404,10 @@ export default function InvoicePage() {
       {/* ------------------------------------------------------- dialog */}
       {paying && inv.client && (
         <PayDialog
-          inv={{ id: inv.id, clientName: inv.client.name, total: t.total, paid: t.paid, balance: t.balance }}
+          inv={{
+            id: inv.id, clientName: inv.client.name, phone: inv.client.phone,
+            total: t.total, paid: t.paid, balance: t.balance,
+          }}
           onClose={() => setPaying(false)}
           onDone={(rid, amt, settled) => {
             setPaying(false);

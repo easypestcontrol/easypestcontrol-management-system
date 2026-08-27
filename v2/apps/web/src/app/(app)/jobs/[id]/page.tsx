@@ -25,6 +25,7 @@ import ShareLink from '@/components/share-link';
 import { isFieldTech, money, toMin } from 'shared';
 import { Icon } from '@/components/icons';
 import PaidTick from '@/components/paid-tick';
+import UpiQr from '@/components/upi-qr';
 import {
   SLOTS, durationText, fmtDate, fmtLong, fmtTime, relDay,
   type AreaFinding, type DayBoard, type ExecRecord, type JobDetail,
@@ -1597,9 +1598,7 @@ function CollectDialog({ invoiceId, balance, jobId, onClose, onDone }: {
         <div className="text-center mb-3">
           {/* Held up to a customer at their door, so it wants the width it can
               get — the code inside Razorpay's poster is only a third of it. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={qr.image} alt="Scan to pay with any UPI app"
-            className="block mx-auto w-full max-w-[320px] h-auto rounded bg-white" />
+          <UpiQr src={'/api/pay/upi/' + qr.qrId + '/image'} size={250} />
           <p className="text-[13px] text-muted mt-2">
             {money(qr.amount)} — waiting for the customer to scan and pay…
           </p>

@@ -21,6 +21,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import { waLink } from 'shared';
 import { money } from '@/components/mobile';
 
 interface State {
@@ -91,12 +92,12 @@ export default function Collect({ contractId, clientName, phone, role, variant =
     ? 'h-11 px-4 rounded-xl text-[15px] font-bold active:brightness-90 disabled:opacity-60'
     : 'h-9 px-3.5 rounded text-[12.5px] font-semibold disabled:opacity-60';
 
-  const share = 'https://wa.me/' + (phone ? phone.replace(/\D/g, '') : '')
-    + '?text=' + encodeURIComponent(
-      clientName + ', here is the payment link for ' + contractId
-      + (s.link ? ' — ' + money(s.link.amount) + '.' : '.')
-      + String.fromCharCode(10) + (s.link?.url || ''),
-    );
+  const share = waLink(
+    phone,
+    clientName + ', here is the payment link for ' + contractId
+    + (s.link ? ' — ' + money(s.link.amount) + '.' : '.')
+    + String.fromCharCode(10) + (s.link?.url || ''),
+  );
 
   return (
     <div className={wrap}>

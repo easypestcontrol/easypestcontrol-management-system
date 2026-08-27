@@ -85,3 +85,39 @@ export function docTotals(
   const roundOff = Math.round((total - exact) * 100) / 100;
   return { sub, disc, gst: tax.gst, total, roundOff, tax };
 }
+
+/* ---------------------------------------------------------------- whatsapp
+
+   Opening WhatsApp is not the job. Opening it ON THE RIGHT CONVERSATION is.
+
+   wa.me without a number shows the contact picker, and whoever is sharing
+   then has to find the customer by hand — impossible if the number was never
+   saved to the phone, which for a customer it usually has not been. Every
+   share in this app goes to a person we already know the number of, so there
+   is no excuse for asking.
+
+   The rules are the ones Indian numbers actually arrive in: a bare ten
+   digits, a leading zero from a landline habit, a +91 already attached, or a
+   number written with spaces and dashes.                                    */
+
+/** A dialable wa.me number, or null when we genuinely do not know one. */
+export function waNumber(raw: string | null | undefined): string | null {
+  let d = String(raw || '').replace(/\D/g, '');
+  // A trunk zero is for dialling inside India and means nothing to WhatsApp.
+  while (d.startsWith('0')) d = d.slice(1);
+  if (d.length === 10) return '91' + d;                 // bare Indian mobile
+  if (d.length === 12 && d.startsWith('91')) return d;  // already +91
+  if (d.length >= 11 && d.length <= 15) return d;       // some other country
+  return null;
+}
+
+/**
+ * A WhatsApp link that lands on the right conversation.
+ *
+ * Falls back to the contact picker only when there is truly no number —
+ * better than a dead button, and rare enough to notice.
+ */
+export function waLink(phone: string | null | undefined, message: string): string {
+  const n = waNumber(phone);
+  return 'https://wa.me/' + (n || '') + '?text=' + encodeURIComponent(message);
+}

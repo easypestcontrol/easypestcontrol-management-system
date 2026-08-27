@@ -5,3 +5,4 @@ export * from './engine';
 export * from './dispatch';
 export * from './lists';
 export * from './billing';
+export * from './qr-crop';

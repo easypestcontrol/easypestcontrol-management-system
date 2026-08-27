@@ -311,7 +311,8 @@ export default function Invoices() {
         <QuickPayDialog onClose={() => setQuickPay(false)} onPick={setPayFor} />
       )}
       {payFor && (
-        <PayDialog inv={payFor} onClose={() => setPayFor(null)}
+        <PayDialog inv={{ ...payFor, phone: payFor.clientPhone }}
+          onClose={() => setPayFor(null)}
           onDone={(rid, amt, settled) => paid(rid, amt, payFor.id, settled)} />
       )}
     </>
