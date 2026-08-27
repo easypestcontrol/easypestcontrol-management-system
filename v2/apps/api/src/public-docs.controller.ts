@@ -5,11 +5,14 @@
    id IS the link. Each endpoint returns only what belongs ON the printed
    document — no internal notes, no other customers, no lists to walk.
    ========================================================================== */
-import { Controller, Get, NotFoundException, Param, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException, Controller, Get, NotFoundException, Param, Post, UseGuards,
+} from '@nestjs/common';
 import { StorageService } from './storage/storage.service';
 import { docTotals } from 'shared';
 import { PrismaService } from './prisma.service';
 import { AuthGuard, Public } from './auth/auth.guard';
+import { open } from './secrets.util';
 
 @Controller('public/docs')
 @UseGuards(AuthGuard)
@@ -41,6 +44,102 @@ export class PublicDocsController {
         ],
       },
     };
+  }
+
+  /**
+   * Let the customer pay the invoice they are looking at.
+   *
+   * The Share link is how most of these documents are actually read — on a
+   * phone, in the evening, by whoever signs the cheques. Making them find
+   * somebody to ask for a payment link is how a settled invoice becomes a
+   * fortnight of chasing. The bill and the way to pay it belong on the same
+   * page.
+   *
+   * Public, because the customer is not signed in to anything and never
+   * should be. That is safe for the same reason the approval page is: this
+   * can only ever create a DEMAND for money against an invoice that already
+   * exists and already says what it is owed. It moves nothing. The money
+   * itself travels through Razorpay and comes home through the signed
+   * webhook, the same as every other rupee.
+   *
+   * A live link for the same balance is handed back rather than replaced, so
+   * refreshing the page — or three people opening it — cannot produce three
+   * ways to pay the same bill.
+   */
+  @Public()
+  @Post('invoice/:id/pay')
+  async payInvoice(@Param('id') id: string) {
+    const inv = await this.prisma.invoice.findUnique({
+      where: { id }, include: { payments: true },
+    });
+    if (!inv || inv.status === 'cancelled' || inv.status === 'draft') {
+      throw new NotFoundException('No such invoice');
+    }
+
+    const co = await this.prisma.company.findFirst();
+    const t = docTotals(
+      (Array.isArray(inv.items) ? inv.items : []) as never,
+      inv.discount || 0, inv.placeOfSupply || '',
+      co?.state || 'Tamil Nadu', co?.gstRate ?? 18,
+    );
+    const paid = inv.payments.reduce((a, p) => a + p.amount, 0);
+    const balance = Math.max(0, Math.round(t.total - paid));
+    if (balance <= 0) throw new BadRequestException('This invoice is already settled');
+
+    const live = await this.prisma.paymentIntent.findFirst({
+      where: { invoiceId: id, kind: 'link', status: 'pending' },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (live && live.amountPaise === balance * 100) {
+      return { url: live.shortUrl, amount: balance, reused: true };
+    }
+
+    const ig = (co?.integrations || {}) as Record<string, string>;
+    const keyId = open(ig.rzpKeyId || '');
+    const keySecret = open(ig.rzpKeySecret || '');
+    if (!keyId || !keySecret) {
+      throw new BadRequestException('Online payment is not available — please contact us');
+    }
+
+    const client = await this.prisma.client.findUnique({ where: { id: inv.clientId } });
+    const r = await fetch('https://api.razorpay.com/v1/payment_links', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Basic ' + Buffer.from(keyId + ':' + keySecret).toString('base64'),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount: balance * 100,
+        currency: 'INR',
+        accept_partial: false,
+        description: (co?.name || 'Pest control') + ' — invoice ' + id,
+        customer: {
+          name: client?.name || '', contact: client?.phone || '', email: client?.email || '',
+        },
+        notify: { sms: false, email: false },   // they are looking at it already
+        reminder_enable: true,
+        notes: { invoiceId: id, clientId: inv.clientId },
+      }),
+    });
+    const link = (await r.json()) as {
+      id?: string; short_url?: string; error?: { description?: string };
+    };
+    if (!r.ok || !link.id) {
+      throw new BadRequestException('Could not open the payment page — please try again');
+    }
+
+    const seq = await this.prisma.seq.upsert({
+      where: { key: 'intent' }, create: { key: 'intent', value: 1 },
+      update: { value: { increment: 1 } },
+    });
+    await this.prisma.paymentIntent.create({
+      data: {
+        id: 'PI-' + seq.value, gatewayRef: link.id, kind: 'link',
+        invoiceId: id, clientId: inv.clientId,
+        amountPaise: balance * 100, status: 'pending', shortUrl: link.short_url || '',
+      },
+    });
+    return { url: link.short_url, amount: balance, reused: false };
   }
 
   /** The company identity for the public legal pages (terms, privacy). */

@@ -33,6 +33,11 @@ export default function PublicInvoice() {
   const { id } = useParams<{ id: string }>();
   const [doc, setDoc] = useState<Doc | null>(null);
   const [missing, setMissing] = useState(false);
+  /* Paying from the document itself. Most of these are read on a phone in the
+     evening by whoever signs the cheques; making them find somebody to ask
+     for a link is how a settled invoice becomes a fortnight of chasing. */
+  const [paying, setPaying] = useState(false);
+  const [payErr, setPayErr] = useState('');
 
   useEffect(() => {
     fetch('/api/public/docs/invoice/' + id)
@@ -40,6 +45,21 @@ export default function PublicInvoice() {
       .then(setDoc)
       .catch(() => setMissing(true));
   }, [id]);
+
+  async function payNow() {
+    if (paying) return;
+    setPaying(true); setPayErr('');
+    try {
+      const r = await fetch('/api/public/docs/invoice/' + id + '/pay', { method: 'POST' });
+      const data = await r.json();
+      if (!r.ok || !data.url) throw new Error(data.message || 'Could not open the payment page');
+      // Straight to Razorpay. Nothing about the money is handled on this page.
+      window.location.href = data.url;
+    } catch (e) {
+      setPayErr(e instanceof Error ? e.message : 'Could not open the payment page');
+      setPaying(false);
+    }
+  }
 
   if (missing) {
     return <p className="p-10 text-center text-[14px] text-muted">This invoice is not available.</p>;
@@ -195,6 +215,32 @@ export default function PublicInvoice() {
               )}
             </div>
           </div>
+
+          {/* The bill and the way to pay it belong on the same page. Hidden
+              when printed — a piece of paper cannot be tapped. */}
+          {!paid && (
+            <div className="no-print mt-6 rounded-lg border border-[#e3e6ee] bg-[#f8f9fb] p-4 sm:p-5 text-center">
+              <p className="text-[13px] text-gray-600">
+                {t.paid > 0 ? 'Balance outstanding' : 'Amount payable'}
+              </p>
+              <p className="text-[26px] font-bold text-[#141414] leading-tight mt-0.5">
+                {money(t.balance)}
+              </p>
+              <button onClick={payNow} disabled={paying}
+                className="mt-3 w-full sm:w-auto sm:min-w-[280px] h-12 px-8 rounded-md
+                  bg-[#141414] text-white text-[15px] font-bold
+                  hover:brightness-125 active:brightness-90 disabled:opacity-60">
+                {paying ? 'Opening…' : 'Pay ' + money(t.balance) + ' now'}
+              </button>
+              <p className="text-[11.5px] text-gray-500 mt-2.5 leading-relaxed">
+                UPI, card, net banking or a wallet. Your receipt is issued the moment
+                it goes through.
+              </p>
+              {payErr && (
+                <p className="text-[12px] text-[#FF0000] mt-2 leading-relaxed">{payErr}</p>
+              )}
+            </div>
+          )}
 
           {doc.payments.length > 0 && (
             <div className="mt-5 rounded border border-[#e3e6ee] px-4 py-3">

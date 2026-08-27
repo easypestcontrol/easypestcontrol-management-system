@@ -257,3 +257,14 @@ html, body {
     animation-duration: 1ms; animation-delay: 0ms;
   }
 }
+
+/* ------------------------------------------------------------ on paper
+
+   `.no-print` was already used on five screens — the Print/PDF button, the
+   Share bar, the pay controls — but the rule itself was never written, so
+   every one of those printed onto the document. A tax invoice with a
+   "Pay now" button on it is not a tax invoice.                             */
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+}
