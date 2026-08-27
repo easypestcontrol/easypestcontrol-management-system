@@ -1,6 +1,7 @@
 /* An advance is the easiest money in this system to lose: it arrives before
    the document it belongs to. These cases prove it cannot be spent twice,
-   cannot exceed itself, and always lands on the invoice as a real receipt.  */
+   cannot exceed itself, always lands on the invoice as a real receipt, and
+   never wanders onto a contract it was not paid for.                        */
 import { PrismaClient } from '@prisma/client';
 import { drawCredit, creditBalance } from '../dist/pay/credits.js';
 
@@ -20,22 +21,23 @@ const invoice = (id) => prisma.invoice.create({
   data: { id: TAG + id, clientId: TAG + 'c', date: TODAY, due: TODAY, status: 'sent',
           items: [{ desc: 'x', qty: 1, rate: 1000 }], placeOfSupply: 'Tamil Nadu' },
 });
-const credit = (id, rupees, quote = '') => prisma.customerCredit.create({
-  data: { id: TAG + id, clientId: TAG + 'c', amount: rupees * 100, source: 'advance', quoteId: quote },
+const credit = (id, rupees, contract = '') => prisma.customerCredit.create({
+  data: { id: TAG + id, clientId: TAG + 'c', amount: rupees * 100, source: 'advance',
+          contractId: contract },
 });
 
 await clean();
 
 /* ------------------------------- 1. an advance comes off the first invoice */
 {
-  await credit('1', 5000, 'QT-9001');
+  await credit('1', 5000, 'CN-9001');
   const inv = await invoice('A');
-  const r = await drawCredit(prisma, inv.id, TAG + 'c', 11800, TODAY);
+  const r = await drawCredit(prisma, inv.id, TAG + 'c', 11800, TODAY, 'CN-9001');
   const after = await prisma.invoice.findUnique({ where: { id: inv.id }, include: { payments: true } });
   ok('advance applied to the invoice', r.applied === 5000, 'applied=' + r.applied);
   ok('it is a real receipt, not a discount', after.payments.length === 1
     && after.payments[0].mode === 'Advance');
-  ok('the receipt names the quotation', (after.payments[0].ref || '').includes('QT-9001'),
+  ok('the receipt names the contract', (after.payments[0].ref || '').includes('CN-9001'),
     after.payments[0].ref);
   ok('invoice reads part paid', after.status === 'partial', after.status);
   ok('nothing left to spend', (await creditBalance(prisma, TAG + 'c')) === 0);
@@ -94,6 +96,36 @@ await clean();
   });
   ok('oldest advance emptied first', rows[0].used === 300000, 'used=' + rows[0].used);
   ok('newer advance only partly used', rows[1].used === 100000, 'used=' + rows[1].used);
+}
+
+/* ------------- 6. money paid on one contract stays on that contract
+
+   The same customer can hold an AMC for their factory and a one-off treatment
+   at their house. An advance on one is not a payment towards the other, and an
+   invoice must not help itself to money it was not given.                    */
+{
+  await clean();
+  await credit('6', 5000, 'CN-A');
+  const other = await invoice('H');
+  const mine = await invoice('I');
+
+  const wrong = await drawCredit(prisma, other.id, TAG + 'c', 11800, TODAY, 'CN-B');
+  ok('another contract cannot touch it', wrong.applied === 0, 'applied=' + wrong.applied);
+
+  const loose = await drawCredit(prisma, other.id, TAG + 'c', 11800, TODAY);
+  ok('nor can an invoice with no contract', loose.applied === 0, 'applied=' + loose.applied);
+
+  const right = await drawCredit(prisma, mine.id, TAG + 'c', 11800, TODAY, 'CN-A');
+  ok('its own contract draws it', right.applied === 5000, 'applied=' + right.applied);
+}
+
+/* ------------- 7. an overpayment belongs to the customer, not to a contract */
+{
+  await clean();
+  await credit('7', 4000); // untagged — an overpayment
+  const inv = await invoice('J');
+  const r = await drawCredit(prisma, inv.id, TAG + 'c', 11800, TODAY, 'CN-Z');
+  ok('untagged credit is spendable anywhere', r.applied === 4000, 'applied=' + r.applied);
 }
 
 await clean();

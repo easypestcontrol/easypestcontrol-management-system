@@ -402,8 +402,8 @@ export class InvoicesController {
     /*
      * Money the customer already handed over comes off immediately.
      *
-     * An advance paid when a quotation was approved is real money sitting on
-     * their record. If it did not apply itself here, the customer would be
+     * An advance collected when the contract was signed is real money sitting
+     * on their record. If it did not apply itself here, the customer would be
      * invoiced for the full amount after having already paid part of it — and
      * somebody would have to remember. Drafts are left alone: a draft is not
      * a demand for money yet.
@@ -413,7 +413,9 @@ export class InvoicesController {
       const fresh = await this.prisma.invoice.findUnique({ where: { id } });
       if (fresh) {
         const total = Math.round(this.totalsFor(fresh, [], co).total);
-        await drawCredit(this.prisma as never, id, clientId, total, today)
+        await drawCredit(
+          this.prisma as never, id, clientId, total, today, fresh.contractId || '',
+        )
           .catch(() => { /* an invoice must exist even if credit cannot apply */ });
       }
     }

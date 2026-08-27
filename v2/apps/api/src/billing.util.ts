@@ -111,7 +111,10 @@ export async function raiseDueBilling(prisma: PrismaService, contractId?: string
           fresh.discount || 0, fresh.placeOfSupply || '',
           co?.state || 'Tamil Nadu', co?.gstRate ?? 18,
         ).total);
-        await drawCredit(prisma, fresh.id, c.clientId, gross, todayISO()).catch(() => {});
+        // The contract, so an advance paid on THIS agreement can only ever
+        // come off THIS agreement's instalments.
+        await drawCredit(prisma, fresh.id, c.clientId, gross, todayISO(), c.id)
+          .catch(() => {});
         await attachLink(prisma, fresh.id);
       }
       raised++;

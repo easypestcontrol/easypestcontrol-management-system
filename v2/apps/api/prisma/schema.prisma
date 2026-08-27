@@ -259,7 +259,6 @@ model Quotation {
   /// Percent asked for up front when the customer approves. 0 = none.
   /// Per quotation rather than a company setting: a two-lakh termite job
   /// and a one-visit spray do not deserve the same demand.
-  advancePct    Int          @default(0)
   leadId        String       @default("")
   clientId      String       @default("")
   date          String
@@ -442,10 +441,12 @@ model PaymentIntent {
   /// can never produce two receipts.
   paymentRef String?  @unique
   kind       String   // qr | link | mandate
-  /// What it was raised against. An advance has no invoice, so this is blank
-  /// and clientId carries it instead.
+  /// What it was raised against. An advance has no invoice yet, so this is
+  /// blank and the contract carries it instead.
   invoiceId  String   @default("")
-  quoteId    String   @default("")
+  /// Set when money is collected against a contract before it has been
+  /// billed — an advance, or a part payment taken at signing.
+  contractId String   @default("")
   clientId   String   @default("")
   /// Whose money this concerns when it is not a customer's — a technician
   /// transferring in the cash they are carrying.
@@ -479,7 +480,10 @@ model CustomerCredit {
   amount    Int      // paise, as received
   used      Int      @default(0) // paise applied to invoices so far
   source    String   @default("advance") // advance | overpayment | adjustment
-  quoteId   String   @default("")
+  /// Credit taken against a specific contract can only be spent on THAT
+  /// contract's invoices. Untagged credit — an overpayment — is the
+  /// customer's to spend anywhere.
+  contractId String  @default("")
   note      String   @default("")
   createdAt DateTime @default(now())
 

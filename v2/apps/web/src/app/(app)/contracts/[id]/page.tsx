@@ -21,6 +21,7 @@ import {
 } from '../lib';
 import ContractMobile from './mobile';
 import Mandate, { mandatePossible } from '@/components/mandate';
+import Collect from '@/components/collect';
 
 /* --------------------------------------------------------------- utilities */
 
@@ -528,6 +529,8 @@ export default function ContractPage() {
                 </div>
               </div>
             )}
+            <Collect contractId={c.id} clientName={cl?.name || ''}
+              phone={cl?.phone} role={me?.role || ''} />
             {mandatePossible(c.billingMode) && (
               <Mandate contractId={c.id} role={me?.role || ''} />
             )}

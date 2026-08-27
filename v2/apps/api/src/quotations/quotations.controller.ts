@@ -21,7 +21,7 @@ const OPEN_LEAD_STAGES = ['new', 'followup', 'inspection', 'quoted', 'contract']
 
 const EDITABLE = [
   'date', 'mode', 'title', 'refNo', 'placeOfSupply', 'billAddr', 'shipAddr',
-  'discount', 'advancePct', 'notes', 'terms', 'branch', 'owner', 'signCustomer',
+  'discount', 'notes', 'terms', 'branch', 'owner', 'signCustomer',
 ] as const;
 
 function pick(body: Record<string, unknown>) {
@@ -166,8 +166,6 @@ export class QuotationsController {
             : ''),
         owner,
         discount: Math.max(0, Math.round(Number(body.discount) || 0)),
-        // 0-100. What is asked for when the customer says yes.
-        advancePct: Math.max(0, Math.min(100, Math.round(Number(body.advancePct) || 0))),
         notes: String(body.notes || '').trim(),
         terms: Array.isArray(body.terms) ? (body.terms as unknown[]).map(String) : [],
         signCustomer: String(body.signCustomer || ''),
@@ -200,9 +198,6 @@ export class QuotationsController {
     }
     if ('mode' in data) data.mode = data.mode === 'onetime' ? 'onetime' : 'amc';
     if ('discount' in data) data.discount = Math.max(0, Math.round(Number(data.discount) || 0));
-    if ('advancePct' in data) {
-      data.advancePct = Math.max(0, Math.min(100, Math.round(Number(data.advancePct) || 0)));
-    }
     if ('billAddr' in data) data.billAddr = String(data.billAddr || '').trim();
     if ('shipAddr' in data) data.shipAddr = String(data.shipAddr || '').trim();
     if ('terms' in data) {
@@ -331,7 +326,6 @@ export class QuotationsController {
         branch: q.branch,
         owner: q.owner,
         discount: q.discount,
-        advancePct: q.advancePct,
         notes: q.notes,
         terms: q.terms,
         signCustomer: q.signCustomer,

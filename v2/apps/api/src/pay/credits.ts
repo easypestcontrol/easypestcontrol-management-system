@@ -17,6 +17,12 @@
        the total — the invoice was for what it was for, and this is money
        received against it. That keeps the accounts honest and the receipt
        trail complete.
+
+     · Money taken against a contract stays with that contract. A customer who
+       pays an advance on their factory AMC has not paid anything towards the
+       one-off treatment at their house, and an invoice for the house must not
+       help itself to it. Only an untagged credit — an overpayment, which
+       belongs to nobody in particular — is spendable anywhere.
    ========================================================================== */
 import type { PrismaClient } from '@prisma/client';
 
@@ -43,6 +49,8 @@ export async function drawCredit(
   clientId: string,
   balance: number,
   today: string,
+  /** The contract this invoice belongs to, if it belongs to one. */
+  contractId = '',
 ): Promise<DrawResult> {
   if (balance <= 0) return { applied: 0, receipts: [] };
 
@@ -53,7 +61,11 @@ export async function drawCredit(
       'SELECT id FROM "CustomerCredit" WHERE "clientId" = $1 FOR UPDATE', clientId,
     );
     const credits = await tx.customerCredit.findMany({
-      where: { clientId },
+      where: contractId
+        // This contract's own advance, plus anything unattached.
+        ? { clientId, contractId: { in: [contractId, ''] } }
+        // A one-off invoice may only spend unattached credit.
+        : { clientId, contractId: '' },
       orderBy: { createdAt: 'asc' }, // oldest advance spends first
     });
 
@@ -72,7 +84,9 @@ export async function drawCredit(
         data: {
           id: receiptId, invoiceId, date: today, amount: take,
           mode: 'Advance',
-          ref: c.quoteId ? 'Advance ' + c.id + ' (' + c.quoteId + ')' : 'Advance ' + c.id,
+          ref: c.contractId
+            ? 'Advance ' + c.id + ' (' + c.contractId + ')'
+            : 'Advance ' + c.id,
           by: '', at: '',
         },
       });

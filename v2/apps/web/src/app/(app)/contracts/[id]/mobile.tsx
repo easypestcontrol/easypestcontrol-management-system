@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/icons';
 import { BackBar, Card, Chip, Row, Screen, money, niceDate, type Tone } from '@/components/mobile';
 import Mandate, { mandatePossible } from '@/components/mandate';
+import Collect from '@/components/collect';
 
 interface Job { id: string; type: string; date: string; slot: string; status: string; techIds: string[] }
 interface BillingRow {
@@ -134,6 +135,10 @@ export default function ContractMobile({ c, role }: {
             })}
           </Card>
         )}
+
+        {/* Where money is asked for: the agreement, not the offer. */}
+        <Collect contractId={c.id} clientName={c.client?.name || ''}
+          phone={c.client?.phone} role={role} variant="phone" />
 
         {/* An instalment that collects itself is one phone call a quarter
             that nobody has to make. */}

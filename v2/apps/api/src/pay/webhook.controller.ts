@@ -248,8 +248,14 @@ export class PayWebhookController {
     }
 
     if (!invoiceId) {
-      // An advance with no invoice yet: it belongs to the customer as credit.
-      if (clientId) await this.credit(clientId, entity, intent?.quoteId || '');
+      /*
+       * Money collected against a contract before it has been billed — the
+       * advance taken at signing, or a part payment. It belongs to the
+       * customer as credit, tagged with the contract so it can only ever be
+       * spent on that contract's own instalments.
+       */
+      const contractId = intent?.contractId || String(entity.notes?.contractId || '');
+      if (clientId) await this.credit(clientId, entity, contractId);
       return { ok: true, credited: true };
     }
 
@@ -316,7 +322,7 @@ export class PayWebhookController {
   }
 
   /** Money with no invoice becomes an explicit credit on the customer. */
-  private async credit(clientId: string, entity: Entity, quoteId: string) {
+  private async credit(clientId: string, entity: Entity, contractId: string) {
     const seq = await this.prisma.seq.upsert({
       where: { key: 'credit' }, create: { key: 'credit', value: 1 },
       update: { value: { increment: 1 } },
@@ -325,8 +331,8 @@ export class PayWebhookController {
       data: {
         id: 'CR-' + seq.value, clientId,
         amount: Math.round(entity.amount || 0),
-        source: 'advance', quoteId,
-        note: quoteId ? 'Advance against ' + quoteId : 'Advance received',
+        source: 'advance', contractId,
+        note: contractId ? 'Advance against ' + contractId : 'Advance received',
       },
     }).catch(() => {});
   }

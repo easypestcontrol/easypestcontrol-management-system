@@ -91,9 +91,6 @@ export default function Builder({ edit, presetClient, presetLead }: {
   const [branch, setBranch] = useState(edit ? edit.branch : '');
   const [owner, setOwner] = useState(edit ? edit.owner : '');
   const [discount, setDiscount] = useState(edit ? edit.discount : 0);
-  // Per quotation, not a company setting: a two-lakh termite job and a
-  // one-visit spray do not deserve the same demand.
-  const [advancePct, setAdvancePct] = useState(edit ? (edit.advancePct || 0) : 0);
   const [notes, setNotes] = useState(edit ? edit.notes : '');
   const [terms, setTerms] = useState(edit && edit.terms?.length ? edit.terms.join('\n') : '');
   const [items, setItems] = useState<RowItem[] | null>(
@@ -291,7 +288,6 @@ export default function Builder({ edit, presetClient, presetLead }: {
       branch,
       owner,
       discount: Number(discount) || 0,
-      advancePct: Number(advancePct) || 0,
       notes: notes.trim(),
       billAddr: billAddr.trim(),
       shipAddr: shipAddr.trim(),
@@ -633,23 +629,10 @@ export default function Builder({ edit, presetClient, presetLead }: {
 
         {/* ------------------------------------------------------- totals */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5">
-          <div className="flex flex-col gap-4">
-            <Field label="Discount (₹)">
-              <input type="number" inputMode="numeric" min={0} step={500} value={discount}
-                onChange={(e) => setDiscount(Number(e.target.value) || 0)} className={INP} />
-            </Field>
-            <Field label="Advance asked on approval (%)">
-              <input type="number" inputMode="numeric" min={0} max={100} step={5} value={advancePct}
-                onChange={(e) => setAdvancePct(Number(e.target.value) || 0)} className={INP} />
-              <p className="text-[12px] text-muted mt-1.5">
-                {advancePct > 0
-                  ? money(Math.round((t.total * advancePct) / 100))
-                    + ' — the customer is asked for this the moment they approve, and it comes'
-                    + ' off their first invoice.'
-                  : 'Leave at 0 to ask for nothing up front.'}
-              </p>
-            </Field>
-          </div>
+          <Field label="Discount (₹)">
+            <input type="number" inputMode="numeric" min={0} step={500} value={discount}
+              onChange={(e) => setDiscount(Number(e.target.value) || 0)} className={INP} />
+          </Field>
           <div className="rounded border border-line bg-wash p-4">
             <div className="flex justify-between text-[13px] mb-1.5">
               <span className="text-muted">Subtotal</span>
