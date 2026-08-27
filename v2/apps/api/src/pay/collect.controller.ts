@@ -24,6 +24,7 @@ import {
 import type { Request } from 'express';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
+import { branchScope, inScope } from '../branch.util';
 import { open } from '../secrets.util';
 
 const RZP = 'https://api.razorpay.com/v1';
@@ -33,6 +34,26 @@ interface Jwt { user?: { sub?: string; role?: string } }
 @UseGuards(AuthGuard)
 export class CollectController {
   constructor(private prisma: PrismaService) {}
+
+  /**
+   * The branch wall, applied before anything is read or asked for.
+   *
+   * What a customer has paid is a branch's own business. Without this any
+   * signed-in technician could read another branch's contract value and the
+   * money against it simply by knowing the id — which is the same hole that
+   * was found on the dispatch board, and it does not get to happen twice.
+   *
+   * A contract outside your scope answers 404, not 403. Telling somebody
+   * "you may not see this one" confirms it exists.
+   */
+  private async reach(contractId: string, req: Request & Jwt) {
+    const c = await this.prisma.contract.findUnique({ where: { id: contractId } });
+    if (!c) throw new NotFoundException('No such contract');
+    if (!inScope(await branchScope(this.prisma, req.user), c.branch)) {
+      throw new NotFoundException('No such contract');
+    }
+    return c;
+  }
 
   private async auth() {
     const co = await this.prisma.company.findFirst();
@@ -50,7 +71,8 @@ export class CollectController {
    * whether a link is currently out with the customer.
    */
   @Get(':contractId')
-  async state(@Param('contractId') contractId: string) {
+  async state(@Param('contractId') contractId: string, @Req() req: Request & Jwt) {
+    await this.reach(contractId, req);
     const [credits, live] = await Promise.all([
       this.prisma.customerCredit.findMany({ where: { contractId } }),
       this.prisma.paymentIntent.findFirst({
@@ -85,8 +107,7 @@ export class CollectController {
     @Body() body: Record<string, unknown>,
     @Req() req: Request & Jwt,
   ) {
-    const c = await this.prisma.contract.findUnique({ where: { id: contractId } });
-    if (!c) throw new NotFoundException('No such contract');
+    const c = await this.reach(contractId, req);
 
     const amount = Math.round(Number(body.amount) || 0);
     if (amount <= 0) throw new BadRequestException('Enter the amount to collect');
@@ -153,7 +174,8 @@ export class CollectController {
   /** Withdraw the request. */
   @Post(':contractId/cancel')
   @Roles('admin', 'ops', 'sales', 'accounts')
-  async cancel(@Param('contractId') contractId: string) {
+  async cancel(@Param('contractId') contractId: string, @Req() req: Request & Jwt) {
+    await this.reach(contractId, req);
     const live = await this.prisma.paymentIntent.findMany({
       where: { contractId, kind: 'link', status: 'pending' },
     });

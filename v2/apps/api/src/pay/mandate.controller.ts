@@ -27,6 +27,7 @@ import {
 import type { Request } from 'express';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
+import { branchScope, inScope } from '../branch.util';
 import { open } from '../secrets.util';
 
 const RZP = 'https://api.razorpay.com/v1';
@@ -47,6 +48,19 @@ function cadence(freq: string): { period: string; interval: number } {
 export class MandateController {
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * The branch wall. A contract outside your scope answers 404, not 403 —
+   * telling somebody "you may not see this one" confirms it exists.
+   */
+  private async reach(contractId: string, req: Request & Jwt) {
+    const c = await this.prisma.contract.findUnique({ where: { id: contractId } });
+    if (!c) throw new NotFoundException('No such contract');
+    if (!inScope(await branchScope(this.prisma, req.user), c.branch)) {
+      throw new NotFoundException('No such contract');
+    }
+    return c;
+  }
+
   private async auth() {
     const co = await this.prisma.company.findFirst();
     const ig = (co?.integrations || {}) as Record<string, string>;
@@ -60,7 +74,8 @@ export class MandateController {
 
   /** Where a contract's standing instruction stands. */
   @Get(':contractId')
-  async state(@Param('contractId') contractId: string) {
+  async state(@Param('contractId') contractId: string, @Req() req: Request & Jwt) {
+    await this.reach(contractId, req);
     const intent = await this.prisma.paymentIntent.findFirst({
       where: { kind: 'mandate', invoiceId: contractId },
       orderBy: { createdAt: 'desc' },
@@ -83,8 +98,7 @@ export class MandateController {
   @Post(':contractId')
   @Roles('admin', 'accounts')
   async create(@Param('contractId') contractId: string, @Req() req: Request & Jwt) {
-    const c = await this.prisma.contract.findUnique({ where: { id: contractId } });
-    if (!c) throw new NotFoundException('No such contract');
+    const c = await this.reach(contractId, req);
     if (c.billingMode === 'upfront') {
       throw new BadRequestException(
         'This contract is billed in full up front — there is nothing recurring to authorise',
@@ -171,7 +185,8 @@ export class MandateController {
   /** Withdraw the standing instruction. */
   @Post(':contractId/cancel')
   @Roles('admin', 'accounts')
-  async cancel(@Param('contractId') contractId: string) {
+  async cancel(@Param('contractId') contractId: string, @Req() req: Request & Jwt) {
+    await this.reach(contractId, req);
     const live = await this.prisma.paymentIntent.findFirst({
       where: { kind: 'mandate', invoiceId: contractId, status: { in: ['pending', 'paid'] } },
     });

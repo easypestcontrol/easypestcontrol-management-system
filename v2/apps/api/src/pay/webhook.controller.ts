@@ -224,27 +224,47 @@ export class PayWebhookController {
     const clientId = intent?.clientId || String(entity.notes?.clientId || '');
     const rupeesIn = fromPaise(entity.amount || 0);
 
-    try {
-      await this.prisma.paymentIntent.update({
-        where: { id: intent?.id || '__none__' },
+    /*
+     * Claim this capture, exactly once.
+     *
+     * This block used to be a plain update wrapped in a try/catch, on the
+     * assumption that a second delivery would violate the unique index and
+     * land in the catch. It does not. Writing the SAME paymentRef onto the
+     * SAME row is a perfectly legal update — so every redelivery fell through
+     * and credited the customer again. Razorpay redelivers as a matter of
+     * course, and a live test caught this crediting an advance twice.
+     *
+     * The claim is now conditional: it matches only while the intent is
+     * unclaimed. Two deliveries racing each other both try, the second blocks
+     * on the row lock, re-reads what the first committed, matches nothing, and
+     * stops. One capture, one claim, no arithmetic involved.
+     */
+    if (intent) {
+      const claim = await this.prisma.paymentIntent.updateMany({
+        where: { id: intent.id, OR: [{ paymentRef: null }, { paymentRef: '' }] },
         data: { paymentRef, status: 'paid', paidAt: todayISO(), raw: body as never },
       });
-    } catch {
-      if (!intent) {
-        // Money we were not expecting. It is still money: record the intent so
-        // it is visible and traceable rather than silently dropped.
-        await this.prisma.paymentIntent.create({
-          data: {
-            id: 'PI-' + Date.now(), gatewayRef: paymentRef, paymentRef,
-            kind: 'link', invoiceId, clientId,
-            amountPaise: Math.round(entity.amount || 0),
-            status: 'paid', paidAt: todayISO(), raw: body as never,
-          },
-        }).catch(() => { /* already claimed by a racing delivery */ });
-      } else {
-        // paymentRef already set — a duplicate delivery. Nothing to do.
-        return { ok: true, duplicate: true, eventId };
+      if (claim.count === 0) {
+        // Somebody got here first. If it was this same payment, we are simply
+        // being told twice and there is nothing to do.
+        if (intent.paymentRef === paymentRef) {
+          return { ok: true, duplicate: true, eventId };
+        }
+        /*
+         * A DIFFERENT payment against the same gateway object. Should not
+         * happen — our links are single-use — but money that arrived is money
+         * that arrived, and dropping it silently would be the worse mistake.
+         * It gets its own intent and carries on below.
+         */
+        const spare = await this.record(paymentRef, invoiceId, clientId, entity, body);
+        if (!spare) return { ok: true, duplicate: true, eventId };
       }
+    } else {
+      // Money we were not expecting. It is still money: record it so it is
+      // visible and traceable rather than silently dropped.
+      const fresh = await this.record(paymentRef, invoiceId, clientId, entity, body);
+      // The unique index refused it, so a racing delivery already has it.
+      if (!fresh) return { ok: true, duplicate: true, eventId };
     }
 
     if (!invoiceId) {
@@ -322,6 +342,35 @@ export class PayWebhookController {
   }
 
   /** Money with no invoice becomes an explicit credit on the customer. */
+  /**
+   * Write an intent for a capture we did not raise ourselves.
+   *
+   * Returns false when the unique index refuses it — which means another
+   * delivery of this same payment already recorded it, and the caller must
+   * stop rather than count the money again.
+   */
+  private async record(
+    paymentRef: string, invoiceId: string, clientId: string, entity: Entity, body: Hook,
+  ): Promise<boolean> {
+    const seq = await this.prisma.seq.upsert({
+      where: { key: 'intent' }, create: { key: 'intent', value: 1 },
+      update: { value: { increment: 1 } },
+    });
+    try {
+      await this.prisma.paymentIntent.create({
+        data: {
+          id: 'PI-' + seq.value, gatewayRef: paymentRef, paymentRef,
+          kind: 'link', invoiceId, clientId,
+          amountPaise: Math.round(entity.amount || 0),
+          status: 'paid', paidAt: todayISO(), raw: body as never,
+        },
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   private async credit(clientId: string, entity: Entity, contractId: string) {
     const seq = await this.prisma.seq.upsert({
       where: { key: 'credit' }, create: { key: 'credit', value: 1 },
