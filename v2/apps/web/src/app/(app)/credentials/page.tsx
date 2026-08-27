@@ -589,16 +589,23 @@ function RevealKey({ id }: { id: string }) {
  * old on Save.
  */
 function OperationalKeys() {
-  const [flags, setFlags] = useState<{ ola: boolean; razorpay: boolean; razorpayx?: boolean } | null>(null);
+  const [flags, setFlags] = useState<{ ola: boolean; razorpay: boolean; razorpayx?: boolean; webhook?: boolean } | null>(null);
   const [revealed, setRevealed] = useState<{ olaKey: string; rzpKeyId: string; rzpKeySecret: string; rzpxAccount?: string } | null>(null);
   const [olaKey, setOlaKey] = useState('');
   const [rzpKeyId, setRzpKeyId] = useState('');
   const [rzpKeySecret, setRzpKeySecret] = useState('');
+  /*
+   * The webhook secret is NOT the key secret. Razorpay generates it when you
+   * create the webhook, and without it every incoming payment message is
+   * rejected as unproven — which is correct, and is exactly why it needs a
+   * box of its own rather than being assumed.
+   */
+  const [rzpHookSecret, setRzpHookSecret] = useState('');
   const [rzpxAccount, setRzpxAccount] = useState('');
   const [msg, setMsg] = useState('');
   const [editing, setEditing] = useState(false);
 
-  const load = () => api.get<{ ola: boolean; razorpay: boolean; razorpayx?: boolean }>('/org/integrations')
+  const load = () => api.get<{ ola: boolean; razorpay: boolean; razorpayx?: boolean; webhook?: boolean }>('/org/integrations')
     .then(setFlags).catch(() => {});
   useEffect(() => { load(); }, []);
 
@@ -611,8 +618,9 @@ function OperationalKeys() {
   async function save() {
     setMsg('');
     try {
-      const r = await api.patch<{ ola: boolean; razorpay: boolean; razorpayx?: boolean }>('/org/integrations', {
+      const r = await api.patch<{ ola: boolean; razorpay: boolean; razorpayx?: boolean; webhook?: boolean }>('/org/integrations', {
         olaKey: olaKey.trim(), rzpKeyId: rzpKeyId.trim(), rzpKeySecret: rzpKeySecret.trim(),
+        rzpWebhookSecret: rzpHookSecret.trim(),
         rzpxAccount: rzpxAccount.trim(),
       });
       setFlags(r);
@@ -669,6 +677,16 @@ function OperationalKeys() {
           <span className="text-[11px] text-muted-2">— UPI QR collections</span>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
+          {flags && dot(!!flags.webhook)}
+          <span className="font-semibold w-[90px]">Webhook</span>
+          <span className="text-[12px] text-muted">
+            {flags?.webhook ? 'set — payments report themselves' : 'not set'}
+          </span>
+          <span className="text-[11px] text-muted-2">
+            — without it no online payment is ever recorded
+          </span>
+        </div>
+        <div className="flex items-center gap-2.5 flex-wrap">
           {flags && dot(!!flags.razorpayx)}
           <span className="font-semibold w-[90px]">RazorpayX</span>
           {masked(revealed?.rzpxAccount, !!flags?.razorpayx)}
@@ -692,6 +710,14 @@ function OperationalKeys() {
             <span className="block text-[11.5px] font-semibold text-ink-2 mb-1">Razorpay key secret</span>
             <input type="password" value={rzpKeySecret} onChange={(e) => setRzpKeySecret(e.target.value)}
               placeholder="secret" className={input} />
+          </label>
+          <label className="block">
+            <span className="block text-[11.5px] font-semibold text-ink-2 mb-1">
+              Razorpay webhook secret
+            </span>
+            <input type="password" value={rzpHookSecret}
+              onChange={(e) => setRzpHookSecret(e.target.value)}
+              placeholder="from the webhook, not the API key" className={input} />
           </label>
           <label className="block">
             <span className="block text-[11.5px] font-semibold text-ink-2 mb-1">RazorpayX account number</span>
