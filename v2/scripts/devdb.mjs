@@ -50,8 +50,7 @@ if (enc && enc !== 'UTF8') {
   console.error(`
   WARNING: the 'pestops' database is ${enc}, not UTF8.`);
   console.error("  It cannot store ₹ or Tamil text — writes containing them fail with a 500.");
-  console.error('  Fix: node scripts/to-utf8.mjs (copies everything into a UTF8 database).
-');
+  console.error('  Fix: node scripts/to-utf8.mjs (copies everything into a UTF8 database).');
 }
 await client.end();
 

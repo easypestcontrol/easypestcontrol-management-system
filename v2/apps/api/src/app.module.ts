@@ -32,6 +32,7 @@ import { TripsController } from './trips/trips.controller';
 import { WalletController } from './wallet/wallet.controller';
 import { ExpensesController } from './expenses/expenses.controller';
 import { PayController } from './pay/pay.controller';
+import { PayWebhookController } from './pay/webhook.controller';
 
 @Module({
   imports: [AuthModule],
@@ -70,6 +71,7 @@ import { PayController } from './pay/pay.controller';
     WalletController,
     ExpensesController,
     PayController,
+    PayWebhookController,
   ],
 })
 export class AppModule {}

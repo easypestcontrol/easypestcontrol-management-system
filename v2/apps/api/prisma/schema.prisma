@@ -419,6 +419,66 @@ model Invoice {
   createdAt     DateTime      @default(now())
 }
 
+/// Every interaction with the payment gateway, and the single place a gateway
+/// payment id is allowed to exist.
+///
+/// The id is UNIQUE, and that is the whole point: idempotency is enforced by
+/// the database, not by looking first and writing after. Razorpay retries its
+/// webhook, a browser may poll while the webhook lands, and two tabs may be
+/// open at once — every one of those races ends at this index, where the
+/// second write fails instead of banking the same rupees twice.
+///
+/// It also gives an answer to "the customer says they paid": what the gateway
+/// said, when, for how much, and which receipt it became.
+model PaymentIntent {
+  id         String   @id // PI-1
+  /// Razorpay's own id — qr_xxx, plink_xxx, sub_xxx. Unique per gateway object.
+  gatewayRef String   @unique
+  /// The captured payment id, once there is one. Also unique: the same capture
+  /// can never produce two receipts.
+  paymentRef String?  @unique
+  kind       String   // qr | link | mandate
+  /// What it was raised against. An advance has no invoice, so this is blank
+  /// and clientId carries it instead.
+  invoiceId  String   @default("")
+  quoteId    String   @default("")
+  clientId   String   @default("")
+  /// PAISE. Converted once at the boundary and never divided mid-sum.
+  amountPaise Int
+  status     String   @default("pending") // pending | paid | failed | refunded | cancelled
+  /// The receipt this became, so a gateway event can be traced to money.
+  receiptId  String   @default("")
+  shortUrl   String   @default("")
+  /// What the gateway actually sent, kept verbatim for when somebody disputes it.
+  raw        Json     @default("{}")
+  createdAt  DateTime @default(now())
+  paidAt     String   @default("")
+
+  @@index([invoiceId])
+  @@index([clientId])
+  @@index([status])
+}
+
+/// Money that arrived before there was an invoice to put it on.
+///
+/// An advance against a quotation is real money the moment it lands. It cannot
+/// be a Payment, because a Payment belongs to an invoice that does not exist
+/// yet — so it sits here against the customer and draws down as invoices are
+/// raised. `used` never exceeds `amount`, which is what makes double-spending
+/// an advance impossible.
+model CustomerCredit {
+  id        String   @id // CR-1
+  clientId  String
+  amount    Int      // paise, as received
+  used      Int      @default(0) // paise applied to invoices so far
+  source    String   @default("advance") // advance | overpayment | adjustment
+  quoteId   String   @default("")
+  note      String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+}
+
 model Payment {
   id        String  @id // RCT-881
   invoiceId String

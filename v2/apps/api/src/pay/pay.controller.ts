@@ -12,6 +12,8 @@ import type { Request } from 'express';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { open } from '../secrets.util';
+import { docTotals } from 'shared';
+import { allocate, fromPaise } from './allocate';
 
 interface Jwt { user?: { sub?: string; role?: string } }
 const RZP = 'https://api.razorpay.com/v1';
@@ -86,37 +88,68 @@ export class PayController {
     const hit = (data.items || []).find((p) => p.status === 'captured');
     if (!hit) return { paid: false };
 
-    // Record once — the ref carries the Razorpay payment id, so a second poll
-    // finding the same capture never books it twice.
-    const dupe = await this.prisma.payment.findFirst({ where: { ref: 'Razorpay ' + hit.id } });
-    if (dupe) return { paid: true, receipt: dupe.id, amount: dupe.amount };
-
-    let receipt = '';
-    for (let i = 0; i < 60; i++) {
-      const seq = await this.prisma.seq.upsert({
-        where: { key: 'receipt' }, create: { key: 'receipt', value: 900 },
-        update: { value: { increment: 1 } },
-      });
-      const id = 'RCT-' + seq.value;
-      if (!(await this.prisma.payment.findUnique({ where: { id } }))) { receipt = id; break; }
-    }
-    if (!receipt) throw new BadRequestException('Could not mint a receipt number');
-
-    const now = new Date();
-    const hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-    await this.prisma.payment.create({
-      data: {
-        id: receipt, invoiceId, date: now.toISOString().slice(0, 10),
-        amount: Math.round(hit.amount / 100), mode: 'UPI',
-        ref: 'Razorpay ' + hit.id, by: req.user?.sub || '', at: hhmm,
-      },
+    /*
+     * Claim the capture through the intent's unique index, then allocate.
+     *
+     * This used to be a findFirst on the ref followed by a create, which two
+     * simultaneous polls both pass before either writes — the classic
+     * check-then-act race, banking the same rupees twice. Now the database
+     * decides who won.
+     *
+     * And it goes through the SAME allocator as cash, so a gateway payment
+     * clears the oldest arrears first instead of landing wherever the QR
+     * happened to be raised.
+     */
+    const seq = await this.prisma.seq.upsert({
+      where: { key: 'intent' }, create: { key: 'intent', value: 1 },
+      update: { value: { increment: 1 } },
     });
-    // settle the invoice status
-    const { balance } = await this.balanceOf(invoiceId);
-    await this.prisma.invoice.update({
-      where: { id: invoiceId },
-      data: { status: balance <= 0 ? 'paid' : 'partial' },
+    try {
+      await this.prisma.paymentIntent.create({
+        data: {
+          id: 'PI-' + seq.value, gatewayRef: qrId, paymentRef: hit.id,
+          kind: 'qr', invoiceId,
+          amountPaise: Math.round(hit.amount), status: 'paid',
+          paidAt: new Date().toISOString().slice(0, 10),
+        },
+      });
+    } catch {
+      // Somebody else claimed this capture — a second tab, or the webhook
+      // arriving first. Report their receipt rather than making another.
+      const already = await this.prisma.payment.findFirst({
+        where: { ref: 'Razorpay ' + hit.id },
+      });
+      return {
+        paid: true,
+        receipt: already?.id || '',
+        amount: already?.amount ?? Math.round(hit.amount / 100),
+      };
+    }
+
+    const co = await this.prisma.company.findFirst();
+    const res = await allocate(
+      this.prisma as never,
+      {
+        invoiceId, amount: fromPaise(hit.amount), mode: 'UPI',
+        ref: 'Razorpay ' + hit.id, by: req.user?.sub || '',
+      },
+      (inv) => {
+        const i = inv as { items: unknown; discount: number; placeOfSupply: string };
+        return docTotals(
+          (i.items || []) as never, i.discount || 0, i.placeOfSupply || '',
+          co?.state || 'Tamil Nadu', co?.gstRate ?? 18,
+        ).total;
+      },
+      new Date().toISOString().slice(0, 10),
+    );
+    const receipt = res.allocations[0]?.receiptId || '';
+    await this.prisma.paymentIntent.updateMany({
+      where: { paymentRef: hit.id }, data: { receiptId: receipt },
     }).catch(() => {});
-    return { paid: true, receipt, amount: Math.round(hit.amount / 100) };
+
+    return {
+      paid: true, receipt, amount: fromPaise(hit.amount),
+      allocations: res.allocations, credited: res.credited,
+    };
   }
 }

@@ -11,7 +11,18 @@ async function bootstrap() {
   app.enableCors({ origin: true, credentials: true });
   // Logos, signatures and job photos travel as data URLs; the default 100kb
   // body limit would reject the first real logo upload.
-  app.use(json({ limit: '140mb' })); // training videos travel as base64
+  /*
+   * The raw bytes are kept alongside the parsed body.
+   *
+   * Razorpay signs what it SENDS. Re-serialising the parsed object does not
+   * reproduce those bytes — key order and whitespace differ — so a signature
+   * checked against JSON.stringify(body) fails for perfectly genuine
+   * deliveries. The webhook needs the original.
+   */
+  app.use(json({
+    limit: '140mb', // training videos travel as base64
+    verify: (req, _res, buf) => { (req as unknown as { rawBody?: Buffer }).rawBody = buf; },
+  }));
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   await app.listen(Number(process.env.PORT) || 4000);
   // Every Notification row becomes a phone push (once Firebase keys exist),

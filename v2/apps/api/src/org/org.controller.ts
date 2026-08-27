@@ -38,7 +38,7 @@ export class OrgController {
   async integrations() {
     const co = await this.prisma.company.findFirst();
     const ig = (co?.integrations || {}) as Record<string, string>;
-    return { ola: !!ig.olaKey, razorpay: !!(ig.rzpKeyId && ig.rzpKeySecret), razorpayx: !!ig.rzpxAccount };
+    return { ola: !!ig.olaKey, razorpay: !!(ig.rzpKeyId && ig.rzpKeySecret), razorpayx: !!ig.rzpxAccount, webhook: !!ig.rzpWebhookSecret };
   }
 
   /** The map component needs the key client-side to fetch Ola tiles. */
@@ -57,13 +57,13 @@ export class OrgController {
     const co = await this.prisma.company.findFirst();
     if (!co) return { ok: false };
     const ig = { ...((co.integrations || {}) as Record<string, string>) };
-    for (const k of ['olaKey', 'olaClientId', 'olaClientSecret', 'rzpKeyId', 'rzpKeySecret', 'rzpxAccount'] as const) {
+    for (const k of ['olaKey', 'olaClientId', 'olaClientSecret', 'rzpKeyId', 'rzpKeySecret', 'rzpxAccount', 'rzpWebhookSecret'] as const) {
       const v = String(body[k] ?? '').trim();
       if (v) ig[k] = seal(v);
       if (body[k] === null) delete ig[k]; // explicit null disconnects
     }
     await this.prisma.company.update({ where: { id: co.id }, data: { integrations: ig as never } });
-    return { ola: !!ig.olaKey, razorpay: !!(ig.rzpKeyId && ig.rzpKeySecret), razorpayx: !!ig.rzpxAccount };
+    return { ola: !!ig.olaKey, razorpay: !!(ig.rzpKeyId && ig.rzpKeySecret), razorpayx: !!ig.rzpxAccount, webhook: !!ig.rzpWebhookSecret };
   }
 
   /** The stored operational keys, decrypted — admin's eyes only, fetched only
@@ -78,6 +78,7 @@ export class OrgController {
       rzpKeyId: open(ig.rzpKeyId),
       rzpKeySecret: open(ig.rzpKeySecret),
       rzpxAccount: open(ig.rzpxAccount),
+      rzpWebhookSecret: open(ig.rzpWebhookSecret),
     };
   }
 
