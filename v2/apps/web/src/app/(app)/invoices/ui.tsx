@@ -46,6 +46,8 @@ interface PayState {
 export interface PaymentResult {
   allocations: Array<{ invoiceId: string; receiptId: string; amount: number }>;
   settled: number;
+  /** Rupees that found no open balance and are now held on the customer. */
+  credited?: number;
 }
 
 export interface InvoiceItem {
@@ -338,6 +340,21 @@ export function PayDialog({ inv, onClose, onDone }: {
         { amount, mode, ref: ref.trim(), date },
       );
       const parts = res?.allocations || [];
+      /*
+       * Everything landed as credit — nothing on this contract was open.
+       * Almost always the same payment entered twice, so it is said plainly
+       * here rather than reported as a receipt that does not exist.
+       */
+      if (!parts.length) {
+        setErr(
+          'Nothing was owed on this invoice, so ' + money(res?.credited || amount)
+          + ' is now held as credit on the customer. It comes off the next '
+          + 'invoice raised. If that was not intended, check whether this '
+          + 'payment has already been recorded.',
+        );
+        setBusy(false);
+        return;
+      }
       // The receipt for this invoice if there is one, else the first raised.
       const mine = parts.find((a) => a.invoiceId === inv.id) || parts[0];
       onDone(mine?.receiptId || '', amount, parts.length);

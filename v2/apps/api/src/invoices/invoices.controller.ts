@@ -29,6 +29,7 @@ import { raiseDueBilling } from '../billing.util';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { branchScope, branchWhere, clampScope, clientBranch, inScope } from '../branch.util';
 import { drawCredit } from '../pay/credits';
+import { allocate } from '../pay/allocate';
 
 interface Item { desc: string; qty: number; rate: number; svId?: string }
 
@@ -703,7 +704,21 @@ export class InvoicesController {
     return { ...(await this.detail(id)), released: freed.map((j) => j.id) };
   }
 
-  /** v1 recordPayment — store.js:1380-1391. Overpay allowed; balance clamps at 0. */
+  /**
+   * Record money taken by hand — cash at a door, a cheque, a UPI a customer
+   * sent straight to the account.
+   *
+   * This used to carry its own copy of the FIFO logic, and that was the
+   * defect. The copy planned its allocation on a read taken OUTSIDE the
+   * transaction, so two collectors recording against the same contract in the
+   * same second both saw the same balance and both allocated it — an invoice
+   * owed 11,800 could be paid 23,600. The gateway path had already been fixed;
+   * having two ways of counting money meant only one of them was right.
+   *
+   * There is now exactly one allocator. Cash and a payment link land through
+   * the same locked, single-transaction path and are indistinguishable
+   * afterwards except by the mode written on the receipt.
+   */
   @Post(':id/payments')
   async recordPayment(
     @Param('id') id: string,
@@ -711,83 +726,33 @@ export class InvoicesController {
     @Req() req?: { user?: { sub?: string } },
   ) {
     const collector = String(req?.user?.sub || '');
-    const now = new Date();
-    const hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-    const inv = await this.prisma.invoice.findUnique({
-      where: { id },
-      include: { payments: true },
-    });
+    const inv = await this.prisma.invoice.findUnique({ where: { id } });
     if (!inv) throw new NotFoundException('No such invoice');
-    let amount = Math.round(Number(body.amount) || 0);
+
+    const amount = Math.round(Number(body.amount) || 0);
     if (amount <= 0) throw new BadRequestException('Enter an amount');
 
     const co = await this.company();
     const date = String(body.date || todayISO());
     const mode = String(body.mode || 'UPI');
-    const ref = String(body.ref || '');
 
-    // A combined payment settles the oldest open invoice first (FIFO), so
-    // arrears clear in order and nothing is ever counted twice. Whatever is
-    // left after the chain lands on the invoice it was recorded from.
-    const chain = inv.contractId
-      ? await this.prisma.invoice.findMany({
-          where: { contractId: inv.contractId },
-          include: { payments: true },
-          orderBy: { createdAt: 'asc' },
-        })
-      : [inv];
+    const res = await allocate(
+      this.prisma as never,
+      { invoiceId: id, amount, mode, ref: String(body.ref || ''), by: collector, date },
+      (o) => {
+        const i = o as { items: unknown; discount: number; placeOfSupply: string };
+        return this.totalsFor(i, [], co).total;
+      },
+      todayISO(),
+    );
 
     /*
-     * Work out the whole allocation first, write it in one transaction.
-     *
-     * This loop used to create each receipt as it went. A single payment
-     * spread across six arrears invoices was six separate writes, and anything
-     * that interrupted the request halfway — a restart, a dropped connection —
-     * left some receipts banked and the browser showing a failure. The person
-     * then clicks again and pays twice. Money moves all at once or not at all.
+     * Nothing was owed anywhere on this contract and the whole amount became a
+     * credit. Almost always a typo or the same payment entered twice, so it is
+     * said out loud rather than filed silently — the credit is real and is on
+     * the customer, but somebody should look at it.
      */
-    const planned: Array<{ invoiceId: string; receiptId: string; amount: number; status?: InvoiceStatus }> = [];
-    for (const o of chain) {
-      if (amount <= 0) break;
-      const t = this.totalsFor(o, o.payments, co);
-      const balance = Math.max(0, Math.round(t.total - t.paid));
-      if (balance <= 0) continue;
-      const take = Math.min(amount, balance);
-      const status = this.derive(o.status, t.total, t.paid + take, o.due);
-      planned.push({
-        invoiceId: o.id,
-        receiptId: await this.mint('receipt', 'RCT-'),
-        amount: take,
-        status: status !== o.status ? status : undefined,
-      });
-      amount -= take;
-    }
-
-    // Overpayment beyond every open balance still lands as a credit here.
-    if (amount > 0) {
-      planned.push({
-        invoiceId: id,
-        receiptId: await this.mint('receipt', 'RCT-'),
-        amount,
-      });
-    }
-    if (!planned.length) throw new BadRequestException('Nothing left to settle on this invoice');
-
-    await this.prisma.$transaction([
-      ...planned.map((a) => this.prisma.payment.create({
-        data: {
-          id: a.receiptId, invoiceId: a.invoiceId, date, amount: a.amount,
-          mode, ref, by: collector, at: hhmm,
-        },
-      })),
-      ...planned.filter((a) => a.status).map((a) => this.prisma.invoice.update({
-        where: { id: a.invoiceId }, data: { status: a.status as InvoiceStatus },
-      })),
-    ]);
-
-    const allocations = planned.map((a) => ({
-      invoiceId: a.invoiceId, receiptId: a.receiptId, amount: a.amount,
-    }));
+    const allocations = res.allocations;
 
     /*
      * Accounts and admin hear every rupee that lands, whoever collected it.
@@ -798,7 +763,9 @@ export class InvoicesController {
      * error" while the money sat recorded in the database. Anyone who clicked
      * again paid twice. A notification must never be able to do that.
      */
-    const paid = allocations.reduce((a, b) => a + b.amount, 0);
+    const now = new Date();
+    const hhmm = String(now.getHours()).padStart(2, '0') + ':'
+      + String(now.getMinutes()).padStart(2, '0');
     try {
       const office = await this.prisma.user.findMany({
         where: { role: { in: ['admin', 'accounts'] }, id: { not: collector } },
@@ -806,14 +773,18 @@ export class InvoicesController {
       await this.prisma.notification.createMany({
         data: office.map((u) => ({
           userId: u.id, at: date + ' ' + hhmm,
-          text: `Rs ${paid.toLocaleString('en-IN')} received against ${id} via ${mode}.`,
+          text: `Rs ${amount.toLocaleString('en-IN')} received against ${id} via ${mode}.`
+            + (res.credited > 0
+              ? ` Rs ${res.credited.toLocaleString('en-IN')} of it was more than was`
+                + ' owed and is held as credit.'
+              : ''),
         })),
       });
     } catch (e) {
       console.error('payment recorded but the notification failed', id, e);
     }
 
-    return { allocations, settled: allocations.length };
+    return { allocations, settled: allocations.length, credited: res.credited };
   }
 
   @Patch(':id')
