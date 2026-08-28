@@ -30,7 +30,9 @@ function NavigateSheet({ destText, title, onClose }: {
   const [destLL, setDestLL] = useState<{ lat: number; lng: number; label: string } | null>(null);
   const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
   const [route, setRoute] = useState<Array<[number, number]>>([]);
-  const [road, setRoad] = useState<{ km: string; mins: number } | null>(null);
+  const [road, setRoad] = useState<
+    { km: string; mins: number; considered: number } | null
+  >(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [note, setNote] = useState('');
   const [mapKey, setMapKey] = useState(0); // remount to redraw after refresh
@@ -152,9 +154,14 @@ function NavigateSheet({ destText, title, onClose }: {
 
   async function fetchRoute(h: { lat: number; lng: number }, d: { lat: number; lng: number }) {
     const r = await api.get<{ distanceM: number; durationS: number; polyline: string;
+      considered?: number;
       steps: Array<{ text: string; distanceM: number; durationS: number; maneuver: string; lat: number; lng: number }>;
     }>('/trips/route?from=' + h.lat + ',' + h.lng + '&to=' + d.lat + ',' + d.lng);
-    setRoad({ km: (r.distanceM / 1000).toFixed(1), mins: Math.max(1, Math.round(r.durationS / 60)) });
+    setRoad({
+      km: (r.distanceM / 1000).toFixed(1),
+      mins: Math.max(1, Math.round(r.durationS / 60)),
+      considered: r.considered || 1,
+    });
     setRoute(r.polyline ? decodePolyline(r.polyline) : []);
     setSteps(r.steps || []);
     navIdx.current = 0;
@@ -387,6 +394,9 @@ function NavigateSheet({ destText, title, onClose }: {
             {road && (
               <p className="text-[13px] font-bold text-navy mt-0.5">
                 {road.km} km · about {road.mins} min by road
+                {road.considered > 1 && (
+                  <span className="text-muted"> · shortest of {road.considered}</span>
+                )}
               </p>
             )}
           </div>

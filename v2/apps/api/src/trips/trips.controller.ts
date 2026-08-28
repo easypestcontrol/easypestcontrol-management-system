@@ -196,8 +196,12 @@ export class TripsController {
     const r = await fetch(
       // overview=full — 'simplified' collapses the geometry to almost nothing,
       // which drew a straight line instead of the road.
+      // alternatives=true — Ola will offer several ways there, and we were
+      // taking whichever it happened to list first. Asking costs the same
+      // call; not asking meant never having the choice.
       'https://api.olamaps.io/routing/v1/directions?origin=' + encodeURIComponent(f) +
-      '&destination=' + encodeURIComponent(t) + '&overview=full&api_key=' + key,
+      '&destination=' + encodeURIComponent(t) +
+      '&alternatives=true&overview=full&api_key=' + key,
       { method: 'POST' },
     );
     const data = (await r.json()) as {
@@ -210,16 +214,50 @@ export class TripsController {
       }> }>;
       reason?: string; status?: string;
     };
-    const leg = data.routes?.[0]?.legs?.[0];
-    if (!r.ok || !leg) {
-      throw new BadRequestException('Ola could not route this: ' + (data.reason || data.status || r.status));
-    }
     const num = (v: number | { value?: number } | undefined) =>
       typeof v === 'number' ? v : (v && typeof v.value === 'number' ? v.value : 0);
+
+    /*
+     * Pick the shortest way, not the first one listed.
+     *
+     * Distance decides, because distance is what the business pays for — a
+     * trip is reimbursed by the kilometre, and a route two kilometres longer
+     * costs real money on every visit.
+     *
+     * The tie-break matters as much as the rule. Two roads within five per
+     * cent of each other are the same length as far as anybody cares, and
+     * between those the faster one wins: nobody thanks you for saving two
+     * hundred metres down a lane that takes ten minutes longer.
+     */
+    const options = (data.routes || [])
+      .map((rt) => ({
+        rt,
+        leg: rt.legs?.[0],
+        m: Math.round(num(rt.legs?.[0]?.distance)),
+        s: Math.round(num(rt.legs?.[0]?.duration)),
+      }))
+      .filter((o) => o.leg && o.m > 0);
+
+    if (!r.ok || !options.length) {
+      throw new BadRequestException('Ola could not route this: ' + (data.reason || data.status || r.status));
+    }
+
+    const shortest = Math.min(...options.map((o) => o.m));
+    const best = options
+      .filter((o) => o.m <= shortest * 1.05)
+      .sort((a, b) => a.s - b.s)[0];
+    const leg = best.leg!;
+
     return {
-      distanceM: Math.round(num(leg.distance)),
-      durationS: Math.round(num(leg.duration)),
-      polyline: data.routes?.[0]?.overview_polyline || '',
+      distanceM: best.m,
+      durationS: best.s,
+      polyline: best.rt.overview_polyline || '',
+      /* What was rejected, so a screen can say "shortest of 3" rather than
+         asking anybody to take it on faith. */
+      considered: options.length,
+      alternatives: options
+        .filter((o) => o !== best)
+        .map((o) => ({ distanceM: o.m, durationS: o.s })),
       // Turn-by-turn steps from the SAME call — following them costs nothing.
       steps: (leg.steps || []).map((st) => ({
         text: String(st.instructions || ''),

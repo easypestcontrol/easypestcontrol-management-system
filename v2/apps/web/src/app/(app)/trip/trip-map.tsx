@@ -61,6 +61,11 @@ export default function TripMap({
         style: withKey('https://api.olamaps.io/tiles/vector/v1/styles/default-light-standard/style.json'),
         center,
         zoom: 13,
+        // Flat. Ola's default style stands the buildings up, and at street
+        // zoom a driver is looking at rooftops instead of the junction they
+        // are about to reach. Nothing about a route needs a third dimension.
+        pitch: 0,
+        maxPitch: 0,
         attributionControl: false,
         transformRequest: (url) => ({ url: withKey(url) }),
       });
@@ -69,16 +74,41 @@ export default function TripMap({
 
       map.on('load', () => {
         if (dead) return;
-        const line = (id: string, coords: Array<[number, number]>, color: string, width: number) => {
+
+        /* Take the buildings down. Ola's default style extrudes them, and at
+           street zoom that is a wall of grey blocks over the one junction the
+           driver needs to see. */
+        for (const layer of map.getStyle().layers || []) {
+          if (layer.type === 'fill-extrusion') map.removeLayer(layer.id);
+        }
+
+        const line = (
+          id: string, coords: Array<[number, number]>, color: string, width: number,
+          opacity = 0.85,
+        ) => {
           map.addSource(id, {
             type: 'geojson',
             data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } },
           });
-          map.addLayer({ id, type: 'line', source: id,
-            paint: { 'line-color': color, 'line-width': width, 'line-opacity': 0.85 } });
+          map.addLayer({
+            id, type: 'line', source: id,
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': color, 'line-width': width, 'line-opacity': opacity },
+          });
         };
 
-        if (route.length > 1) line('route', route, '#FF0000', 5); // the road ahead
+        /* The road ahead, drawn twice: a broad blue band with a red line down
+           the middle of it.
+
+           One line of any colour disappears into a map full of coloured
+           roads. Two makes the route the only thing on screen with that
+           shape — the blue is wide enough to follow at a glance while
+           driving, the red thin enough to show exactly which lane of the
+           junction it goes through. */
+        if (route.length > 1) {
+          line('route-casing', route, '#1A56DB', 11, 0.9);
+          line('route', route, '#FF0000', 4, 1);
+        }
         if (path.length > 1) line('trail', path.map((p) => [p.lng, p.lat]), '#141414', 4); // driven so far
 
         /* ------------------------------------------------------- me, pointing
@@ -219,7 +249,6 @@ export default function TripMap({
                 center: [lng, lat],
                 zoom: Math.max(map.getZoom(), 16.5),
                 bearing: camBearing,
-                pitch: 45,
                 duration: 600,
               });
               return;
