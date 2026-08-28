@@ -81,16 +81,39 @@ export async function getPosition(): Promise<GeoPos> {
 }
 
 /** Follow the GPS. Returns a stop function. */
+/**
+ * A stream of positions, as fast as the phone will give them.
+ *
+ * Two options here are not decoration.
+ *
+ * `minimumUpdateInterval` is the fastest rate the app is willing to accept
+ * fixes at. The Capacitor plugin defaults it to 5000 and hard-codes the
+ * REQUESTED interval at 10 seconds, which is why the marker used to hop from
+ * one place to another every five to ten seconds like a stopped clock. We
+ * cannot change the requested interval from JavaScript, but we can say we
+ * will take everything going — and with the GPS actively fixing, that is
+ * usually far more often than ten seconds.
+ *
+ * `maximumAge: 0` refuses cached fixes. The browser path used to accept a
+ * position up to five seconds old, which on a road at 50 km/h is seventy
+ * metres behind where the van actually is.
+ *
+ * For genuinely live guidance this is still not enough on its own — see
+ * pollPosition, which the navigation screen runs alongside it.
+ */
 export function watchPosition(cb: (p: GeoPos) => void, err?: (msg?: string) => void): () => void {
   const g = native();
   if (g) {
     let id: string | null = null;
     let stopped = false;
     ask(g)
-      .then(() => g.watchPosition({ enableHighAccuracy: true }, (pos, e) => {
-        if (pos) cb(pos);
-        else if (e) err?.(mapNativeError(e).message);
-      }))
+      .then(() => g.watchPosition(
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 15000, minimumUpdateInterval: 1000 },
+        (pos, e) => {
+          if (pos) cb(pos);
+          else if (e) err?.(mapNativeError(e).message);
+        },
+      ))
       .then((watchId) => {
         id = watchId;
         if (stopped && id) g.clearWatch({ id }).catch(() => {});
@@ -105,7 +128,49 @@ export function watchPosition(cb: (p: GeoPos) => void, err?: (msg?: string) => v
   }
   const id = navigator.geolocation.watchPosition(
     (p) => cb(p), () => err?.(),
-    { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
   );
   return () => navigator.geolocation.clearWatch(id);
+}
+
+/**
+ * Ask for a fresh fix, repeatedly, for as long as somebody is driving.
+ *
+ * The watch above is throttled by the plugin to a ten-second request
+ * interval that JavaScript cannot reach. A single fix is not: it goes
+ * straight to the fused provider and comes back as fast as the hardware can
+ * answer. So while guidance is on, we ask outright.
+ *
+ * It costs battery, which is why it is not the everyday path — the trip
+ * tracker keeps using the watch. It runs only while a driver is looking at a
+ * moving map and is stopped the moment the screen closes.
+ *
+ * Each round waits for the previous one before scheduling the next, so a slow
+ * fix delays the following request rather than stacking up behind it.
+ */
+export function pollPosition(
+  cb: (p: GeoPos) => void,
+  everyMs = 1500,
+  err?: (msg?: string) => void,
+): () => void {
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let failures = 0;
+
+  const round = async () => {
+    if (stopped) return;
+    try {
+      cb(await getPosition());
+      failures = 0;
+    } catch (e) {
+      // A single miss under a bridge is normal. Several in a row is worth
+      // saying out loud, once.
+      failures += 1;
+      if (failures === 3) err?.(geoHint(e, 'GPS is struggling — the map may lag'));
+    }
+    if (!stopped) timer = setTimeout(round, everyMs);
+  };
+  round();
+
+  return () => { stopped = true; if (timer) clearTimeout(timer); };
 }

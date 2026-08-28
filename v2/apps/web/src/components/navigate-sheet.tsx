@@ -12,7 +12,9 @@
    re-route.
    ========================================================================== */
 import { useEffect, useRef, useState } from 'react';
-import { getPosition, watchPosition as geoWatch, geoHint, type GeoPos } from '@/lib/geo';
+import {
+  getPosition, watchPosition as geoWatch, pollPosition, geoHint, type GeoPos,
+} from '@/lib/geo';
 import { api } from '@/lib/api';
 import { decodePolyline } from '@/lib/polyline';
 import dynamic from 'next/dynamic';
@@ -42,8 +44,14 @@ function NavigateSheet({ destText, title, onClose }: {
     move: (lat: number, lng: number, follow: boolean, bearing?: number | null) => void;
   } | null>(null);
   const navWatch = useRef<(() => void) | null>(null);
+  const navPoll = useRef<(() => void) | null>(null);
   const navIdx = useRef(0);
   const navLast = useRef(0);
+  /* The glide. `shown` is where the marker is drawn right now; `target` is
+     the last real fix. Every frame closes a little of the gap. */
+  const shown = useRef<{ lat: number; lng: number } | null>(null);
+  const target = useRef<{ lat: number; lng: number } | null>(null);
+  const raf = useRef<number | null>(null);
   // Spoken guidance. On by default: a driver cannot read a phone, and an
   // instruction nobody hears is the same as no instruction.
   const [voice, setVoice] = useState(true);
@@ -147,6 +155,51 @@ function NavigateSheet({ destText, title, onClose }: {
   }
 
   /**
+   * Draw the marker moving, instead of teleporting it.
+   *
+   * A GPS fix arrives once every second or two at best. Left alone, the
+   * marker sits still and then jumps, which reads as a broken map — it was
+   * the loudest complaint about this screen. Google's does not do that: it
+   * animates between fixes so the blue dot is always moving.
+   *
+   * So each frame closes a fraction of the distance to the newest fix. The
+   * fraction, not a fixed step, means it catches up quickly after a long gap
+   * and creeps when it is nearly there — and it can never overshoot, which a
+   * dead-reckoned guess at the current speed absolutely can when somebody
+   * stops at a junction.
+   */
+  function glideTo(lat: number, lng: number) {
+    target.current = { lat, lng };
+    if (!shown.current) {
+      shown.current = { lat, lng };
+      mapCtl.current?.move(lat, lng, true, bearingFrom(lat, lng));
+      return;
+    }
+    if (raf.current !== null) return;    // a frame loop is already running
+
+    const step = () => {
+      raf.current = null;
+      const at = shown.current;
+      const to = target.current;
+      if (!at || !to) return;
+
+      const dLat = to.lat - at.lat;
+      const dLng = to.lng - at.lng;
+      // Close enough that another frame would not be visible.
+      if (Math.abs(dLat) < 1e-7 && Math.abs(dLng) < 1e-7) {
+        shown.current = { ...to };
+        mapCtl.current?.move(to.lat, to.lng, true, bearingFrom(to.lat, to.lng));
+        return;
+      }
+      const next = { lat: at.lat + dLat * 0.18, lng: at.lng + dLng * 0.18 };
+      shown.current = next;
+      mapCtl.current?.move(next.lat, next.lng, true, bearingFrom(next.lat, next.lng));
+      raf.current = requestAnimationFrame(step);
+    };
+    raf.current = requestAnimationFrame(step);
+  }
+
+  /**
    * Live guidance: the GPS moves the marker and the camera, advances the
    * instruction as each turn is reached, and recomputes what is left — all
    * local math, ZERO extra Ola calls while driving.
@@ -154,12 +207,18 @@ function NavigateSheet({ destText, title, onClose }: {
   function startNav() {
     if (navWatch.current !== null) { setNavOn(true); return; }
     setNavOn(true);
-    navWatch.current = geoWatch((pos: GeoPos) => {
+    const onFix = (pos: GeoPos) => {
+      /*
+       * This used to drop every fix that arrived within three seconds of the
+       * last one, on top of a plugin that already only delivers one every
+       * ten. Two throttles stacked on a signal that was too slow to begin
+       * with. The only thing worth rejecting now is the same fix twice.
+       */
       const now = Date.now();
-      if (now - navLast.current < 3000) return;
+      if (now - navLast.current < 250) return;
       navLast.current = now;
       const la = pos.coords.latitude, ln = pos.coords.longitude;
-      mapCtl.current?.move(la, ln, true, bearingFrom(la, ln));
+      glideTo(la, ln);
       setHere({ lat: la, lng: ln });
 
       /*
@@ -210,12 +269,23 @@ function NavigateSheet({ destText, title, onClose }: {
         remainM: toStepM + rest.reduce((a, st) => a + st.distanceM, 0),
         remainS: (steps[i]?.durationS || 0) + rest.reduce((a, st) => a + st.durationS, 0),
       });
-    }, (msg) => setNote(msg || 'GPS lost — guidance paused'));
+    };
+
+    const onFail = (msg?: string) => setNote(msg || 'GPS lost — guidance paused');
+    navWatch.current = geoWatch(onFix, onFail);
+    /* And ask outright, because the watch alone is capped at one fix every
+       ten seconds by the plugin. Stopped with everything else below. */
+    navPoll.current = pollPosition(onFix, 1500, onFail);
   }
 
   function stopNav() {
     navWatch.current?.();
     navWatch.current = null;
+    navPoll.current?.();
+    navPoll.current = null;
+    if (raf.current !== null) { cancelAnimationFrame(raf.current); raf.current = null; }
+    shown.current = null;
+    target.current = null;
     setNavOn(false);
     spokenIdx.current = -1;
     spokenNear.current = -1;

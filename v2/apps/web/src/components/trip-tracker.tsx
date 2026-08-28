@@ -7,7 +7,7 @@
    nothing.
 
    Cost: zero Ola calls, ever. Pings go to our own API (at most one every
-   10 seconds, only while a trip is active), and other screens hear about
+   4 seconds, only while a trip is active), and other screens hear about
    them through 'trip:tick' window events. 'trip:changed' events (fired by
    the start/end buttons) re-sync immediately; a 60-second local heartbeat
    catches anything else.
@@ -33,7 +33,19 @@ export default function TripTracker() {
     const onPos = (pos: GeoPos) => {
       if (!tripId || gone) return;
       const now = Date.now();
-      if (now - lastSent < 10000) return; // one breadcrumb per 10 s, max
+      /*
+       * One breadcrumb every four seconds, not ten.
+       *
+       * Distance is the sum of straight lines between breadcrumbs, so the
+       * gap between them is measurement error: at ten seconds a van at city
+       * speed covers a couple of hundred metres, and every bend in that
+       * stretch is cut off the total. A trip down a winding road came back
+       * short, and short distance is short reimbursement.
+       *
+       * Four seconds is still nothing — it is our own API, no Ola call, and
+       * a two-hour trip is under two thousand rows.
+       */
+      if (now - lastSent < 4000) return;
       lastSent = now;
       api.post<{ distanceM: number; points: number }>('/trips/' + tripId + '/ping', {
         lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy,

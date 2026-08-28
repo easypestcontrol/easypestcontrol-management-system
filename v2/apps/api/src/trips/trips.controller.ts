@@ -263,17 +263,41 @@ export class TripsController {
     const lat = Number(body.lat), lng = Number(body.lng);
     const acc = Number(body.acc) || 0;
     if (!isFinite(lat) || !isFinite(lng)) throw new BadRequestException('Bad coordinates');
-    // A wildly inaccurate fix would fake distance — drop it.
-    if (acc > 150) return { distanceM: t.distanceM, points: (t.points as unknown as Pt[]).length };
+    /*
+     * A fix this vague cannot measure anything. 150 m of uncertainty on a
+     * city street is not a position, it is a neighbourhood — and it was being
+     * accepted and differenced against the last one as though it were.
+     */
+    if (acc > 60) return { distanceM: t.distanceM, points: (t.points as unknown as Pt[]).length };
 
     const pts = (Array.isArray(t.points) ? t.points : []) as unknown as Pt[];
     const cur: Pt = { lat, lng, t: new Date().toISOString() };
     let add = 0;
     if (pts.length) {
       const step = metres(pts[pts.length - 1], cur);
-      // Under 3 m is jitter while parked; over 2 km in one ping is a GPS jump.
-      if (step >= 3 && step <= 2000) add = Math.round(step);
-      else if (step < 3) { return { distanceM: t.distanceM, points: pts.length }; }
+      /*
+       * How far is far enough to be real?
+       *
+       * A flat three metres was the wrong question. A phone reporting twenty
+       * metres of accuracy can report positions fifteen metres apart while
+       * sitting in a parked van, and every one of those used to be counted —
+       * a trip that never moved could accumulate a kilometre. Meanwhile a
+       * genuinely accurate phone creeping through traffic gets thrown away
+       * for moving only two metres.
+       *
+       * So the bar is the accuracy of the fix itself: movement has to be
+       * bigger than the uncertainty before it counts as movement. A good fix
+       * measures small steps; a poor one is not trusted with them.
+       *
+       * Set to the full accuracy rather than a fraction of it, because two
+       * independent fixes each uncertain by twenty metres routinely land
+       * twenty metres apart while the handbrake is on — a fraction of that
+       * still lets a stationary van clock a hundred metres, which the test
+       * below caught on the first attempt.
+       */
+      const floor = Math.max(5, acc);
+      if (step > floor && step <= 2000) add = Math.round(step);
+      else if (step <= floor) { return { distanceM: t.distanceM, points: pts.length }; }
     }
     pts.push(cur);
     const up = await this.prisma.trip.update({
