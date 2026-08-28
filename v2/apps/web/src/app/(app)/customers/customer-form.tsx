@@ -141,7 +141,7 @@ export default function CustomerForm({ initial, onDone, onClose }: {
 
   const overview = (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <label className="block col-span-2">
+      <label className="block sm:col-span-2">
         <L>Customer type</L>
         <span className="flex gap-5 h-9 items-center">
           {['Business', 'Individual'].map((k) => (
@@ -154,7 +154,7 @@ export default function CustomerForm({ initial, onDone, onClose }: {
         </span>
       </label>
 
-      <div className="col-span-2 grid grid-cols-[110px_1fr_1fr] gap-3">
+      <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-[110px_1fr_1fr] gap-3">
         <label className="block"><L>Salutation</L>
           <select value={f.salutation} onChange={(e) => set('salutation', e.target.value)} className={SELECT}>
             {SALUTATIONS.map((s) => <option key={s} value={s}>{s || '—'}</option>)}
@@ -311,16 +311,16 @@ export default function CustomerForm({ initial, onDone, onClose }: {
             </button>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block col-span-2"><L>Attention</L>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block sm:col-span-2"><L>Attention</L>
             <input value={a.attention || ''} onChange={(e) => setAddr(which, 'attention', e.target.value)} className={INPUT} />
           </label>
-          <label className="block col-span-2"><L>Country / region</L>
+          <label className="block sm:col-span-2"><L>Country / region</L>
             <select value={a.country || 'India'} onChange={(e) => setAddr(which, 'country', e.target.value)} className={SELECT}>
               {COUNTRIES.map((c) => <option key={c}>{c}</option>)}
             </select>
           </label>
-          <label className="block col-span-2"><L>Address</L>
+          <label className="block sm:col-span-2"><L>Address</L>
             <input value={a.street1 || ''} onChange={(e) => setAddr(which, 'street1', e.target.value)}
               placeholder="Street 1" className={INPUT} />
             <input value={a.street2 || ''} onChange={(e) => setAddr(which, 'street2', e.target.value)}
@@ -363,7 +363,7 @@ export default function CustomerForm({ initial, onDone, onClose }: {
               onClick={() => set('contacts', f.contacts.filter((_, j) => j !== i))}
               className="text-[12px] text-accent hover:underline">Remove</button>
           </div>
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             {([
               ['salutation', 'Salutation'], ['firstName', 'First name'], ['lastName', 'Last name'],
               ['email', 'Email'], ['workPhone', 'Work phone'], ['mobile', 'Mobile'],
@@ -463,10 +463,10 @@ export default function CustomerForm({ initial, onDone, onClose }: {
           {tab === 'Overview' && overview}
           {tab === 'Tax & terms' && tax}
           {tab === 'Addresses' && (
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {addrBlock('billing', 'Billing address')}
               {addrBlock('shipping', 'Site / service address')}
-              <p className="col-span-2 text-[11.5px] text-muted-2 -mt-2">
+              <p className="sm:col-span-2 text-[11.5px] text-muted-2 -mt-2">
                 The site address is where the technician goes. Leave it blank and billing is used.
               </p>
             </div>

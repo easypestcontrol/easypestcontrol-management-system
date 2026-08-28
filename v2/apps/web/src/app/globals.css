@@ -207,22 +207,43 @@ html, body {
      every size the app uses moves up one step, keeping the RELATIVE
      hierarchy exactly as designed. Nothing gets smaller than 12px.
      -------------------------------------------------------------------- */
-  .text-\[10px\] { font-size: 12px; }
-  .text-\[10\.5px\] { font-size: 12px; }
-  .text-\[11px\] { font-size: 12.5px; }
-  .text-\[11\.5px\] { font-size: 13px; }
-  .text-\[12px\] { font-size: 13.5px; }
-  .text-\[12\.5px\] { font-size: 14px; }
-  .text-\[13px\] { font-size: 15px; }
-  .text-\[13\.5px\] { font-size: 15px; }
-  .text-\[14px\] { font-size: 15.5px; }
-  .text-\[15px\] { font-size: 16.5px; }
-  .text-\[16px\] { font-size: 17px; }
-  .text-\[17px\] { font-size: 18.5px; }
-  .text-\[18px\] { font-size: 19px; }
-  .text-\[19px\] { font-size: 20px; }
-  .text-\[20px\] { font-size: 21px; }
+  .text-\[10px\] { font-size: 13px; }
+  .text-\[10\.5px\] { font-size: 13px; }
+  .text-\[11px\] { font-size: 13.5px; }
+  .text-\[11\.5px\] { font-size: 14px; }
+  .text-\[12px\] { font-size: 14px; }
+  .text-\[12\.5px\] { font-size: 14.5px; }
+  .text-\[13px\] { font-size: 15.5px; }
+  .text-\[13\.5px\] { font-size: 15.5px; }
+  .text-\[14px\] { font-size: 16px; }
+  .text-\[15px\] { font-size: 17px; }
+  .text-\[15\.5px\] { font-size: 17px; }
+  .text-\[16px\] { font-size: 17.5px; }
+  .text-\[16\.5px\] { font-size: 18px; }
+  .text-\[17px\] { font-size: 19px; }
+  .text-\[18px\] { font-size: 19.5px; }
+  .text-\[19px\] { font-size: 20.5px; }
+  .text-\[20px\] { font-size: 21.5px; }
   .text-\[22px\] { font-size: 23px; }
+
+  /* --------------------------------------------------------------------
+     And darker, which was the other half of the complaint.
+
+     Secondary text was 58% black and the faintest tier 40%. On a desk, in
+     an office, that reads as a considered hierarchy. On a phone held at
+     arm's length in Tamil Nadu daylight, 40% black on white is close to
+     invisible — and it was being used for dates, amounts owed and the
+     status under a job.
+
+     Hierarchy is kept, but it is compressed into a range a person can
+     actually see through a screen with the sun on it. Nothing on a phone is
+     lighter than 55% black.
+     -------------------------------------------------------------------- */
+  :root {
+    --color-muted: rgb(20 20 20 / 0.74);
+    --color-muted-2: rgb(20 20 20 / 0.56);
+    --color-ink-2: rgb(20 20 20 / 0.88);
+  }
 
   /* --------------------------------------------------------------------
      Nothing may push the page sideways.

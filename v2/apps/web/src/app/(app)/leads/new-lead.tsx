@@ -233,7 +233,7 @@ export default function NewLead({ boot, me, leads, onClose, onSaved }: {
             </span>
           </label>
 
-          <div className="grid grid-cols-2 gap-4 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
             <label className="block">
               <Label req>Name / Business</Label>
               <input value={name} onChange={(e) => setName(e.target.value)}
@@ -275,7 +275,7 @@ export default function NewLead({ boot, me, leads, onClose, onSaved }: {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
             <label className="block">
               <Label>Email</Label>
               <input value={email} onChange={(e) => setEmail(e.target.value)}
@@ -346,7 +346,7 @@ export default function NewLead({ boot, me, leads, onClose, onSaved }: {
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
             <label className="block">
               <Label>Follow up on</Label>
               <input type="date" value={follow} onChange={(e) => setFollow(e.target.value)}

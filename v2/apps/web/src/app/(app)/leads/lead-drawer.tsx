@@ -156,7 +156,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
       return (
         <div className="mt-3 pt-3 border-t border-line-soft">
           <p className="text-[12px] font-semibold text-ink-2 mb-2">Where does this lead go next?</p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button onClick={raiseQuote}
               className="h-8 rounded border border-line text-[12.5px] font-medium hover:bg-wash">
               Straight to quotation
@@ -290,7 +290,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
         {live && (
           <div className="mx-5 my-4 rounded-md border border-line bg-wash p-4">
             <p className="text-[12px] font-semibold text-ink-2 mb-2.5">What happened on the call?</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button onClick={onInterested}
                 className="h-8 rounded bg-accent text-white text-[12.5px] font-semibold hover:brightness-90">
                 {step.label}
@@ -343,7 +343,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
               {userName(l.owner) || '—'}
             </span>
           }>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <label className="block">
               <span className="block text-[11px] text-muted mb-1">Branch / territory</span>
               <select value={branch} onChange={(e) => setBranch(e.target.value)}
@@ -465,7 +465,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
             </button>
           }>
           {edit ? (
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <label className="block col-span-2">
                 <span className="block text-[11px] text-muted mb-1">Name / Business</span>
                 {input('name')}

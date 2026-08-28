@@ -105,6 +105,15 @@ interface Note { id: number; at: string; text: string; read: boolean }
 export default function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const path = usePathname();
+  /*
+   * On a phone the app bar belongs to the home screen and nowhere else.
+   *
+   * Every other screen already says what it is — its own title, its own back
+   * arrow — so a second bar above that repeating the company name is a strip
+   * of the screen spent on something the person already knows, on the device
+   * with the least of it to spare. No app does this; ours was.
+   */
+  const onHome = path === '/dashboard' || path === '/' || path === '/trip';
   const [me, setMe] = useState<SessionUser | null>(null);
   const [boot, setBoot] = useState<Bootstrap | null>(null);
   const [openGroup, setOpenGroup] = useState('');
@@ -334,7 +343,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
       {/* ------------------------------------------------------- main */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-[48px] shrink-0 bg-white border-b border-line flex items-center gap-3 px-4 relative z-30">
+        <header className={'h-[48px] shrink-0 bg-white border-b border-line items-center gap-3 px-4 '
+          + 'relative z-30 lg:flex ' + (onHome ? 'flex' : 'hidden')}>
           {/* the phone app bar identity — desktop has the sidebar for this */}
           <Link href={homeFor(me?.role)} className="lg:hidden flex items-center gap-2 min-w-0 shrink-0">
             {co?.logo ? (
@@ -393,7 +403,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
           {/* ------------------------------------------------ + New */}
           {/* nothing in the quick menu for this role → no button at all */}
-          <div className="relative"
+          {/* Desktop only. On a phone each screen carries its own floating plus
+              for the one thing that screen creates, which beats a menu of
+              nine things at the top of every page. */}
+          <div className="relative max-lg:hidden"
             hidden={!QUICK.some((n) => !n.roles || !me || n.roles.includes(me.role))}
             onClick={(e) => e.stopPropagation()}>
             <button onClick={() => { setMenuOpen((v) => !v); setBellOpen(false); }}

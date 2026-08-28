@@ -468,7 +468,7 @@ export default function TeamMember() {
 
         <div className="rounded-md border border-line p-5">
           {/* ------------------------------------------------- photo + sign */}
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="flex items-center gap-4">
               {draft.photo ? (
                 // eslint-disable-next-line @next/next/no-img-element
