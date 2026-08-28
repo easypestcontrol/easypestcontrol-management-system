@@ -464,7 +464,8 @@ function PayPanel({ folder, busy, act, onSaved }: {
   async function saveBank() {
     setErr('');
     try {
-      await api.post('/expenses/bank/' + folder.by, { holder, acc, ifsc });
+      // One route, on the person — the same one the profile page uses.
+      await api.post('/team/' + folder.by + '/bank', { holder, acc, ifsc });
       setEditing(false); setAcc('');
       onSaved();
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not save'); }

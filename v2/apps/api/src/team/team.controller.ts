@@ -26,6 +26,7 @@ import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { isFieldTech } from 'shared';
 import { branchScope, clampScope } from '../branch.util';
+import { open, seal } from '../secrets.util';
 
 /**
  * The password a new member starts with.
@@ -98,10 +99,41 @@ function validEmergency(list: unknown): EmergencyContact[] {
 }
 
 /** Never ship password hashes to the browser. */
-function sansPassword<T extends { password?: string }>(u: T) {
-  const { password, ...rest } = u;
-  void password;
+/**
+ * What a colleague's profile is allowed to say.
+ *
+ * This used to remove the password and nothing else, which meant every
+ * signed-in user — a technician looking up a workmate's phone number —
+ * received that person's account holder name, their IFSC, their encrypted
+ * account number and their Razorpay contact ids. The number was sealed, but
+ * shipping ciphertext around is not a substitute for not shipping it, and
+ * the holder name and IFSC were plain.
+ *
+ * Payout rails come back separately, masked, and only to somebody who has
+ * business paying people.
+ */
+type Private = 'password' | 'bankHolder' | 'bankAcc' | 'bankIfsc'
+  | 'rzpContactId' | 'rzpFundId' | 'rzpFundKey';
+
+function publicProfile<T extends Record<Private, unknown>>(u: T): Omit<T, Private> {
+  const {
+    password, bankHolder, bankAcc, bankIfsc,
+    rzpContactId, rzpFundId, rzpFundKey, ...rest
+  } = u;
+  void password; void bankHolder; void bankAcc; void bankIfsc;
+  void rzpContactId; void rzpFundId; void rzpFundKey;
   return rest;
+}
+
+/** The masked block, for eyes that are allowed it. */
+function bankBlock(u: { bankHolder: string; bankAcc: string; bankIfsc: string }) {
+  const acc = open(u.bankAcc || '');
+  return {
+    holder: u.bankHolder || '',
+    ifsc: u.bankIfsc || '',
+    accMasked: acc ? '••••' + acc.slice(-4) : '',
+    has: !!(acc && u.bankIfsc),
+  };
 }
 
 @Controller('team')
@@ -131,7 +163,7 @@ export class TeamController {
 
     const today = todayISO();
     const rows = members
-      .map(sansPassword)
+      .map(publicProfile)
       .map((u) => {
         if (!isFieldTech(u.role)) return { ...u, perf: null };
         const mine = jobs.filter((j) => j.techIds.includes(u.id));
@@ -161,12 +193,64 @@ export class TeamController {
   }
 
   /* ---------------------------------------------------------------- detail */
+  /**
+   * The employee's payout rails, on the employee's own page.
+   *
+   * They were only reachable from inside an expense folder, which meant
+   * setting somebody up to be paid required first finding a claim of theirs
+   * to open. A bank account belongs to a person, not to one reimbursement.
+   *
+   * The number is sealed on the way in and never comes back out — the screen
+   * gets four digits, which is enough to recognise it and not enough to use.
+   */
+  @Post(':id/bank')
+  @Roles('admin', 'accounts')
+  async setBank(@Param('id') id: string, @Body() body: Record<string, unknown>) {
+    const u = await this.prisma.user.findUnique({ where: { id } });
+    if (!u || u.role === 'client') throw new NotFoundException('No such team member');
+
+    const holder = String(body.holder || '').trim();
+    const acc = String(body.acc || '').replace(/\s/g, '');
+    const ifsc = String(body.ifsc || '').trim().toUpperCase();
+    if (!holder || !acc || !ifsc) {
+      throw new BadRequestException('Name, account number and IFSC — all three');
+    }
+    if (!/^\d{6,20}$/.test(acc)) {
+      throw new BadRequestException('That account number does not look right');
+    }
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+      throw new BadRequestException('That IFSC does not look right');
+    }
+
+    /*
+     * Changing the account clears the cached Razorpay fund account, so the
+     * next payout registers the new details instead of quietly paying the old
+     * bank. Money going to a stale account is not a bug anybody notices in
+     * time.
+     */
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        bankHolder: holder, bankAcc: seal(acc), bankIfsc: ifsc,
+        rzpFundId: '', rzpFundKey: '',
+      },
+    });
+    return { ok: true, bank: { holder, ifsc, accMasked: '••••' + acc.slice(-4), has: true } };
+  }
+
   @Get(':id')
-  async one(@Param('id') id: string) {
+  async one(@Param('id') id: string, @Req() req?: { user?: { sub?: string; role?: string } }) {
     const found = await this.prisma.user.findUnique({ where: { id } });
     if (!found || found.role === 'client') throw new NotFoundException('No such team member');
-    const u = sansPassword(found);
-    if (!isFieldTech(u.role)) return { ...u, perf: null, todayJobs: [], doneJobs: [] };
+    const u = publicProfile(found);
+
+    /* Whoever pays people, and the person themselves — nobody else. Seeing
+       your own is the point: it is your money and your bank account. */
+    const role = req?.user?.role || '';
+    const maySeeBank = role === 'admin' || role === 'accounts' || req?.user?.sub === id;
+    const bank = maySeeBank ? bankBlock(found) : null;
+
+    if (!isFieldTech(u.role)) return { ...u, bank, perf: null, todayJobs: [], doneJobs: [] };
 
     const jobs = await this.prisma.job.findMany({
       where: { techIds: { has: id } },
@@ -190,6 +274,7 @@ export class TeamController {
 
     return {
       ...u,
+      bank,
       perf: {
         total: jobs.length,
         done: done.length,
@@ -290,7 +375,7 @@ export class TeamController {
         rating: 0,
         jobsDone: 0,
       } as never,
-    }).then(sansPassword)
+    }).then(publicProfile)
       // The one moment this is readable. It is not stored anywhere in the
       // clear, so if the admin loses it the answer is to set a new one.
       .then((u) => ({ ...u, tempPassword }));
@@ -361,7 +446,7 @@ export class TeamController {
       data.title = isDefault ? DEFAULT_TITLE[role] || 'Team member' : t;
     }
 
-    return this.prisma.user.update({ where: { id }, data }).then(sansPassword);
+    return this.prisma.user.update({ where: { id }, data }).then(publicProfile);
   }
 
   /* -------------------------------------------------------------- password */

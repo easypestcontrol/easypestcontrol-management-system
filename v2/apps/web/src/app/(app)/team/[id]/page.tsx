@@ -69,6 +69,115 @@ interface Member {
   hoursFrom: string; hoursTo: string; hoursDays: number[];
   rating: number; jobsDone: number; active: boolean;
   perf: TechPerf | null; todayJobs?: JobToday[]; doneJobs?: JobDone[];
+  /** Masked, and only sent to admin, accounts, or the person themselves. */
+  bank?: { holder: string; ifsc: string; accMasked: string; has: boolean } | null;
+}
+
+/* ============================================================ payout rails
+
+   Where the money goes when an expense claim or a trip allowance is paid.
+
+   This lived inside the expense screen, which meant setting somebody up to be
+   paid required first finding a claim of theirs to open — and a new joiner
+   with no claims yet could not be set up at all. A bank account belongs to a
+   person, so it sits on the person.
+
+   The number is never sent back. Four digits is enough to recognise an
+   account and not enough to use one.
+   ========================================================================== */
+
+function BankCard({ userId, bank, onSaved }: {
+  userId: string;
+  bank: { holder: string; ifsc: string; accMasked: string; has: boolean } | null | undefined;
+  onSaved: (b: { holder: string; ifsc: string; accMasked: string; has: boolean }) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [holder, setHolder] = useState(bank?.holder || '');
+  const [acc, setAcc] = useState('');
+  const [ifsc, setIfsc] = useState(bank?.ifsc || '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  if (!bank) return null;   // not our business to see
+
+  async function save() {
+    setBusy(true); setErr('');
+    try {
+      const r = await api.post<{ bank: { holder: string; ifsc: string; accMasked: string; has: boolean } }>(
+        '/team/' + userId + '/bank', { holder, acc, ifsc },
+      );
+      onSaved(r.bank);
+      setAcc('');
+      setOpen(false);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not save those details');
+    } finally { setBusy(false); }
+  }
+
+  const field = 'h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy';
+
+  return (
+    <section className="rounded-md border border-line mt-5">
+      <h2 className="text-[13.5px] font-semibold px-5 py-3 border-b border-line-soft
+        flex items-center justify-between gap-3 flex-wrap">
+        <span>Bank account — for expense and trip reimbursements</span>
+        <span className="flex items-center gap-2">
+          <span className={'zpill ' + (bank.has ? 'navy' : 'outline')}>
+            {bank.has ? 'can be paid online' : 'not set'}
+          </span>
+          <button onClick={() => setOpen((v) => !v)}
+            className="h-7 px-2.5 rounded border border-line text-[12px] font-medium hover:bg-wash">
+            {open ? 'Cancel' : bank.has ? 'Change' : 'Add'}
+          </button>
+        </span>
+      </h2>
+
+      <div className="px-5 py-4">
+        {bank.has ? (
+          <p className="text-[13px] text-ink-2">
+            <b>{bank.holder}</b> · {bank.accMasked} · {bank.ifsc}
+          </p>
+        ) : (
+          <p className="text-[13px] text-muted leading-relaxed">
+            Without these, an approved claim can only be marked paid by hand.
+            With them, it can be sent straight to this account.
+          </p>
+        )}
+
+        {open && (
+          <div className="mt-3.5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label className="block">
+              <span className="block text-[12px] font-semibold text-ink-2 mb-1">Account holder</span>
+              <input value={holder} onChange={(e) => setHolder(e.target.value)}
+                placeholder="exactly as the bank has it" className={field + ' w-full'} />
+            </label>
+            <label className="block">
+              <span className="block text-[12px] font-semibold text-ink-2 mb-1">Account number</span>
+              <input value={acc} onChange={(e) => setAcc(e.target.value.replace(/\s/g, ''))}
+                inputMode="numeric" placeholder={bank.has ? 'enter it again to change' : ''}
+                className={field + ' w-full font-mono'} />
+            </label>
+            <label className="block">
+              <span className="block text-[12px] font-semibold text-ink-2 mb-1">IFSC</span>
+              <input value={ifsc} onChange={(e) => setIfsc(e.target.value.toUpperCase())}
+                placeholder="HDFC0001234" className={field + ' w-full font-mono'} />
+            </label>
+            <div className="sm:col-span-3 flex items-center gap-3 flex-wrap">
+              <button onClick={save} disabled={busy}
+                className="h-9 px-4 rounded bg-navy text-white text-[13px] font-semibold
+                  hover:brightness-110 disabled:opacity-60">
+                {busy ? 'Saving…' : 'Save bank details'}
+              </button>
+              <span className="text-[11.5px] text-muted">
+                Stored encrypted. Only the last four digits are ever shown again.
+              </span>
+            </div>
+            {err && <p className="sm:col-span-3 text-accent text-[12.5px]">{err}</p>}
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }
 
 interface BranchRow { id: string; name: string; code: string }
@@ -792,6 +901,11 @@ export default function TeamMember() {
             </section>
           </div>
         </div>
+
+        {/* Every role claims expenses — sales drive to meetings too — so this
+            is not gated on being a technician. */}
+        <BankCard userId={m.id} bank={m.bank}
+          onSaved={(b) => setMember((cur) => (cur ? { ...cur, bank: b } : cur))} />
 
         {/* ------------------------------------------------ chemicals in hand */}
         {isTech && <HoldingCard userId={m.id} />}

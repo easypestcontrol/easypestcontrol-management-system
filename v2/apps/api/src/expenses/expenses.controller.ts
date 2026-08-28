@@ -342,24 +342,13 @@ export class ExpensesController {
 
   /* ----------------------------------------------------- the money going out */
 
-  /** The employee's payout rails. Admin writes them; the number is sealed. */
-  @Post('bank/:userId')
-  @Roles('admin')
-  async setBank(@Param('userId') userId: string, @Body() body: Record<string, unknown>) {
-    const u = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!u) throw new NotFoundException('No such person');
-    const holder = String(body.holder || '').trim();
-    const acc = String(body.acc || '').replace(/\s/g, '');
-    const ifsc = String(body.ifsc || '').trim().toUpperCase();
-    if (!holder || !acc || !ifsc) throw new BadRequestException('Name, account number and IFSC — all three');
-    if (!/^\d{6,20}$/.test(acc)) throw new BadRequestException('That account number does not look right');
-    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) throw new BadRequestException('That IFSC does not look right');
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { bankHolder: holder, bankAcc: seal(acc), bankIfsc: ifsc },
-    });
-    return { ok: true, accMasked: '••••' + acc.slice(-4) };
-  }
+  /*
+   * Setting an employee's bank details used to live here, which meant you had
+   * to find one of their expense claims before you could set them up to be
+   * paid — and a new joiner with no claims could not be set up at all. It is
+   * on their profile now: POST /team/:id/bank. One implementation, on the
+   * person the account belongs to.
+   */
 
   /**
    * Pay an approved folder.
