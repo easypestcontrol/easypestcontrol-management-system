@@ -42,7 +42,11 @@ function NavigateSheet({ destText, title, onClose }: {
   const [nav, setNav] = useState<{ idx: number; toStepM: number; remainM: number; remainS: number } | null>(null);
   const mapCtl = useRef<{
     move: (lat: number, lng: number, follow: boolean, bearing?: number | null) => void;
+    recentre: () => void;
   } | null>(null);
+  /* False while the driver is panning or rotating the map by hand. The
+     camera stays where they put it until they ask for it back. */
+  const [following, setFollowing] = useState(true);
   const navWatch = useRef<(() => void) | null>(null);
   const navPoll = useRef<(() => void) | null>(null);
   const navIdx = useRef(0);
@@ -208,6 +212,10 @@ function NavigateSheet({ destText, title, onClose }: {
    * local math, ZERO extra Ola calls while driving.
    */
   function startNav() {
+    // Pressing start is asking to be followed, whatever was done to the map
+    // before it.
+    mapCtl.current?.recentre();
+    setFollowing(true);
     if (navWatch.current !== null) { setNavOn(true); return; }
     setNavOn(true);
     const onFix = (pos: GeoPos) => {
@@ -422,10 +430,21 @@ function NavigateSheet({ destText, title, onClose }: {
             <RouteMap key={mapKey} olaKey={olaKey} here={here} dest={destLL} route={route} height={420}
               onReady={(c: {
                 move: (lat: number, lng: number, follow: boolean, bearing?: number | null) => void;
-              }) => { mapCtl.current = c; }} />
+                recentre: () => void;
+              }) => { mapCtl.current = c; }}
+              onFollowChange={setFollowing} />
           )}
           {state === 'ready' && (
             <div className="flex gap-2 mt-3 flex-wrap">
+              {navOn && !following && (
+                /* Panning to look ahead should not end guidance, and it does
+                   not — but there has to be a way back. */
+                <button onClick={() => { mapCtl.current?.recentre(); setFollowing(true); }}
+                  className="h-10 px-4 rounded border-2 border-navy text-navy text-[13.5px]
+                    font-semibold hover:bg-wash">
+                  Re-centre
+                </button>
+              )}
               {!navOn ? (
                 <button onClick={startNav} disabled={!steps.length}
                   className="h-10 px-5 rounded bg-accent text-white text-[13.5px] font-semibold hover:brightness-90 disabled:opacity-60">

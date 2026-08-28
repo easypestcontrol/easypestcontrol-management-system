@@ -15,7 +15,10 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 
 interface Pt { lat: number; lng: number; t?: string }
 
-export default function TripMap({ olaKey, path = [], route = [], here = null, dest = null, height = 340, onReady }: {
+export default function TripMap({
+  olaKey, path = [], route = [], here = null, dest = null, height = 340,
+  onReady, onFollowChange,
+}: {
   olaKey: string;
   path?: Pt[];
   route?: Array<[number, number]>; // [lng, lat]
@@ -29,7 +32,10 @@ export default function TripMap({ olaKey, path = [], route = [], here = null, de
    */
   onReady?: (ctl: {
     move: (lat: number, lng: number, follow: boolean, bearing?: number | null) => void;
+    recentre: () => void;
   }) => void;
+  /** Told when the driver takes the camera by hand, and when it is given back. */
+  onFollowChange?: (following: boolean) => void;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<{ remove: () => void } | null>(null);
@@ -79,48 +85,85 @@ export default function TripMap({ olaKey, path = [], route = [], here = null, de
 
            A teardrop pin says where you are and nothing about which way you
            are facing, so at a fork it is useless — the one moment a driver
-           actually needs the map. Every navigation app draws an arrow for
-           this reason, and this one now does too.
+           actually needs the map.
 
-           rotationAlignment 'map' is what makes it behave: the arrow's
-           rotation is measured against the map's north, not the screen's, so
-           it keeps pointing down the real road as the map turns underneath
-           it. pitchAlignment 'map' lays it flat on the tilted ground instead
-           of standing it up like a signpost.
+           The first attempt at this drew a dot with a faint cone behind it,
+           hidden until the GPS reported a heading. On screen that was a black
+           blob: standing still there is no heading, so the cone never showed,
+           and pitchAlignment 'map' laid the dot flat under a 45-degree tilt
+           and squashed it into an ellipse. It looked like a bug because it
+           read like one.
 
-           The cone is hidden until there is a heading to believe. Somebody
-           standing still has no direction, and an arrow pointing north
-           because that is the default is worse than no arrow.               */
+           So: an actual arrow, always drawn. rotationAlignment 'map' keeps it
+           measured against the map's north rather than the screen's, so it
+           points down the real road and turns as the map turns. But
+           pitchAlignment is 'viewport' — the arrow stays face-on to the
+           driver instead of being foreshortened into a smear by the tilt.
+           Correct heading, still legible.
+
+           With no fix to go on it points along the route rather than north,
+           because the road ahead is a better guess than the top of the map.  */
         const meEl = document.createElement('div');
-        meEl.style.width = '46px';
-        meEl.style.height = '46px';
+        meEl.style.width = '42px';
+        meEl.style.height = '42px';
+        meEl.style.filter = 'drop-shadow(0 2px 3px rgba(0,0,0,.35))';
         meEl.innerHTML = [
-          '<svg viewBox="0 0 46 46" width="46" height="46">',
-          // the beam, showing which way is forward
-          '<path id="me-cone" d="M23 3 L35 25 A13 13 0 0 0 11 25 Z"',
-          ' fill="#141414" opacity="0.22"/>',
-          // the dot itself
-          '<circle cx="23" cy="25" r="8.5" fill="#141414"',
-          ' stroke="#fff" stroke-width="3"/>',
+          '<svg viewBox="0 0 42 42" width="42" height="42">',
+          '<circle cx="21" cy="21" r="19" fill="#fff" opacity="0.92"/>',
+          // the arrow: a chevron with a notched tail, pointing up = 0°
+          '<path d="M21 5 L33 34 L21 27 L9 34 Z" fill="#141414"',
+          ' stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>',
           '</svg>',
         ].join('');
-        const cone = meEl.querySelector('#me-cone') as SVGPathElement | null;
-        if (cone) cone.style.opacity = '0';   // no heading yet
 
         const me = here || (last ? { lat: last.lat, lng: last.lng } : null);
         const meMarker = new maplibregl.Marker({
           element: meEl,
           rotationAlignment: 'map',
-          pitchAlignment: 'map',
+          pitchAlignment: 'viewport',
         });
         if (me) meMarker.setLngLat([me.lng, me.lat]).addTo(map);
         let meOnMap = !!me;
+
+        // Point it down the route until the GPS has an opinion.
+        if (route.length > 1) {
+          const [aLng, aLat] = route[0];
+          const [bLng, bLat] = route[Math.min(4, route.length - 1)];
+          const rad = (x: number) => (x * Math.PI) / 180;
+          const y = Math.sin(rad(bLng - aLng)) * Math.cos(rad(bLat));
+          const x = Math.cos(rad(aLat)) * Math.sin(rad(bLat))
+            - Math.sin(rad(aLat)) * Math.cos(rad(bLat)) * Math.cos(rad(bLng - aLng));
+          meMarker.setRotation((Math.atan2(y, x) * 180) / Math.PI);
+        }
 
         /* The camera's own heading, eased separately from the arrow's. A GPS
            bearing wobbles by a few degrees at a stand; the arrow can wobble
            with it, but a map that twitches is unreadable. */
         let camBearing = map.getBearing();
         let following = false;
+
+        /* ------------------------------------------------- who is driving
+
+           Auto-follow and a driver's hands fight over the same camera, and
+           the camera was winning: rotate the map to look down a side street
+           and the next fix — a second later — yanked it straight back. That
+           is not a map, it is an argument.
+
+           So a gesture wins. The moment somebody drags, rotates, tilts or
+           zooms, following stops and stays stopped until they ask for it
+           back. MapLibre marks user gestures with an originalEvent; our own
+           jumpTo and easeTo carry none, so the two are told apart cleanly
+           rather than by guessing at timings.                               */
+        let userHasIt = false;
+        const handOver = (e: { originalEvent?: unknown }) => {
+          if (!e.originalEvent || !following) return;
+          userHasIt = true;
+          onFollowChange?.(false);
+        };
+        map.on('dragstart', handOver);
+        map.on('rotatestart', handOver);
+        map.on('pitchstart', handOver);
+        map.on('zoomstart', handOver);
         onReady?.({
           /*
            * Follow the driver.
@@ -133,14 +176,19 @@ export default function TripMap({ olaKey, path = [], route = [], here = null, de
            * bearing (stopped, or too slow to have a direction) leaves the
            * rotation where it was rather than spinning on noise.
            */
+          /** Take the camera back, after the driver has been moving it by hand. */
+          recentre: () => {
+            userHasIt = false;
+            following = false;      // so the next move() frames it properly
+            onFollowChange?.(true);
+          },
           move: (lat, lng, follow, bearing) => {
             if (!meOnMap) { meMarker.addTo(map); meOnMap = true; }
             meMarker.setLngLat([lng, lat]);
-            if (typeof bearing === 'number') {
-              meMarker.setRotation(bearing);
-              if (cone) cone.style.opacity = '0.22';
-            }
-            if (!follow) return;
+            if (typeof bearing === 'number') meMarker.setRotation(bearing);
+            // The arrow keeps updating while the driver looks around; only
+            // the camera stops.
+            if (!follow || userHasIt) return;
 
             if (typeof bearing === 'number') {
               // Shortest way round, so 350° to 10° turns twenty degrees and
