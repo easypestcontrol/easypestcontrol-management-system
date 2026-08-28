@@ -788,14 +788,31 @@ function ServiceScopeCard({ j, manager }: { j: JobDetail; manager: boolean }) {
         </span>
         {ct?.id && (
           <span className="text-[11px] text-muted">
-            Contract <Link href={'/contracts/' + ct.id} className="font-semibold text-navy hover:text-accent">{ct.id}</Link>
-            {manager && ct.quoteId ? <> · from quotation{' '}
-              <Link href={'/quotations/' + ct.quoteId} className="font-semibold text-navy hover:text-accent">{ct.quoteId}</Link></> : null}
+            <span className="max-lg:hidden">Contract </span>
+            <Link href={'/contracts/' + ct.id} className="font-semibold text-navy hover:text-accent">{ct.id}</Link>
+            {manager && ct.quoteId ? <span className="max-lg:hidden"> · from quotation{' '}
+              <Link href={'/quotations/' + ct.quoteId} className="font-semibold text-navy hover:text-accent">{ct.quoteId}</Link></span> : null}
           </span>
         )}
       </div>
+      {/* ------------------------------------------------- one service
+
+          Eight lines each on a desk, two in a hand.
+
+          A phone screen showed the name, the duration, a paragraph of
+          description, a heading announcing the medicines, then the medicines
+          as bordered chips — for every service on the visit. Scrolling past
+          three of those to reach the customer's address is not reading, it
+          is wading.
+
+          What survives on a phone is what a technician standing at the gate
+          cannot do the job without: which service, how long, and which
+          chemicals to carry in. The description is a sentence they have read
+          a hundred times before, and the note about inventory explains a
+          rule the app enforces on its own. Both stay on the desktop, where
+          there is room to be thorough.                                     */}
       {info.map((sv) => (
-        <div key={sv.id} className="px-4 py-3 border-b border-line-soft last:border-0">
+        <div key={sv.id} className="px-4 py-3 max-lg:py-2.5 border-b border-line-soft last:border-0">
           <div className="flex items-baseline justify-between gap-3 flex-wrap">
             <span className="text-[13.5px] font-semibold">{sv.name}</span>
             <span className="text-[11.5px] text-muted">
@@ -803,26 +820,38 @@ function ServiceScopeCard({ j, manager }: { j: JobDetail; manager: boolean }) {
               {manager && sv.rate > 0 ? ' · ' + money(sv.rate) + ' per service' : ''}
             </span>
           </div>
-          {sv.desc && <p className="text-[12px] text-ink-2 leading-relaxed mt-1">{sv.desc}</p>}
+
+          {sv.desc && (
+            <p className="max-lg:hidden text-[12px] text-ink-2 leading-relaxed mt-1">{sv.desc}</p>
+          )}
+
           {sv.medicines.length > 0 && (
-            <div className="mt-2">
-              <span className="block text-[10.5px] font-semibold uppercase tracking-wide text-muted mb-1">
-                Medicines for this service — issued from inventory
-              </span>
-              <span className="flex flex-wrap gap-1.5">
-                {sv.medicines.map((m) => (
-                  <span key={m.id} title={'In stock: ' + m.stock + ' ' + m.unit}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-line text-[11.5px]">
-                    <span className="font-medium">{m.name}</span>
-                    <span className="text-muted-2">({m.unit})</span>
-                  </span>
-                ))}
-              </span>
-            </div>
+            <>
+              {/* On a phone: the names, on one line, no heading. He needs to
+                  know what to carry, not to be told where it came from. */}
+              <p className="lg:hidden text-[12px] text-muted mt-1 leading-snug">
+                {sv.medicines.map((m) => m.name).join(' · ')}
+              </p>
+
+              <div className="max-lg:hidden mt-2">
+                <span className="block text-[10.5px] font-semibold uppercase tracking-wide text-muted mb-1">
+                  Medicines for this service — issued from inventory
+                </span>
+                <span className="flex flex-wrap gap-1.5">
+                  {sv.medicines.map((m) => (
+                    <span key={m.id} title={'In stock: ' + m.stock + ' ' + m.unit}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-line text-[11.5px]">
+                      <span className="font-medium">{m.name}</span>
+                      <span className="text-muted-2">({m.unit})</span>
+                    </span>
+                  ))}
+                </span>
+              </div>
+            </>
           )}
         </div>
       ))}
-      <p className="px-4 py-2 text-[10.5px] text-muted-2 bg-wash">
+      <p className="max-lg:hidden px-4 py-2 text-[10.5px] text-muted-2 bg-wash">
         Service is delivered exactly as quoted on the contract. Use only the medicines issued from
         stores — what is actually used is recorded at finish and deducted from inventory.
       </p>
