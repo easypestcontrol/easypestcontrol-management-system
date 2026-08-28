@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Icon, type IconName } from '@/components/icons';
+import { Hero, HeroStats, HeroButton } from '@/components/mobile';
 import { StatusPill, Stars } from '../jobs/ui';
 import { fmtTime, relDay } from '../jobs/format';
 
@@ -182,25 +183,46 @@ export default function TechDashboard() {
   const done = d.services.today.filter((r) => r.status === 'completed').length;
   const first = d.services.today.find((r) => r.status !== 'completed');
 
+  const line = d.services.today.length === 0
+    ? 'Nothing scheduled for you today.'
+    : done === d.services.today.length
+      ? `All ${plural(d.services.today.length, 'service')} done. Good day.`
+      : `${done} of ${d.services.today.length} done${first ? ' · next is ' + first.clientName + ' at ' + fmtTime(first.slot) : ''}.`;
+
   return (
+    <>
+      {/* --------------------------------------------- the band, on a phone
+
+          The three things he is answerable for, on the brand rather than in
+          a row of white boxes below it — because this is the screen he opens
+          at a gate with one hand, and these are the numbers he is asked
+          about. The desktop keeps its own quieter heading below.            */}
+      <div className="lg:hidden">
+        <Hero
+          eyebrow={line}
+          title={d.who.name.split(' ')[0] + '’s day'}
+          right={<HeroButton name="bell" href="/tasks" label="Tasks" />}>
+          <HeroStats items={[
+            { label: 'Wallet', value: money(d.wallet.inHand), icon: 'invoice', href: '/wallet' },
+            { label: 'Today', value: d.services.today.length, icon: 'check', href: '/jobs' },
+            { label: 'Done', value: done, icon: 'check', href: '/jobs' },
+          ]} />
+        </Hero>
+      </div>
+
     <div className="p-4 lg:p-6 max-w-[1100px] flex flex-col gap-4 lg:gap-5">
       {/* ------------------------------------------------------- greeting */}
-      <div>
+      <div className="max-lg:hidden">
         <h1 className="text-[19px] lg:text-[20px] font-semibold">
           {d.who.name.split(' ')[0]}&rsquo;s day
         </h1>
-        <p className="text-muted text-[13px] mt-0.5">
-          {d.services.today.length === 0
-            ? 'Nothing scheduled for you today.'
-            : done === d.services.today.length
-              ? `All ${plural(d.services.today.length, 'service')} done. Good day.`
-              : `${done} of ${d.services.today.length} done${first ? ' · next is ' + first.clientName + ' at ' + fmtTime(first.slot) : ''}.`}
-        </p>
+        <p className="text-muted text-[13px] mt-0.5">{line}</p>
       </div>
 
       {/* ----------------------------------------------------- quick look
-          Three things he is answerable for, before anything he has to do. */}
-      <div className="grid grid-cols-3 gap-2.5 lg:gap-4">
+          Three things he is answerable for, before anything he has to do.
+          On a phone they are already up on the band. */}
+      <div className="max-lg:hidden grid grid-cols-3 gap-2.5 lg:gap-4">
         <Tile label="Wallet" href="/wallet" icon="invoice"
           value={money(d.wallet.inHand)} alert={d.wallet.inHand > 0}
           foot={d.wallet.inHand > 0
@@ -313,5 +335,6 @@ export default function TechDashboard() {
         </div>
       </section>
     </div>
+    </>
   );
 }

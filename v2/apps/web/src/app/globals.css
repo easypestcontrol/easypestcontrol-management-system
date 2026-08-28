@@ -53,6 +53,23 @@
   --color-amber: #FEF3E2;
   --color-amber-ink: #B45309;
 
+  /* ---------------------------------------------------------- the phone
+
+     A phone is held at arm's length in daylight, usually one-handed, often
+     by somebody standing at a customer's gate. So the top of every screen is
+     a solid band of the brand instead of a white bar with small grey text:
+     it says which app this is from across a room, and it gives the numbers
+     that matter a ground to sit on.
+
+     The band is a deepened brand red rather than the pure #FF0000 used for
+     buttons. At button size that red is a signal; across a third of a screen
+     it is a shout, and white text on it sits right at the edge of legible.
+     -------------------------------------------------------------------- */
+  --color-hero: #C81E1E;
+  --color-hero-2: #A81717;
+  --color-hero-soft: rgb(255 255 255 / 0.16);
+  --color-hero-line: rgb(255 255 255 / 0.22);
+
   /* the sidebar's internal palette — a white sidebar wears dark text */
   --color-side-text: rgb(20 20 20 / 0.80);
   --color-side-muted: rgb(20 20 20 / 0.45);

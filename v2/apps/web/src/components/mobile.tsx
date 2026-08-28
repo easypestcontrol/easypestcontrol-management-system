@@ -69,6 +69,111 @@ const TONE: Record<Tone, string> = {
  * The dot does the work: it is legible at a glance and in a photograph, and
  * it survives a screen in sunlight where a colour difference alone does not.
  */
+/* ============================================================= the brand band
+
+   The top of a phone screen, in the company's own colour.
+
+   A white bar with small grey text tells somebody holding a phone at a
+   customer's gate almost nothing. A solid band of the brand says which app
+   this is from across a room, and gives the two or three numbers that
+   actually matter a ground to sit on rather than floating in a list.
+
+   It curves into the page below it. That corner is doing real work: it draws
+   the eye down from the band into the content instead of stopping it at a
+   hard edge, and it is the shape people recognise the app by.
+   ========================================================================= */
+
+export function Hero({ eyebrow, title, right, status, children }: {
+  /** The small line above the title — "Welcome back", or a date. */
+  eyebrow?: string;
+  title: string;
+  /** Something on the far side of the title: a bell, a settings cog. */
+  right?: React.ReactNode;
+  /** A white pill under the title — a state worth stating in words. */
+  status?: React.ReactNode;
+  /** HeroStats, usually. */
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-b-[30px] px-4 pt-3 pb-4 text-white"
+      style={{ background: 'linear-gradient(160deg, var(--color-hero), var(--color-hero-2))' }}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          {eyebrow && (
+            <p className="text-[12.5px] font-medium text-white/75 leading-tight">{eyebrow}</p>
+          )}
+          <h1 className="text-[23px] font-bold tracking-[-0.02em] leading-tight truncate mt-0.5">
+            {title}
+          </h1>
+        </div>
+        {right && <span className="flex items-center gap-1.5 shrink-0">{right}</span>}
+      </div>
+
+      {status && (
+        <div className="mt-3 bg-white rounded-full h-11 px-4 flex items-center justify-center gap-2
+          text-[14px] font-semibold text-ink">
+          {status}
+        </div>
+      )}
+
+      {children}
+    </div>
+  );
+}
+
+/** The numbers that matter, on the band rather than below it. */
+export function HeroStats({ items }: {
+  items: Array<{ label: string; value: string | number; icon?: IconName; href?: string }>;
+}) {
+  return (
+    <div className={'mt-3 grid gap-2 '
+      + (items.length >= 4 ? 'grid-cols-4' : items.length === 3 ? 'grid-cols-3' : 'grid-cols-2')}>
+      {items.map((it) => {
+        const body = (
+          <>
+            {it.icon && <Icon name={it.icon} size={15} className="text-white/70" />}
+            <span className="block text-[19px] font-bold leading-none tabular-nums mt-1.5">
+              {it.value}
+            </span>
+            <span className="block text-[10.5px] font-semibold uppercase tracking-[0.06em]
+              text-white/70 mt-1 leading-tight">
+              {it.label}
+            </span>
+          </>
+        );
+        const cls = 'rounded-2xl px-2.5 py-2.5 text-center';
+        return it.href
+          ? <Link key={it.label} href={it.href} className={cls + ' active:brightness-95'}
+              style={{ background: 'var(--color-hero-soft)' }}>{body}</Link>
+          : <span key={it.label} className={cls} style={{ background: 'var(--color-hero-soft)' }}>
+              {body}
+            </span>;
+      })}
+    </div>
+  );
+}
+
+/** A round, translucent button for the band — a bell, a cog. */
+export function HeroButton({ name, href, onClick, label, dot }: {
+  name: IconName; href?: string; onClick?: () => void; label: string; dot?: boolean;
+}) {
+  const cls = 'relative w-10 h-10 rounded-full flex items-center justify-center text-white '
+    + 'active:brightness-90';
+  const body = (
+    <>
+      <Icon name={name} size={18} />
+      {dot && (
+        <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-white
+          ring-2 ring-[var(--color-hero)]" />
+      )}
+    </>
+  );
+  const style = { background: 'var(--color-hero-soft)' };
+  return href
+    ? <Link href={href} aria-label={label} className={cls} style={style}>{body}</Link>
+    : <button onClick={onClick} aria-label={label} className={cls} style={style}>{body}</button>;
+}
+
 export function Chip({ tone = 'plain', children }: { tone?: Tone; children: React.ReactNode }) {
   return (
     <span className={'inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[12px] font-semibold '
@@ -140,7 +245,7 @@ export function Card({ title, action, actionHref, icon, flush, children, classNa
   className?: string;
 }) {
   return (
-    <section className={'bg-white rounded-2xl overflow-hidden ' + className}>
+    <section className={'bg-white rounded-[20px] overflow-hidden ' + className}>
       {title && (
         <header className="flex items-center justify-between px-4 pt-3.5 pb-2.5">
           <h2 className="flex items-center gap-2 text-[16.5px] font-bold tracking-[-0.01em]">
@@ -197,34 +302,56 @@ export function Stat({ href, label, value, foot, tone = 'info' }: {
 /* ------------------------------------------------------------ quick create */
 
 export function QuickTiles({ items }: {
-  items: Array<{ href: string; label: string; icon: IconName; tint: 'rose' | 'sky' | 'mint' | 'wash' }>;
+  items: Array<{ href: string; label: string; icon: IconName }>;
 }) {
-  const TINT = {
-    rose: 'bg-rose text-rose-ink',
-    sky: 'bg-sky text-sky-ink',
-    mint: 'bg-mint text-mint-ink',
-    wash: 'bg-wash text-ink',
-  };
+  /* Three across, each a white card with the icon in a tinted square. The
+     square is what makes a row of these read as buttons rather than as a
+     list somebody forgot to finish. */
   return (
-    <div className="grid grid-cols-4 gap-1.5">
-      {items.map((i) => (
-        <Link key={i.href + i.label} href={i.href} className="flex flex-col items-center gap-2 py-1 active:opacity-60">
-          <span className={'w-[52px] h-[52px] rounded-full flex items-center justify-center ' + TINT[i.tint]}>
-            <Icon name={i.icon} size={21} />
+    <div className="grid grid-cols-3 gap-2.5">
+      {items.map((it) => (
+        <Link key={it.href} href={it.href}
+          className="bg-white rounded-[18px] py-3.5 flex flex-col items-center gap-2
+            active:brightness-95">
+          <span className="w-11 h-11 rounded-[14px] bg-rose flex items-center justify-center">
+            <Icon name={it.icon} size={19} className="text-accent" />
           </span>
-          <span className="text-[12.5px] text-muted font-medium text-center leading-tight">{i.label}</span>
+          <span className="text-[12.5px] font-semibold text-center leading-tight px-1">
+            {it.label}
+          </span>
         </Link>
       ))}
     </div>
   );
 }
 
-/* ------------------------------------------------------------------- misc */
+/** A section heading with a tinted icon square, the way the cards are marked. */
+export function SectionTitle({ icon, children, action, actionHref }: {
+  icon: IconName;
+  children: React.ReactNode;
+  action?: string;
+  actionHref?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-1">
+      <span className="flex items-center gap-2">
+        <span className="w-7 h-7 rounded-[9px] bg-rose flex items-center justify-center shrink-0">
+          <Icon name={icon} size={14} className="text-accent" />
+        </span>
+        <span className="text-[16px] font-bold tracking-[-0.01em]">{children}</span>
+      </span>
+      {action && actionHref && (
+        <Link href={actionHref} className="text-[13px] font-semibold text-accent flex items-center gap-0.5">
+          {action}<Icon name="chevRight" size={13} />
+        </Link>
+      )}
+    </div>
+  );
+}
 
-/** The screen's own scroll container: grey ground, clear of the tab bar. */
 export function Screen({ children }: { children: React.ReactNode }) {
   return (
-    <div className="lg:hidden bg-ground min-h-full pb-[calc(env(safe-area-inset-bottom)+84px)]">
+    <div className="lg:hidden bg-ground min-h-full pb-[calc(env(safe-area-inset-bottom)+96px)]">
       {children}
     </div>
   );

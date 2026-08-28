@@ -475,15 +475,27 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           const moreActive = rest.some((n) => path === n.href || path.startsWith(n.href + '/'));
           return (
             <>
-              <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-line
-                flex items-stretch pb-[env(safe-area-inset-bottom)]">
+              {/* ------------------------------------------------ the tab bar
+
+                  It floats, and it is round. A bar welded to the bottom edge
+                  with a hairline above it is a browser chrome; lifting it off
+                  the edge and rounding it is what makes a page feel like an
+                  app rather than a website in a phone.
+
+                  The active tab is a filled pill behind the icon, not a
+                  three-pixel line at the top. At arm's length, in daylight,
+                  with a thumb over half the bar, a line is invisible and a
+                  filled shape is not.                                        */}
+              <nav className="lg:hidden fixed left-3 right-3 z-40 bg-white rounded-[26px]
+                flex items-stretch px-1.5 py-1.5 shadow-[0_6px_24px_rgba(20,20,20,0.16)]"
+                style={{ bottom: 'max(12px, env(safe-area-inset-bottom))' }}>
                 {primary.map((n) => {
                   const active = path === n.href || path.startsWith(n.href + '/');
                   return (
                     <Link key={n.href} href={n.href}
-                      className={'relative flex-1 flex flex-col items-center justify-center gap-0.5 h-[60px] ' +
-                        (active ? 'text-navy' : 'text-muted')}>
-                      {active && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] rounded-b bg-accent" />}
+                      className={'flex-1 flex flex-col items-center justify-center gap-1 h-[54px] '
+                        + 'rounded-[20px] active:brightness-95 '
+                        + (active ? 'bg-rose text-accent' : 'text-muted')}>
                       <Icon name={n.icon} size={20} className={active ? '' : 'opacity-70'} />
                       <span className={'text-[10px] leading-none ' + (active ? 'font-bold' : 'font-medium')}>
                         {n.label.replace('My ', '')}
@@ -492,9 +504,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                   );
                 })}
                 <button onClick={(e) => { e.stopPropagation(); setMoreOpen(true); }}
-                  className={'relative flex-1 flex flex-col items-center justify-center gap-0.5 h-[60px] ' +
-                    (moreActive ? 'text-navy' : 'text-muted')}>
-                  {moreActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] rounded-b bg-accent" />}
+                  className={'flex-1 flex flex-col items-center justify-center gap-1 h-[54px] '
+                    + 'rounded-[20px] active:brightness-95 '
+                    + (moreActive ? 'bg-rose text-accent' : 'text-muted')}>
                   <Icon name="board" size={20} className={moreActive ? '' : 'opacity-70'} />
                   <span className={'text-[10px] leading-none ' + (moreActive ? 'font-bold' : 'font-medium')}>More</span>
                 </button>
@@ -504,7 +516,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               {moreOpen && (
                 <div className="lg:hidden fixed inset-0 z-50 bg-navy/50 flex items-end"
                   onClick={() => setMoreOpen(false)}>
-                  <div className="w-full bg-white rounded-t-2xl p-4 pb-[max(16px,env(safe-area-inset-bottom))] max-h-[80vh] overflow-y-auto"
+                  <div className="w-full bg-white rounded-t-[28px] p-4 pb-[max(16px,env(safe-area-inset-bottom))] max-h-[80vh] overflow-y-auto"
                     onClick={(e) => e.stopPropagation()}>
                     <div className="w-10 h-1 rounded-full bg-line mx-auto mb-4" />
                     {rest.length > 0 && (

@@ -108,8 +108,8 @@ export default function PoMobile({ po, onReceive, canReceive }: {
       </div>
 
       {canReceive && outstanding && po.status !== 'cancelled' && (
-        <div className="lg:hidden fixed left-0 right-0 bottom-0 z-30 bg-white border-t border-line
-          px-4 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)]">
+        <div className="lg:hidden fixed left-0 right-0 z-30 bottom-[calc(max(12px,env(safe-area-inset-bottom))+70px)] bg-white border-t border-line
+          px-4 pt-2.5 pb-2.5">
           <button onClick={onReceive}
             className="w-full h-[52px] rounded-xl bg-accent text-white font-bold text-[16px]
               active:brightness-90">

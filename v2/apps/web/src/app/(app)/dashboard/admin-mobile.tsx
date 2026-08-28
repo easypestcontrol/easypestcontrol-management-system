@@ -15,7 +15,7 @@
 import Link from 'next/link';
 import { Icon, type IconName } from '@/components/icons';
 import {
-  Card, Chip, Row, Screen, Stack, Stat, QuickTiles,
+  Card, Chip, Row, Screen, Stack, Stat, QuickTiles, Hero, HeroStats, HeroButton,
   money, compact, niceDate,
 } from '@/components/mobile';
 import type { DashboardStats, SessionUser } from '@/lib/api';
@@ -96,21 +96,28 @@ export default function AdminMobile({ s, me, actions, branchEl }: {
 
   return (
     <Screen>
-      {/* ------------------------------------------------------- app bar */}
-      <div className="bg-white px-4 pt-2.5">
-        <div className="flex items-center gap-2.5 h-[46px]">
-          <span className="w-[34px] h-[34px] rounded-full bg-accent text-white flex items-center
-            justify-center font-bold text-[15px] shrink-0">E</span>
-          <span className="flex-1 min-w-0 text-[16px] font-bold truncate">
-            {me?.name?.split(' ')[0] ? `Hello, ${me.name.split(' ')[0]}` : 'Easy Pest Control'}
-          </span>
-          {branchEl}
-          <Link href="/notifications" aria-label="Notifications"
-            className="w-[38px] h-[38px] rounded-full bg-wash flex items-center justify-center relative">
-            <Icon name="bell" size={19} />
-          </Link>
-        </div>
-      </div>
+      {/* --------------------------------------------------- the brand band
+
+          The money, on the company's own colour. A white app bar with the
+          figures in grey boxes underneath it made the first screen of the
+          business look like a settings page. */}
+      <Hero
+        eyebrow="Welcome back"
+        title={me?.name?.split(' ')[0] || 'Easy Pest Control'}
+        right={
+          <>
+            {branchEl}
+            <HeroButton name="bell" href="/notifications" label="Notifications" />
+          </>
+        }>
+        {s && (
+          <HeroStats items={[
+            { label: 'Receivable', value: compact(s.outstanding), icon: 'invoice', href: '/invoices' },
+            { label: 'Today', value: s.jobsToday, icon: 'calendar', href: '/board' },
+            { label: 'Collected', value: compact(s.collected), icon: 'receipt', href: '/collections' },
+          ]} />
+        )}
+      </Hero>
 
       {!s ? (
         <Stack>

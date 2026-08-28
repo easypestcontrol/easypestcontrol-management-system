@@ -422,8 +422,8 @@ export default function Builder({ edit, presetClient, presetLead }: {
       {/* The phone's save bar. Errors sit above the button rather than beside
           it, because a message truncated to fit next to a button is a
           message nobody reads. */}
-      <div className="lg:hidden fixed left-0 right-0 bottom-0 z-30 bg-white border-t border-line
-        px-4 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)]">
+      <div className="lg:hidden fixed left-0 right-0 z-30 bottom-[calc(max(12px,env(safe-area-inset-bottom))+70px)] bg-white border-t border-line
+        px-4 pt-2.5 pb-2.5">
         {err && <p className="text-accent text-[13px] mb-2 leading-snug">{err}</p>}
         <button onClick={save} disabled={saving}
           className="w-full h-[52px] rounded-xl bg-accent text-white font-bold text-[16px]
