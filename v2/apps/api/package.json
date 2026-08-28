@@ -4,8 +4,10 @@
   "version": "2.0.0",
   "description": "PestOps API — NestJS + Prisma + PostgreSQL",
   "scripts": {
+    "prebuild": "tsc -p ../../packages/shared/tsconfig.json",
     "build": "nest build",
     "start": "node dist/main.js",
+    "prestart:dev": "tsc -p ../../packages/shared/tsconfig.json",
     "start:dev": "nest start --watch",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",

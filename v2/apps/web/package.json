@@ -4,6 +4,7 @@
   "version": "2.0.0",
   "description": "PestOps web — Next.js, Zoho Books-style UI",
   "scripts": {
+    "predev": "tsc -p ../../packages/shared/tsconfig.json",
     "dev": "next dev -p 3050",
     "prebuild": "tsc -p ../../packages/shared/tsconfig.json",
     "build": "next build",
