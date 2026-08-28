@@ -23,7 +23,10 @@ interface Entry {
 interface Mine { kind: 'mine'; inHand: number; entries: Entry[] }
 interface Office {
   kind: 'office';
-  techs: Array<{ techId: string; name: string; color: string; inHand: number; entries: Entry[] }>;
+  techs: Array<{
+    techId: string; name: string; color: string; phone?: string;
+    inHand: number; entries: Entry[];
+  }>;
 }
 
 function Receipts({ entries }: { entries: Entry[] }) {

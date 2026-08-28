@@ -4,7 +4,7 @@
    invoice, so both the technician and the admin see the same ledger.
    ========================================================================== */
 import {
-  BadRequestException, Body, Controller, Get, Post, Req, UseGuards,
+  BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Req, UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { PrismaService } from '../prisma.service';
@@ -34,7 +34,7 @@ export class WalletController {
       include: { invoice: { select: { id: true, clientId: true } } },
     });
     const [users, clients] = await Promise.all([
-      this.prisma.user.findMany({ select: { id: true, name: true, color: true } }),
+      this.prisma.user.findMany({ select: { id: true, name: true, color: true, phone: true } }),
       this.prisma.client.findMany({ select: { id: true, name: true } }),
     ]);
     const userOf = new Map(users.map((u) => [u.id, u]));
@@ -77,6 +77,8 @@ export class WalletController {
         // A deleted account still owes its history a readable name.
         name: userOf.get(id)?.name || 'Former staff (' + id + ')',
         color: userOf.get(id)?.color || '#888',
+        // So the office can send the pay-in link straight to them.
+        phone: userOf.get(id)?.phone || '',
         inHand: list.filter((p) => !p.settled).reduce((a, b) => a + b.amount, 0),
         entries: list.slice(0, 30).map(entry),
       })).sort((a, b) => b.inHand - a.inHand),
@@ -129,18 +131,54 @@ export class WalletController {
   async settleOnline(@Req() req: Request & Jwt) {
     const techId = req.user?.sub || '';
     if (!techId) throw new BadRequestException('Who are you?');
+    return this.payInLink(techId);
+  }
+
+  /**
+   * The office asks a technician to pay in what they are holding.
+   *
+   * The other route only ever works for whoever is signed in, which assumes
+   * the technician thinks to open the app and press it. In practice it is the
+   * office that notices the cash sitting out and chases it — so they raise the
+   * link and send it, and the technician just taps it.
+   *
+   * It still only ever creates a demand: the money moves through Razorpay and
+   * clears the same entries either way. Nobody can move somebody else's money
+   * with this, only ask for it.
+   */
+  @Post('settle-online/:userId')
+  @Roles('admin', 'ops', 'accounts')
+  async settleOnlineFor(@Param('userId') userId: string, @Req() req: Request & Jwt) {
+    const who = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!who) throw new NotFoundException('No such person');
+    // A branch's cash is that branch's business.
+    const scope = await branchScope(this.prisma, req.user);
+    if (scope !== null && !who.branches.some((b) => scope.includes(b))) {
+      throw new NotFoundException('No such person');
+    }
+    return this.payInLink(userId, who.name);
+  }
+
+  /** `theirName` is set when the office is asking on somebody's behalf. */
+  private async payInLink(techId: string, theirName?: string) {
 
     const open = await this.prisma.payment.findMany({
       where: { mode: 'Cash', by: techId, settled: false },
     });
     const total = open.reduce((a, b) => a + b.amount, 0);
-    if (total <= 0) throw new BadRequestException('You are not holding any cash');
+    if (total <= 0) {
+      throw new BadRequestException(theirName
+        ? theirName + ' is not holding any cash'
+        : 'You are not holding any cash');
+    }
 
     const co = await this.prisma.company.findFirst();
     const ig = (co?.integrations || {}) as Record<string, string>;
     if (!ig.rzpKeyId || !ig.rzpKeySecret) {
       throw new BadRequestException(
-        'Online transfer is not connected yet — hand the cash in at the office',
+        theirName
+          ? 'Online payment is not connected yet — they will have to hand it in'
+          : 'Online transfer is not connected yet — hand the cash in at the office',
       );
     }
     const auth = 'Basic ' + Buffer.from(

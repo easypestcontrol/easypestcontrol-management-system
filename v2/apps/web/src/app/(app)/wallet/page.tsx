@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { money } from 'shared';
+import PayIn from '@/components/pay-in';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { initials } from '../contracts/lib';
@@ -26,7 +27,10 @@ interface Entry {
 interface Mine { kind: 'mine'; inHand: number; entries: Entry[] }
 interface Office {
   kind: 'office';
-  techs: Array<{ techId: string; name: string; color: string; inHand: number; entries: Entry[] }>;
+  techs: Array<{
+    techId: string; name: string; color: string; phone?: string;
+    inHand: number; entries: Entry[];
+  }>;
 }
 
 const fmtDate = (iso: string) => {
@@ -76,6 +80,14 @@ export default function WalletPage() {
             Every collection is recorded against your name, with the date and time.
           </span>
         </section>
+
+        {/* This existed only on the phone layout, which meant anybody working
+            at a desk had no way to pay in what they were holding. */}
+        {data.inHand > 0 && (
+          <section className="rounded-md border border-line p-5 mb-6">
+            <PayIn amount={data.inHand} />
+          </section>
+        )}
 
         <EntriesTable entries={data.entries} />
       </div>
@@ -161,6 +173,15 @@ export default function WalletPage() {
                         className="h-8 px-3.5 rounded bg-navy text-white text-[12px] font-semibold hover:brightness-110 shrink-0">
                         Mark {money(t.inHand)} deposited
                       </button>
+                    </div>
+                    {/* Or ask them to pay it in without the trip. The office is
+                        who notices cash sitting out, so the office can ask. */}
+                    <div className="px-4 py-3 border-b border-line-soft">
+                      <span className="block text-[12px] text-muted mb-1.5">
+                        Or send {t.name} a link to pay it in from where they are:
+                      </span>
+                      <PayIn amount={t.inHand} forUser={t.techId} name={t.name}
+                        phone={t.phone} compact />
                     </div>
                     <EntriesTable entries={held} compact />
                     <DepositedHistory entries={t.entries.filter((e) => e.settled)} />
