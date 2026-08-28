@@ -6,7 +6,21 @@
    ========================================================================== */
 
 export interface GeoPos {
-  coords: { latitude: number; longitude: number; accuracy: number };
+  coords: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+    /**
+     * Degrees clockwise from north, straight from the device — and far better
+     * than a bearing worked out from two positions, which is only ever an
+     * average of where you have been. Null when standing still: a phone that
+     * is not moving has no direction, and both Android and the browser are
+     * honest about that.
+     */
+    heading?: number | null;
+    /** Metres per second, when the device knows. */
+    speed?: number | null;
+  };
 }
 
 interface CapGeo {

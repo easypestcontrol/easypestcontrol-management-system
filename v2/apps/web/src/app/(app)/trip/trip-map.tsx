@@ -6,7 +6,7 @@
    Draws whichever layers it is given:
    - path:  the GPS breadcrumb trail (the road actually driven) — navy
    - route: the road route ahead (decoded Ola polyline)          — red
-   - here:  where I am (navy pin)
+   - here:  where I am (a heading arrow, like a navigation app)
    - dest:  where I'm going (red pin)
    ========================================================================== */
 
@@ -75,10 +75,52 @@ export default function TripMap({ olaKey, path = [], route = [], here = null, de
         if (route.length > 1) line('route', route, '#FF0000', 5); // the road ahead
         if (path.length > 1) line('trail', path.map((p) => [p.lng, p.lat]), '#141414', 4); // driven so far
 
+        /* ------------------------------------------------------- me, pointing
+
+           A teardrop pin says where you are and nothing about which way you
+           are facing, so at a fork it is useless — the one moment a driver
+           actually needs the map. Every navigation app draws an arrow for
+           this reason, and this one now does too.
+
+           rotationAlignment 'map' is what makes it behave: the arrow's
+           rotation is measured against the map's north, not the screen's, so
+           it keeps pointing down the real road as the map turns underneath
+           it. pitchAlignment 'map' lays it flat on the tilted ground instead
+           of standing it up like a signpost.
+
+           The cone is hidden until there is a heading to believe. Somebody
+           standing still has no direction, and an arrow pointing north
+           because that is the default is worse than no arrow.               */
+        const meEl = document.createElement('div');
+        meEl.style.width = '46px';
+        meEl.style.height = '46px';
+        meEl.innerHTML = [
+          '<svg viewBox="0 0 46 46" width="46" height="46">',
+          // the beam, showing which way is forward
+          '<path id="me-cone" d="M23 3 L35 25 A13 13 0 0 0 11 25 Z"',
+          ' fill="#141414" opacity="0.22"/>',
+          // the dot itself
+          '<circle cx="23" cy="25" r="8.5" fill="#141414"',
+          ' stroke="#fff" stroke-width="3"/>',
+          '</svg>',
+        ].join('');
+        const cone = meEl.querySelector('#me-cone') as SVGPathElement | null;
+        if (cone) cone.style.opacity = '0';   // no heading yet
+
         const me = here || (last ? { lat: last.lat, lng: last.lng } : null);
-        const meMarker = new maplibregl.Marker({ color: '#141414' });
+        const meMarker = new maplibregl.Marker({
+          element: meEl,
+          rotationAlignment: 'map',
+          pitchAlignment: 'map',
+        });
         if (me) meMarker.setLngLat([me.lng, me.lat]).addTo(map);
         let meOnMap = !!me;
+
+        /* The camera's own heading, eased separately from the arrow's. A GPS
+           bearing wobbles by a few degrees at a stand; the arrow can wobble
+           with it, but a map that twitches is unreadable. */
+        let camBearing = map.getBearing();
+        let following = false;
         onReady?.({
           /*
            * Follow the driver.
@@ -94,14 +136,47 @@ export default function TripMap({ olaKey, path = [], route = [], here = null, de
           move: (lat, lng, follow, bearing) => {
             if (!meOnMap) { meMarker.addTo(map); meOnMap = true; }
             meMarker.setLngLat([lng, lat]);
+            if (typeof bearing === 'number') {
+              meMarker.setRotation(bearing);
+              if (cone) cone.style.opacity = '0.22';
+            }
             if (!follow) return;
-            map.easeTo({
-              center: [lng, lat],
-              zoom: Math.max(map.getZoom(), 16.5),
-              ...(typeof bearing === 'number' ? { bearing } : {}),
-              pitch: 45,
-              duration: 900,
-            });
+
+            if (typeof bearing === 'number') {
+              // Shortest way round, so 350° to 10° turns twenty degrees and
+              // not three hundred and forty.
+              const d = ((bearing - camBearing + 540) % 360) - 180;
+              camBearing = (camBearing + d * 0.16 + 360) % 360;
+            }
+
+            /*
+             * The first follow frames the driver; every one after that just
+             * slides the camera.
+             *
+             * This used to call easeTo with a 900 ms animation on every
+             * update, which was survivable when updates came once every ten
+             * seconds. They now arrive on every animation frame, and sixty
+             * overlapping nine-hundred-millisecond eases a second is a camera
+             * that never arrives anywhere. jumpTo is instant, and it looks
+             * perfectly smooth because the position being fed to it is
+             * already interpolated.
+             *
+             * Zoom and pitch are set once, then left alone — a driver who
+             * pinches out to see the next junction should not have the map
+             * snatch itself back every frame.
+             */
+            if (!following) {
+              following = true;
+              map.easeTo({
+                center: [lng, lat],
+                zoom: Math.max(map.getZoom(), 16.5),
+                bearing: camBearing,
+                pitch: 45,
+                duration: 600,
+              });
+              return;
+            }
+            map.jumpTo({ center: [lng, lat], bearing: camBearing });
           },
         });
         if (dest) {

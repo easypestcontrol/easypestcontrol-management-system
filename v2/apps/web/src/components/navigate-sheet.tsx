@@ -52,6 +52,9 @@ function NavigateSheet({ destText, title, onClose }: {
   const shown = useRef<{ lat: number; lng: number } | null>(null);
   const target = useRef<{ lat: number; lng: number } | null>(null);
   const raf = useRef<number | null>(null);
+  /* Which way the van is pointing, worked out once per real GPS fix and held
+     for the frames in between. */
+  const heading = useRef<number | null>(null);
   // Spoken guidance. On by default: a driver cannot read a phone, and an
   // instruction nobody hears is the same as no instruction.
   const [voice, setVoice] = useState(true);
@@ -172,7 +175,7 @@ function NavigateSheet({ destText, title, onClose }: {
     target.current = { lat, lng };
     if (!shown.current) {
       shown.current = { lat, lng };
-      mapCtl.current?.move(lat, lng, true, bearingFrom(lat, lng));
+      mapCtl.current?.move(lat, lng, true, heading.current);
       return;
     }
     if (raf.current !== null) return;    // a frame loop is already running
@@ -188,12 +191,12 @@ function NavigateSheet({ destText, title, onClose }: {
       // Close enough that another frame would not be visible.
       if (Math.abs(dLat) < 1e-7 && Math.abs(dLng) < 1e-7) {
         shown.current = { ...to };
-        mapCtl.current?.move(to.lat, to.lng, true, bearingFrom(to.lat, to.lng));
+        mapCtl.current?.move(to.lat, to.lng, true, heading.current);
         return;
       }
       const next = { lat: at.lat + dLat * 0.18, lng: at.lng + dLng * 0.18 };
       shown.current = next;
-      mapCtl.current?.move(next.lat, next.lng, true, bearingFrom(next.lat, next.lng));
+      mapCtl.current?.move(next.lat, next.lng, true, heading.current);
       raf.current = requestAnimationFrame(step);
     };
     raf.current = requestAnimationFrame(step);
@@ -218,6 +221,31 @@ function NavigateSheet({ destText, title, onClose }: {
       if (now - navLast.current < 250) return;
       navLast.current = now;
       const la = pos.coords.latitude, ln = pos.coords.longitude;
+
+      /*
+       * Which way we are pointing, decided here — once per real fix — and
+       * held for the frames in between.
+       *
+       * It cannot be worked out inside the animation, which was the mistake:
+       * bearingFrom needs eight metres of movement to trust a direction, and
+       * consecutive animation frames are centimetres apart, so it returned
+       * nothing on almost every call and quietly overwrote its own reference
+       * point with interpolated positions that were never measured.
+       *
+       * The device's own heading is preferred when it is moving fast enough
+       * to have one — it comes from the GPS rather than from subtracting two
+       * positions, which only ever describes where you have already been.
+       */
+      const devHeading = pos.coords.heading;
+      const speed = pos.coords.speed;
+      if (typeof devHeading === 'number' && isFinite(devHeading) && devHeading >= 0
+          && (typeof speed !== 'number' || speed > 0.7)) {
+        heading.current = devHeading;
+      } else {
+        const b = bearingFrom(la, ln);
+        if (b !== null) heading.current = b;   // keep the last known when stopped
+      }
+
       glideTo(la, ln);
       setHere({ lat: la, lng: ln });
 
