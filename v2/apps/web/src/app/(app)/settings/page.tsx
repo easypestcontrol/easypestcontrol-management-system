@@ -1,5 +1,7 @@
 'use client';
 
+import { docTermsFor } from 'shared';
+
 /* ============================================================================
    Settings — section-wise, the Zoho Books way: a section list on the left,
    one section's controls on the right. Organisation holds the identity that
@@ -139,13 +141,10 @@ export default function Settings() {
   );
 
   const dt = co.docTerms || {};
-  // An emptied list is a DECISION, not an absence: only a list that was never
-  // set falls back to the legacy shared terms. Otherwise deleting the last
-  // term resurrects it, and quotation edits bleed into the contract list.
-  const listOf = (key: (typeof DOCS)[number]['key']): string[] =>
-    Array.isArray(dt[key])
-      ? dt[key]!
-      : key === 'quotation' || key === 'contract' ? (co.terms || []) : [];
+  // Which list applies is decided in one place now, shared with the API and
+  // with every printed document — this screen had its own copy of the rule
+  // and the contracts controller had a third that disagreed with both.
+  const listOf = (key: (typeof DOCS)[number]['key']): string[] => docTermsFor(co, key);
   const setList = (key: string, rows: string[]) =>
     set('docTerms', { ...dt, [key]: rows } as never);
 

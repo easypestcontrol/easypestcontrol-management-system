@@ -18,7 +18,7 @@ import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { branchScope, branchWhere, clampScope, inScope } from '../branch.util';
 import { billingPlan,
-  addDays, addMonths, cadenceLabel, dayOfMonth, daysBetween, docTotals, lineCrew,
+  addDays, addMonths, cadenceLabel, dayOfMonth, daysBetween, docTermsFor, docTotals, lineCrew,
   peakCrew, planVisits, staffing, toMin, toHHMM,
   type ContractInput, type VisitPlan,
 } from 'shared';
@@ -106,6 +106,14 @@ const PATCHABLE = [
   'discount', 'signCustomer', 'signExec',
 ] as const;
 
+/** Trim, drop blanks. The forms are textareas — one term to a line — and a
+    stray return should not print as an empty numbered clause on an agreement. */
+function cleanTerms(v: unknown): string[] {
+  return (Array.isArray(v) ? v : [])
+    .map((t) => String(t == null ? '' : t).trim())
+    .filter(Boolean);
+}
+
 const FALLBACK_TERMS = [
   'Services will be performed as per the scheduled appointments.',
   'Customer must provide access to all areas requiring treatment.',
@@ -138,10 +146,23 @@ export class ContractsController {
 
   private async company() {
     const co = await this.prisma.company.findFirst();
+    /*
+     * `terms` here used to be the legacy shared list, which is the QUOTATION's
+     * wording — so every contract this controller created was stamped with
+     * quotation terms, and the contract terms the company had written in
+     * Settings were never used by anything. Two contracts on the live server
+     * still carry the quotation's list because of it.
+     *
+     * The per-document lists are the answer, and `docTermsFor` is the one
+     * place that decides. FALLBACK_TERMS stays as the last resort for an
+     * account that has written no terms anywhere at all — a signed agreement
+     * with nothing on the back of it is worse than a generic one.
+     */
+    const contractTerms = docTermsFor(co, 'contract');
     return {
       homeState: co?.state || 'Tamil Nadu',
       gstRate: co?.gstRate || 18,
-      terms: co?.terms?.length ? co.terms : FALLBACK_TERMS,
+      terms: contractTerms.length ? contractTerms : FALLBACK_TERMS,
     };
   }
 
@@ -309,7 +330,12 @@ export class ContractsController {
       subject: q.title || '',
       branch: q.branch || '',
       owner: q.owner || '',
-      terms: q.terms?.length ? q.terms : co.terms,
+      /* The contract's own terms, not the quotation's. They are set apart in
+         Settings precisely because a sales offer and a signed agreement do
+         not say the same thing, and carrying the quotation's across made the
+         contract list unreachable. The field is editable on the form, so a
+         quotation with bespoke wording can still be matched by hand. */
+      terms: co.terms,
       refNo: q.refNo || '',
       placeOfSupply: q.placeOfSupply || '',
       billAddr: String(q.billAddr || ''),
@@ -693,7 +719,7 @@ export class ContractsController {
         slot: isOne ? slot : planRows[0]?.slot || '10:00',
         slotEnd: isOne ? slotEnd : '',
         notes: draft.notes || '',
-        terms: draft.terms?.length ? draft.terms : co.terms,
+        terms: cleanTerms(draft.terms).length ? cleanTerms(draft.terms) : co.terms,
         refNo: draft.refNo || '',
         placeOfSupply: place,
         discount: Math.round(t.disc),
@@ -845,6 +871,7 @@ export class ContractsController {
   async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
     const data: Record<string, unknown> = {};
     for (const k of PATCHABLE) if (k in body) data[k] = body[k];
+    if ('terms' in data) data.terms = cleanTerms(data.terms);
     if ('billingMode' in data && !['upfront', 'pervisit', 'interval'].includes(String(data.billingMode))) {
       delete data.billingMode;
     }

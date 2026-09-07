@@ -6,3 +6,4 @@ export * from './dispatch';
 export * from './lists';
 export * from './billing';
 export * from './qr-crop';
+export * from './terms';

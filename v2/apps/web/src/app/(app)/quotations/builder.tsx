@@ -21,10 +21,7 @@ import { useRouter } from 'next/navigation';
 import { api, type Bootstrap, type SessionUser } from '@/lib/api';
 import { FormSteps, Step, StepNav, useStepScroll } from '@/components/form-steps';
 import { Icon } from '@/components/icons';
-import {
-  FREQ_MONTHS, addDays, addMonths, cadenceLabel, daysBetween, docTotals, money,
-  type AddressBlock,
-} from 'shared';
+import { addDays, addMonths, cadenceLabel, daysBetween, docTermsFor, docTotals, FREQ_MONTHS, money, type AddressBlock } from 'shared';
 import { QUOTE_STATUS, STATES, fmtDate, lineVisits, todayISO, type QuoteFull } from './lib';
 
 /* ------------------------------------------------------------ local types */
@@ -189,7 +186,10 @@ export default function Builder({ edit, presetClient, presetLead }: {
     if (!boot) return;
     setBranch((v) => v || (boot.branches[0]?.id ?? ''));
     if (!edit) {
-      setTerms((v) => v || (boot.company.terms || []).join('\n'));
+      // The quotation's own list, not the legacy shared column. They match on
+      // an account that has never opened the Terms section and diverge the
+      // moment one is edited — which is exactly when it mattered.
+      setTerms((v) => v || docTermsFor(boot.company, 'quotation').join('\n'));
       setPos((v) => (v === 'Tamil Nadu' && boot.company.state ? boot.company.state : v));
     }
   }, [boot, edit]);

@@ -9,7 +9,9 @@ import {
   BadRequestException, Controller, Get, NotFoundException, Param, Post, UseGuards,
 } from '@nestjs/common';
 import { StorageService } from './storage/storage.service';
-import { docTotals } from 'shared';
+import {
+  docTermsFor, docTotals,
+} from 'shared';
 import { PrismaService } from './prisma.service';
 import { AuthGuard, Public } from './auth/auth.guard';
 import { open } from './secrets.util';
@@ -21,7 +23,7 @@ export class PublicDocsController {
 
   private async companyBlock() {
     const co = await this.prisma.company.findFirst();
-    const dt = (co?.docTerms || {}) as Record<string, string[]>;
+
     return {
       name: co?.name || '', tagline: co?.tagline || '', logo: co?.logo || '',
       sign: co?.sign || '', seal: co?.seal || '',
@@ -29,19 +31,14 @@ export class PublicDocsController {
       phone: co?.phone || '', email: co?.email || '', gstin: co?.gstin || '',
       state: co?.state || 'Tamil Nadu', gstRate: co?.gstRate ?? 18,
       // Each document prints ITS OWN terms, set section-wise in Settings.
-      // A list that exists but is EMPTY was emptied on purpose — defaults
-      // apply only when a list was never set at all.
+      // The rule for which list applies lives in `docTermsFor` — it was
+      // written out here, in the settings editor and in the contracts
+      // controller, and the three did not agree.
       docTerms: {
-        quotation: Array.isArray(dt.quotation) ? dt.quotation : (co?.terms || []),
-        invoice: Array.isArray(dt.invoice) ? dt.invoice : [
-          'Payment due within 15 days of invoice date.',
-          'Interest at 18% p.a. applies on overdue amounts.',
-          'Subject to Chennai jurisdiction.',
-        ],
-        contract: Array.isArray(dt.contract) ? dt.contract : (co?.terms || []),
-        service: Array.isArray(dt.service) ? dt.service : [
-          'Chemicals applied by licensed applicators as per CIB&RC guidelines.',
-        ],
+        quotation: docTermsFor(co, 'quotation'),
+        invoice: docTermsFor(co, 'invoice'),
+        contract: docTermsFor(co, 'contract'),
+        service: docTermsFor(co, 'service'),
       },
     };
   }

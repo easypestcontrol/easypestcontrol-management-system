@@ -15,10 +15,8 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { billingPlan,
-  addMonths, cadenceLabel, dayOfMonth, daysBetween, docTotals, money,
-  lineVisitDates, peakCrew, planVisits, toMin,
-  type ContractInput, type PlanLineInput, type AddressBlock,
+import {
+  addMonths, billingPlan, cadenceLabel, dayOfMonth, daysBetween, docTermsFor, docTotals, lineVisitDates, money, peakCrew, planVisits, toMin, type AddressBlock, type ContractInput, type PlanLineInput,
 } from 'shared';
 import { api, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
@@ -153,7 +151,11 @@ function NewContractForm() {
             start: d.start || todayISO(), end: d.end || todayISO(),
             slot: d.slot || '10:00', slotEnd: d.slotEnd || '12:00',
             subject: d.subject || '', notes: d.notes || '',
-            terms: d.terms?.length ? d.terms : (Array.isArray(b.company.docTerms?.contract) ? b.company.docTerms!.contract! : b.company.terms),
+            /* The API now hands back the CONTRACT's terms for a converted
+               quotation, so `d.terms` is already right; the fallback is the
+               same list read locally. Both used to end up as the quotation's
+               wording, which is why the contract list never appeared. */
+            terms: d.terms?.length ? d.terms : docTermsFor(b.company, 'contract'),
             signCustomer: d.signCustomer || '', signExec: d.signExec || '',
             quoteId, leadId: d.leadId || '',
             lines: (d.lines || []) as DraftLine[],
@@ -180,7 +182,7 @@ function NewContractForm() {
             start, end: m === 'onetime' ? start : addMonths(start, 12),
             slot: '10:00', slotEnd: '12:00',
             subject: '', notes: '',
-            terms: Array.isArray(b.company.docTerms?.contract) ? b.company.docTerms!.contract! : (b.company.terms || []),
+            terms: docTermsFor(b.company, 'contract'),
             signCustomer: '', signExec: '',
             quoteId: '', leadId: '',
             lines: [],
@@ -1034,9 +1036,16 @@ function NewContractForm() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-5 max-lg:mt-0 items-start">
         <section className={card + ' p-4'}>
           <h2 className="text-[13px] font-semibold mb-3">Terms &amp; conditions</h2>
-          <ol className="list-decimal pl-5 text-[12.5px] leading-relaxed text-ink-2">
-            {draft.terms.map((t, i) => <li key={i}>{t}</li>)}
-          </ol>
+          {/* Editable, one to a line. It was a read-only list, which made the
+              create form the one screen where the wording on a contract about
+              to be signed could not be corrected — the edit screen has always
+              been able to. Defaults come from Settings › Document terms ›
+              Contract. */}
+          <textarea
+            className={input + ' min-h-[150px] py-2 leading-relaxed'}
+            value={draft.terms.join('\n')}
+            placeholder="One term to a line"
+            onChange={(e) => set({ terms: e.target.value.split('\n') })} />
         </section>
 
         <section className={card + ' p-4'}>
