@@ -22,7 +22,13 @@ interface Doc {
   notes?: string;
   place?: string;
   totals?: { sub: number; disc: number; rows: Array<[string, number]>; total: number };
-  schedule: Array<{ id: string; date: string; slot: string; status: string; services: string }>;
+  schedule: Array<{
+    id: string; date: string; slot: string; slotEnd?: string;
+    status: string; services: string; techs?: string;
+  }>;
+  terms?: string[];
+  signCustomer?: string;
+  signExec?: string;
   client: { name: string; contact: string; phone: string; addr: string; city: string } | null;
   company: {
     name: string; tagline: string; logo: string; addr: string; city: string; pin: string;
@@ -215,7 +221,13 @@ export default function PublicContract() {
                   <span className="text-gray-400 w-5 shrink-0">{i + 1}</span>
                   <span className="flex-1 min-w-0">
                     <span className="block font-medium truncate">{s.services}</span>
-                    <span className="block text-[11px] text-gray-500">{fmtD(s.date)} · {s.slot}</span>
+                    <span className="block text-[11px] text-gray-500">
+                      {fmtD(s.date)} · {s.slot}{s.slotEnd ? '–' + s.slotEnd : ''}
+                      {/* Who is coming is the first thing a customer looks
+                          for on a schedule, and it was the one thing the
+                          agreement did not say. */}
+                      {s.techs ? ' · ' + s.techs : ' · technician to be assigned'}
+                    </span>
                   </span>
                   <span className={'text-[10.5px] font-bold uppercase tracking-wide shrink-0 '
                     + (s.status === 'completed' ? 'text-[#141414]'
@@ -227,17 +239,47 @@ export default function PublicContract() {
             </div>
           </div>
 
-          {(co.docTerms?.contract || []).length > 0 && (
-            <div className="mt-6">
-              <div className="text-[10.5px] uppercase tracking-wider text-gray-400 font-semibold mb-1">Terms</div>
-              <ul className="text-[10.5px] text-gray-500 leading-relaxed list-disc pl-4">
-                {co.docTerms!.contract!.map((t, i) => <li key={i}>{t}</li>)}
-              </ul>
-            </div>
-          )}
-          <div className="flex justify-end mt-8">
+          {/* The agreement's OWN terms first — the ones agreed on the
+              quotation and carried across — and the company's standing list
+              only when the agreement has none of its own. Reading the
+              company default alone meant an account with an empty default
+              printed a signed agreement with no terms on it whatsoever. */}
+          {(() => {
+            const terms = (doc.terms && doc.terms.length)
+              ? doc.terms
+              : (co.docTerms?.contract || []);
+            if (!terms.length) return null;
+            return (
+              <div className="mt-6">
+                <div className="text-[10.5px] uppercase tracking-wider text-gray-400 font-semibold mb-1">
+                  Terms &amp; conditions
+                </div>
+                <ol className="text-[11px] text-gray-600 leading-relaxed list-decimal pl-4">
+                  {terms.map((t, i) => <li key={i}>{t}</li>)}
+                </ol>
+              </div>
+            );
+          })()}
+          {/* An agreement is signed by two people. Only the company's side
+              was ever printed, so the customer had nowhere to sign — on the
+              one document in this app where that is the entire point. */}
+          <div className="flex justify-between items-end gap-8 mt-8 flex-wrap">
             <div className="text-center min-w-[180px]">
-              <SignArea sign={co.sign} seal={co.seal} />
+              {doc.signCustomer ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={doc.signCustomer} alt="" className="h-14 mx-auto object-contain" />
+              ) : (
+                <div className="h-14" />
+              )}
+              <div className="border-t border-[#e3e6ee] pt-2 text-[11.5px] font-semibold">
+                {doc.client?.name || 'Customer'}
+              </div>
+              <div className="text-[10.5px] text-gray-400">
+                {doc.signCustomer ? 'Accepted' : 'Customer signature'}
+              </div>
+            </div>
+            <div className="text-center min-w-[180px]">
+              <SignArea sign={doc.signExec || co.sign} seal={co.seal} />
               <div className="border-t border-[#e3e6ee] pt-2 text-[11.5px] font-semibold">For {co.name}</div>
               <div className="text-[10.5px] text-gray-400">Authorised signatory</div>
             </div>

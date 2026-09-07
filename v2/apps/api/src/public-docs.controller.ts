@@ -274,11 +274,18 @@ export class PublicDocsController {
       this.prisma.job.findMany({
         where: { contractId: id },
         orderBy: [{ date: 'asc' }, { slot: 'asc' }],
-        select: { id: true, date: true, slot: true, status: true, serviceIds: true },
+        // techIds so the agreement can say who is coming, which is the first
+        // thing a customer looks for on a schedule.
+        select: {
+          id: true, date: true, slot: true, slotEnd: true, status: true,
+          serviceIds: true, techIds: true,
+        },
       }),
       this.companyBlock(),
     ]);
     const nameOf = new Map(services.map((s) => [s.id, s.name]));
+    const crew = await this.prisma.user.findMany({ select: { id: true, name: true } });
+    const techOf = new Map(crew.map((u) => [u.id, u.name]));
     /*
      * The money, worked out the same way every other document works it out.
      *
@@ -314,9 +321,18 @@ export class PublicDocsController {
         amount: Math.max(0, (l as { rate?: number }).rate || 0) * Math.max(1, l.visits || 1),
       })),
       schedule: jobs.map((j) => ({
-        id: j.id, date: j.date, slot: j.slot, status: j.status,
+        id: j.id, date: j.date, slot: j.slot, slotEnd: j.slotEnd || '', status: j.status,
         services: j.serviceIds.map((s) => nameOf.get(s) || s).join(' + '),
+        techs: j.techIds.map((t) => techOf.get(t) || t).filter(Boolean).join(', '),
       })),
+      /* The agreement's OWN terms and signatures. Both have been stored on
+         the contract since it was first written and neither was ever printed
+         — the document fell back to the company's default list, which on this
+         account is empty, so a signed agreement went out with no terms on it
+         at all and nowhere for the customer to sign. */
+      terms: (c.terms || []).filter(Boolean),
+      signCustomer: c.signCustomer || '',
+      signExec: c.signExec || '',
       client, company: co,
     };
   }

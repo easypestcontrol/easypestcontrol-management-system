@@ -24,6 +24,7 @@ import { api, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import TimePicker from '@/components/time-picker';
 import TimeRangePicker from '@/components/time-range';
+import SigPad from '@/components/sig-pad';
 import {
   addMinsHHMM, fmtDate, fmtShort, fmtTime, slotLabel, todayISO,
   SLOTS, STATES,
@@ -42,38 +43,6 @@ const COPY = {
     cta: 'Create service',
   },
 };
-
-/* ------------------------------------------------------- signature capture */
-
-function SigPad({ onInk }: { onInk: (dataUrl: string) => void }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  const drawing = useRef(false);
-
-  function pos(e: React.PointerEvent) {
-    const r = ref.current!.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
-  }
-  return (
-    <canvas ref={ref} width={420} height={110}
-      className="w-full h-[110px] rounded border border-line bg-wash touch-none"
-      onPointerDown={(e) => {
-        drawing.current = true;
-        ref.current!.setPointerCapture(e.pointerId);
-        const ctx = ref.current!.getContext('2d')!;
-        ctx.strokeStyle = '#141414'; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
-        const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y);
-      }}
-      onPointerMove={(e) => {
-        if (!drawing.current) return;
-        const ctx = ref.current!.getContext('2d')!;
-        const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke();
-      }}
-      onPointerUp={() => {
-        drawing.current = false;
-        onInk(ref.current!.toDataURL('image/png'));
-      }} />
-  );
-}
 
 /* ------------------------------------------------------------- form proper */
 

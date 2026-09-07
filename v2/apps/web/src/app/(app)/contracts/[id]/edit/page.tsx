@@ -16,6 +16,7 @@ import { api } from '@/lib/api';
 import { STATES, fmtDate, type Boot, type ContractDetail } from '../../lib';
 import TimePicker from '@/components/time-picker';
 import TimeRangePicker from '@/components/time-range';
+import SigPad from '@/components/sig-pad';
 
 const CYCLES = ['Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'];
 
@@ -34,6 +35,13 @@ export default function EditContract() {
   const [placeOfSupply, setPlaceOfSupply] = useState('');
   const [billAddr, setBillAddr] = useState('');
   const [site, setSite] = useState('');
+  /* Both are asked for when the contract is written and were then
+     unreachable for ever: a discount typed wrongly could not be corrected,
+     and the customer's signature could not be added later — which is when
+     most of them are actually collected. */
+  const [discount, setDiscount] = useState(0);
+  const [signCustomer, setSignCustomer] = useState('');
+  const [sigKey, setSigKey] = useState(0);
   const [billingMode, setBillingMode] = useState('interval');
   const [billing, setBilling] = useState('Quarterly');
   const [billingAmount, setBillingAmount] = useState(0);
@@ -52,6 +60,8 @@ export default function EditContract() {
       setOwner(d.owner || '');
       setBranch(d.branch || '');
       setPlaceOfSupply(d.placeOfSupply || '');
+      setDiscount((d as { discount?: number }).discount || 0);
+      setSignCustomer((d as { signCustomer?: string }).signCustomer || '');
       setBillAddr(d.billAddr || '');
       setSite(d.site || '');
       setBillingMode(d.billingMode || 'interval');
@@ -76,6 +86,8 @@ export default function EditContract() {
       await api.patch('/contracts/' + c.id, {
         scope: scope.trim(), refNo: refNo.trim(), owner, branch,
         placeOfSupply, billAddr: billAddr.trim(), site: site.trim(),
+        discount: Math.max(0, Math.round(discount || 0)),
+        signCustomer,
         billingMode, billing: c.mode === 'onetime' ? 'On completion' : 'Monthly',
         billingAmount,
         end, notes: notes.trim(),
@@ -188,7 +200,39 @@ export default function EditContract() {
               {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </label>
+          <label className="block">
+            <span className={label}>Discount (₹)</span>
+            <input type="number" inputMode="numeric" min={0} value={discount}
+              onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
+              className={input} />
+            <span className="block text-[11px] text-muted-2 mt-1">
+              Taken off before tax. Changing it moves the contract value, and every
+              instalment still to be raised follows it.
+            </span>
+          </label>
         </div>
+      </section>
+
+      <section className="rounded-md border border-line p-5 mb-5">
+        <h2 className="text-[13.5px] font-semibold mb-1">Customer signature</h2>
+        <p className="text-[12px] text-muted mb-3 leading-relaxed">
+          Signed agreements are usually collected after the contract is written, not
+          while it is being typed — so it can be added here at any time. It prints on
+          the agreement.
+        </p>
+        {signCustomer ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={signCustomer} alt="Customer signature"
+              className="h-[72px] rounded border border-line bg-white object-contain" />
+            <button type="button" className="text-[11.5px] text-accent font-medium mt-1"
+              onClick={() => { setSignCustomer(''); setSigKey((k) => k + 1); }}>
+              Clear
+            </button>
+          </>
+        ) : (
+          <SigPad key={'c' + sigKey} onInk={setSignCustomer} />
+        )}
       </section>
 
       <section className="rounded-md border border-line p-5 mb-5">
