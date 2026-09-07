@@ -122,8 +122,11 @@ export default function EditContract() {
   if (!c || !boot) return <p className="p-4 lg:p-6 text-muted text-[13px]">{err || 'Loading…'}</p>;
 
   const label = 'block text-[12px] font-semibold text-ink-2 mb-1.5';
-  const input = 'w-full h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy bg-white';
-  const area = 'w-full px-3 py-2 rounded border border-line text-[13.5px] leading-relaxed outline-none focus:border-navy resize-none';
+  /* Same two sizes as the create form — 44px and 16px on a phone so the
+     control can be hit and Safari does not zoom the page on focus, back to
+     the compact desktop row from `lg` up. */
+  const input = 'w-full h-11 lg:h-9 px-3 rounded border border-line text-[16px] lg:text-[13.5px] outline-none focus:border-navy bg-white';
+  const area = 'w-full px-3 py-2 rounded border border-line text-[16px] lg:text-[13.5px] leading-relaxed outline-none focus:border-navy resize-none';
 
   return (
     <div className="p-4 lg:p-6 max-w-[920px]">
@@ -171,14 +174,16 @@ export default function EditContract() {
             <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className={input} />
           </label>
           <label className="block">
-            <span className={label}>Service period ends</span>
-            <input type="date" value={end} min={start || c.start} onChange={(e) => setEnd(e.target.value)} className={input} />
-            <span className="block text-[11px] text-muted-2 mt-1">
-              {start && end && end >= start
-                ? Math.max(1, Math.round((new Date(end).getTime() - new Date(start).getTime())
-                    / 86400000 / 30.44)) + ' months — instalments and renewals follow this'
-                : ' '}
+            <span className={label}>
+              Service period ends
+              {start && end && end >= start && (
+                <span className="font-normal text-muted-2">
+                  {' · ' + Math.max(1, Math.round((new Date(end).getTime() - new Date(start).getTime())
+                    / 86400000 / 30.44)) + ' months'}
+                </span>
+              )}
             </span>
+            <input type="date" value={end} min={start || c.start} onChange={(e) => setEnd(e.target.value)} className={input} />
           </label>
           <label className="block">
             <span className={label}>Sales executive</span>
@@ -225,21 +230,12 @@ export default function EditContract() {
             <input type="number" inputMode="numeric" min={0} value={discount}
               onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
               className={input} />
-            <span className="block text-[11px] text-muted-2 mt-1">
-              Taken off before tax. Changing it moves the contract value, and every
-              instalment still to be raised follows it.
-            </span>
           </label>
         </div>
       </section>
 
       <section className="rounded-md border border-line p-5 mb-5">
-        <h2 className="text-[13.5px] font-semibold mb-1">Customer signature</h2>
-        <p className="text-[12px] text-muted mb-3 leading-relaxed">
-          Signed agreements are usually collected after the contract is written, not
-          while it is being typed — so it can be added here at any time. It prints on
-          the agreement.
-        </p>
+        <h2 className="text-[13.5px] font-semibold mb-3">Customer signature</h2>
         {signCustomer ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -254,11 +250,7 @@ export default function EditContract() {
           <SigPad key={'c' + sigKey} onInk={setSignCustomer} />
         )}
 
-        <h2 className="text-[13.5px] font-semibold mb-1 mt-5">For {boot.company.name}</h2>
-        <p className="text-[12px] text-muted mb-3 leading-relaxed">
-          The authorised signatory. Left blank, the agreement prints the sales
-          executive&rsquo;s own signature from their profile.
-        </p>
+        <h2 className="text-[13.5px] font-semibold mb-3 mt-5">For {boot.company.name}</h2>
         {signExec ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
