@@ -21,6 +21,7 @@ import { Icon } from '@/components/icons';
 import { isFieldTech } from 'shared';
 import MemberMobile from './mobile';
 import TimePicker from '@/components/time-picker';
+import TimeRangePicker from '@/components/time-range';
 
 /* ------------------------------------------------------------ vocabulary */
 
@@ -647,11 +648,11 @@ export default function TeamMember() {
             this person visits inside these hours, on these days.
           </p>
           <div className="flex items-end gap-4 flex-wrap">
-            <Field label="From">
-              <TimePicker value={draft.hoursFrom} onChange={(__t) => set('hoursFrom', __t)} className={fieldCls + ' w-[120px]'} />
-            </Field>
-            <Field label="To">
-              <TimePicker value={draft.hoursTo} onChange={(__t) => set('hoursTo', __t)} className={fieldCls + ' w-[120px]'} />
+            <Field label="Working hours">
+              <TimeRangePicker from={draft.hoursFrom} to={draft.hoursTo}
+                placeholder="Company default"
+                onChange={(f, t) => { set('hoursFrom', f); set('hoursTo', t); }}
+                className={fieldCls + ' w-[190px] flex items-center'} />
             </Field>
             <div>
               <span className={labelCls}>Days</span>

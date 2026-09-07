@@ -15,6 +15,7 @@ import { money } from 'shared';
 import { api } from '@/lib/api';
 import { STATES, fmtDate, type Boot, type ContractDetail } from '../../lib';
 import TimePicker from '@/components/time-picker';
+import TimeRangePicker from '@/components/time-range';
 
 const CYCLES = ['Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'];
 
@@ -249,7 +250,7 @@ export default function EditContract() {
         </div>
         <table className="ztable">
           <thead><tr>
-            <th className="w-10">#</th><th>Services</th><th>Date</th><th>From</th><th>To</th><th>Status</th>
+            <th className="w-10">#</th><th>Services</th><th>Date</th><th colSpan={2}>Time window</th><th>Status</th>
           </tr></thead>
           <tbody>
             {c.jobs.map((jx) => {
@@ -277,8 +278,11 @@ export default function EditContract() {
                     <>
                       <td><input type="date" className={inp + ' w-[140px]'} value={row.date}
                         onChange={(e) => set({ date: e.target.value })} /></td>
-                      <td><TimePicker value={row.slot} onChange={(__t) => set({ slot: __t })} className={inp + ' w-[92px]'} /></td>
-                      <td><TimePicker value={row.slotEnd} onChange={(__t) => set({ slotEnd: __t })} className={inp + ' w-[92px]'} /></td>
+                      <td colSpan={2}>
+                        <TimeRangePicker from={row.slot} to={row.slotEnd}
+                          onChange={(f, t) => set({ slot: f, slotEnd: t })}
+                          className={inp + ' w-[178px] flex items-center'} />
+                      </td>
                       <td><span className="zpill outline">Scheduled</span></td>
                     </>
                   )}

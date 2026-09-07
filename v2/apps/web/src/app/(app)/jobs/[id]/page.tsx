@@ -27,6 +27,7 @@ import { Icon } from '@/components/icons';
 import PaidTick from '@/components/paid-tick';
 import UpiQr from '@/components/upi-qr';
 import TimePicker from '@/components/time-picker';
+import TimeRangePicker from '@/components/time-range';
 import {
   SLOTS, durationText, fmtDate, fmtLong, fmtTime, relDay,
   type AreaFinding, type DayBoard, type ExecRecord, type JobDetail,
@@ -730,11 +731,12 @@ function RescheduleModal({ j, onClose, onDone }: {
         <Field label="New date">
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
         </Field>
-        <Field label="From">
-          <TimePicker value={slot} onChange={(__t) => setSlot(__t)} className={inputCls} />
-        </Field>
-        <Field label="To">
-          <TimePicker value={slotEnd} onChange={(__t) => setSlotEnd(__t)} className={inputCls} />
+        <Field label="Time window">
+          {/* One control for both ends: a window whose finish is before its
+              start is the mistake two separate clocks cannot catch. */}
+          <TimeRangePicker from={slot} to={slotEnd}
+            onChange={(f, t) => { setSlot(f); setSlotEnd(t); }}
+            className={inputCls + ' flex items-center'} />
         </Field>
       </div>
       <p className="text-[11px] text-muted-2 mt-1.5">

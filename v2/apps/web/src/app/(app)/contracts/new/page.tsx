@@ -23,6 +23,7 @@ import { billingPlan,
 import { api, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import TimePicker from '@/components/time-picker';
+import TimeRangePicker from '@/components/time-range';
 import {
   addMinsHHMM, fmtDate, fmtShort, fmtTime, slotLabel, todayISO,
   SLOTS, STATES,
@@ -908,9 +909,13 @@ function NewContractForm() {
                           })()
                         ) : (
                           <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                            <TimePicker value={l.slot} onChange={(__t) => setLine(i, { slot: __t })} className={field + ' h-8 w-[92px] text-[12px]'} />
-                            <span className="text-muted text-[11px]">to</span>
-                            <TimePicker value={l.slotEnd || addMinsHHMM(l.slot, 120)} onChange={(__t) => setLine(i, { slotEnd: __t })} className={field + ' h-8 w-[92px] text-[12px]'} />
+                            {/* The default window for every visit this line
+                                makes; an appointment may still set its own. */}
+                            <TimeRangePicker
+                              from={l.slot}
+                              to={l.slotEnd || addMinsHHMM(l.slot, 120)}
+                              onChange={(f, t) => setLine(i, { slot: f, slotEnd: t })}
+                              className={field + ' h-8 w-[178px] text-[12px] flex items-center'} />
                           </span>
                         )}
                       </td>
@@ -969,24 +974,21 @@ function NewContractForm() {
                                     Blank means "whatever this line's window
                                     says", which is the usual case and stays
                                     one glance to read.                       */}
-                                {/* The whole window, on the appointment: this
-                                    is what a technician's day is booked
-                                    against. Blank falls back to ten o'clock
-                                    for two hours. */}
-                                <TimePicker
-                                  value={(l as { times?: string[] }).times?.[n] || ''}
-                                  onChange={(t) => setLineTime(i, n, t)}
+                                {/* ------------------------- the whole window
+
+                                    One control for both ends. Two separate
+                                    clocks meant two dialogs and no way for
+                                    either to see the other, which is how a
+                                    visit came to read "10:00 AM to 1:00 AM".
+                                    Set together, the pair can be checked. */}
+                                <TimeRangePicker
+                                  from={(l as { times?: string[] }).times?.[n] || ''}
+                                  to={(l as { timeEnds?: string[] }).timeEnds?.[n] || ''}
+                                  placeholder="set the time"
+                                  onChange={(f, t) => { setLineTime(i, n, f); setLineTimeEnd(i, n, t); }}
                                   className={'bg-transparent outline-none cursor-pointer '
-                                    + 'text-inherit text-[11px] '
+                                    + 'text-inherit text-[11px] whitespace-nowrap '
                                     + ((l as { times?: string[] }).times?.[n]
-                                      ? 'font-semibold' : 'text-muted-2')} />
-                                <span className="text-muted-2 text-[10px]">to</span>
-                                <TimePicker
-                                  value={(l as { timeEnds?: string[] }).timeEnds?.[n] || ''}
-                                  onChange={(t) => setLineTimeEnd(i, n, t)}
-                                  className={'bg-transparent outline-none cursor-pointer '
-                                    + 'text-inherit text-[11px] '
-                                    + ((l as { timeEnds?: string[] }).timeEnds?.[n]
                                       ? 'font-semibold' : 'text-muted-2')} />
                                 {(pinned
                                   || (l as { times?: string[] }).times?.[n]
