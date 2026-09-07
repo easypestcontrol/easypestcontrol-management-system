@@ -36,6 +36,10 @@ const ASSIGNABLE_ROLES = ['sales', 'ops', 'admin'];
 const EDITABLE = [
   'name', 'phone', 'email', 'type', 'area', 'source', 'followUp', 'notes',
   'owner', 'branch',
+  /* Ticked at capture and then frozen. The lead's value is these services'
+     catalogue prices added up, so a wrong tick meant a wrong figure in the
+     pipeline that nobody could correct. */
+  'interest',
 ] as const;
 
 function pick(body: Record<string, unknown>) {
@@ -243,11 +247,16 @@ export class LeadsController {
         email: String(body.email || '').trim(),
         source: String(body.source || 'WhatsApp'),
         type: String(body.type || 'Residential'),
-        area: String(body.area || '').trim() || 'Chennai',
+        /* No invented city. A blank area used to be filled in as 'Chennai',
+           which is how a Nagercoil customer ended up with a Chennai address
+           on their paperwork — the same phantom that was in the quotation
+           prefill. Blank is honest; the field is editable. */
+        area: String(body.area || '').trim(),
         stage: followUp ? 'followup' : 'new',
         followUp,
         clientId,
         branch: String(body.branch || ''),
+        interest,
         value,
         owner,
         notes: String(body.notes || '').trim() || 'New lead captured.',
@@ -271,6 +280,19 @@ export class LeadsController {
     if (!l) throw new NotFoundException('No such lead');
 
     const data = pick(body);
+
+    /* Re-tick the services and the lead is worth something different. Same
+       sum as at capture, so an edited lead and a new one agree. */
+    if ('interest' in data) {
+      const want = Array.isArray(data.interest) ? (data.interest as string[]).filter(Boolean) : [];
+      data.interest = want;
+      const services = want.length
+        ? await this.prisma.service.findMany({ where: { id: { in: want } } })
+        : [];
+      data.value = want.reduce(
+        (s, sid) => s + (services.find((x) => x.id === sid)?.price || 0), 0);
+    }
+
     const ownerChanged = 'owner' in data && data.owner !== l.owner;
     const branchChanged = 'branch' in data && data.branch !== l.branch;
     if (ownerChanged || branchChanged) {

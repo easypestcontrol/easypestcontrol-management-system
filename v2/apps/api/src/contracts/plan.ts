@@ -8,7 +8,7 @@
    ========================================================================== */
 
 import {
-  cadenceLabel, daysBetween, lineCrew, lineSpread, planVisits,
+  cadenceLabel, daysBetween, docTotals, lineCrew, lineSpread, planVisits,
   type ContractInput, type PlanLineInput, type VisitPlan,
 } from 'shared';
 
@@ -25,12 +25,54 @@ export interface DbPlanLine {
   slot: string;
   freq: string;
   crew: number;
+  /* What one visit of this service costs, ex-GST. It is the price the
+     customer agreed to, and it is what every per-visit invoice bills — so
+     any code that rewrites a plan line has to carry it across. */
+  rate: number;
   techIds: string[];
   dates?: string[]; // hand-picked visit dates by index
   times?: string[]; // hand-picked visit times by the same index
   timeEnds?: string[]; // the end of each of those windows
   slotEnd?: string; // booked window end
   order?: number;
+}
+
+/**
+ * What a contract is worth, ex-GST.
+ *
+ * Every line's price times the visits it buys, less the discount — the same
+ * arithmetic the contract was created with, which is why it runs through
+ * `docTotals` (at zero tax, because `value` is the pre-GST figure) rather
+ * than a second hand-rolled copy of it.
+ *
+ * This matters because `value` is not a cached convenience. Invoices,
+ * instalments, the per-visit fallback and every report read it, so a stored
+ * `value` that disagrees with the plan beneath it does not show up as a
+ * wrong number on a screen — it shows up as an invoice for an amount nobody
+ * can account for. Both writers that can move it, the discount field and the
+ * service-plan editor, call this.
+ *
+ * Returns `null` when the plan carries no prices at all, and the caller must
+ * then leave the stored value alone. Older contracts were written before a
+ * plan line had a rate: their money lives entirely in `value`, and their
+ * lines are all zero. Computing from those would not be arithmetic, it would
+ * be deletion — a ₹186,000 agreement rewritten to nothing the first time
+ * somebody nudged its schedule. A plan with no prices is a plan saying
+ * nothing about the money, not a plan saying the money is zero.
+ */
+export function contractValue(
+  plan: Array<{ rate?: number; visits?: number }>, discount: number,
+): number | null {
+  if (!plan.some((l) => Math.round(l.rate || 0) > 0)) return null;
+  const t = docTotals(
+    plan.map((l) => ({
+      qty: Math.max(1, Math.round(l.visits || 1)),
+      rate: Math.max(0, Math.round(l.rate || 0)),
+    })),
+    Math.max(0, Math.round(discount || 0)),
+    '', '', 0, // no tax: value is the ex-GST figure
+  );
+  return Math.max(0, Math.round(t.sub - t.disc));
 }
 
 /** The slice of a Contract row the engine needs. */

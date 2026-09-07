@@ -41,6 +41,8 @@ export default function EditContract() {
      most of them are actually collected. */
   const [discount, setDiscount] = useState(0);
   const [signCustomer, setSignCustomer] = useState('');
+  const [signExec, setSignExec] = useState('');
+  const [start, setStart] = useState('');
   const [sigKey, setSigKey] = useState(0);
   const [billingMode, setBillingMode] = useState('interval');
   const [billing, setBilling] = useState('Quarterly');
@@ -62,6 +64,8 @@ export default function EditContract() {
       setPlaceOfSupply(d.placeOfSupply || '');
       setDiscount((d as { discount?: number }).discount || 0);
       setSignCustomer((d as { signCustomer?: string }).signCustomer || '');
+      setSignExec((d as { signExec?: string }).signExec || '');
+      setStart(d.start || '');
       setBillAddr(d.billAddr || '');
       setSite(d.site || '');
       setBillingMode(d.billingMode || 'interval');
@@ -80,14 +84,16 @@ export default function EditContract() {
     if (!c) return;
     setErr('');
     if (!scope.trim()) { setErr('The subject cannot be empty — it is what the customer sees'); return; }
-    if (end && end < c.start) { setErr('The end date is before the start date'); return; }
+    if (!start) { setErr('The contract needs a start date'); return; }
+    if (end && end < start) { setErr('The end date is before the start date'); return; }
     setBusy(true);
     try {
       await api.patch('/contracts/' + c.id, {
         scope: scope.trim(), refNo: refNo.trim(), owner, branch,
         placeOfSupply, billAddr: billAddr.trim(), site: site.trim(),
         discount: Math.max(0, Math.round(discount || 0)),
-        signCustomer,
+        signCustomer, signExec,
+        start,
         billingMode, billing: c.mode === 'onetime' ? 'On completion' : 'Monthly',
         billingAmount,
         end, notes: notes.trim(),
@@ -156,9 +162,23 @@ export default function EditContract() {
             <span className={label}>Reference no.</span>
             <input value={refNo} onChange={(e) => setRefNo(e.target.value)} className={input} />
           </label>
+          {/* Both ends of the period. Only the finish could be corrected
+              before, so a contract started on the wrong date stayed on it —
+              and the term the billing plan spreads the value over is measured
+              between these two. */}
+          <label className="block">
+            <span className={label}>Service period starts</span>
+            <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className={input} />
+          </label>
           <label className="block">
             <span className={label}>Service period ends</span>
-            <input type="date" value={end} min={c.start} onChange={(e) => setEnd(e.target.value)} className={input} />
+            <input type="date" value={end} min={start || c.start} onChange={(e) => setEnd(e.target.value)} className={input} />
+            <span className="block text-[11px] text-muted-2 mt-1">
+              {start && end && end >= start
+                ? Math.max(1, Math.round((new Date(end).getTime() - new Date(start).getTime())
+                    / 86400000 / 30.44)) + ' months — instalments and renewals follow this'
+                : ' '}
+            </span>
           </label>
           <label className="block">
             <span className={label}>Sales executive</span>
@@ -232,6 +252,25 @@ export default function EditContract() {
           </>
         ) : (
           <SigPad key={'c' + sigKey} onInk={setSignCustomer} />
+        )}
+
+        <h2 className="text-[13.5px] font-semibold mb-1 mt-5">For {boot.company.name}</h2>
+        <p className="text-[12px] text-muted mb-3 leading-relaxed">
+          The authorised signatory. Left blank, the agreement prints the sales
+          executive&rsquo;s own signature from their profile.
+        </p>
+        {signExec ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={signExec} alt="Authorised signature"
+              className="h-[72px] rounded border border-line bg-white object-contain" />
+            <button type="button" className="text-[11.5px] text-accent font-medium mt-1"
+              onClick={() => { setSignExec(''); setSigKey((k) => k + 1); }}>
+              Clear
+            </button>
+          </>
+        ) : (
+          <SigPad key={'e' + sigKey} onInk={setSignExec} />
         )}
       </section>
 

@@ -26,6 +26,7 @@ import { raiseDueBilling } from '../billing.util';
 import {
   contractStatus, contractToInput, dayDelta, fmtDate, lineToInput, nowStamp,
   phoneKey, planDiff, planSummary, planWarnings, syncCrew, todayISO,
+  contractValue,
   type DbPlanLine,
 } from './plan';
 
@@ -76,6 +77,7 @@ interface ContractDraft {
 
 interface PlanEditLine {
   svId: string;
+  rate?: number; // per-visit price, ex-GST
   visits?: number;
   months?: number;
   mins?: number;
@@ -96,7 +98,7 @@ const PATCHABLE = [
   'notes', 'scope', 'billing', 'refNo', 'placeOfSupply', 'terms',
   'slot', 'slotEnd', 'mergeSameDay', 'workdaysOnly', 'blackout',
   // the full-contract edit screen
-  'billAddr', 'site', 'billingMode', 'owner', 'branch', 'end', 'billingAmount',
+  'billAddr', 'site', 'billingMode', 'owner', 'branch', 'start', 'end', 'billingAmount',
   /* Asked for when the contract is created and then unreachable for ever —
      a discount typed wrongly could not be corrected, and the customer's
      signature could not be added afterwards, which is when most of them are
@@ -852,6 +854,32 @@ export class ContractsController {
     if ('billingAmount' in data) data.billingAmount = Math.max(0, Math.round(Number(data.billingAmount) || 0));
 
     /*
+     * Move a date and the term has to move with it.
+     *
+     * `months` is not a label. The billing plan spreads the value across it,
+     * `renew` measures the next contract by it, and a plan line with no term
+     * of its own falls back to it. Extending a contract by a year left it
+     * saying 12 — so a two-year agreement was billed over one, and the
+     * renewal it produced was the wrong length. Same formula the contract
+     * was created with, so an edited contract and a new one agree.
+     */
+    if ('start' in data || 'end' in data) {
+      const cur = await this.prisma.contract.findUnique({
+        where: { id }, select: { start: true, end: true, mode: true },
+      });
+      if (!cur) throw new NotFoundException('No such contract');
+      const start = String(data.start ?? cur.start);
+      const end = String(data.end ?? cur.end);
+      if (daysBetween(start, end) < 0) {
+        throw new BadRequestException('The contract cannot end before it starts');
+      }
+      // A one-time job has no term to spread anything over, and create says 0.
+      data.months = cur.mode === 'onetime'
+        ? 0
+        : Math.max(1, Math.round(daysBetween(start, end) / 30.44));
+    }
+
+    /*
      * A changed discount has to move the money with it.
      *
      * `value` is the ex-GST figure every invoice, every instalment and every
@@ -863,10 +891,8 @@ export class ContractsController {
       const disc = Math.max(0, Math.round(Number(data.discount) || 0));
       data.discount = disc;
       const plan = await this.prisma.planLine.findMany({ where: { contractId: id } });
-      const sub = plan.reduce(
-        (a, l) => a + Math.max(0, l.rate || 0) * Math.max(1, l.visits || 1), 0,
-      );
-      data.value = Math.max(0, Math.round(sub - Math.min(disc, sub)));
+      const v = contractValue(plan, disc);
+      if (v !== null) data.value = v; // an unpriced plan cannot price the contract
     }
 
     return this.prisma.contract.update({ where: { id }, data });
@@ -895,6 +921,25 @@ export class ContractsController {
         startAt: e.startAt ?? prev?.startAt ?? '',
         slot: e.slot || prev?.slot || '10:00',
         freq: '',
+        /*
+         * The price has to survive the edit.
+         *
+         * This function rebuilds every line from scratch and `applyPlan`
+         * then deletes the stored plan and writes these rows in its place.
+         * Leaving `rate` out did not leave it alone — it reset every price
+         * to nothing. Opening the service-plan dialog and pressing Apply
+         * without touching a single field was enough to wipe the agreed
+         * price off every service on the contract.
+         *
+         * Nothing said so. `value` stayed where it was, so the contract
+         * still read ₹31,200 in its header while its own line items and
+         * total printed ₹0 on the document the customer signs; and because
+         * per-visit invoicing falls back to an even split of `value` when
+         * the rates come to zero, the invoices kept arriving — for the
+         * wrong amounts, spread evenly across services that were never
+         * priced the same.
+         */
+        rate: Math.max(0, Math.round(e.rate ?? prev?.rate ?? 0)),
         crew: Math.min(9, Math.max(1, Math.round(e.crew ?? prev?.crew ?? 1))),
         techIds: (e.techIds ?? prev?.techIds ?? []).filter(Boolean),
         dates: prev?.dates || [], // pins survive a plan edit
@@ -1001,8 +1046,21 @@ export class ContractsController {
     await this.prisma.planLine.createMany({
       data: rows.map((l) => ({ ...l, contractId: id })),
     });
+    /*
+     * The plan decides the money, so writing a new plan rewrites `value`.
+     *
+     * Halving a service's visits halves what it is worth. Leaving `value`
+     * at the old figure left the contract quietly overstating itself, and
+     * the difference surfaced later as an instalment or a per-visit share
+     * that did not match anything on the agreement.
+     */
+    const planned = contractValue(rows, c.discount);
     await this.prisma.contract.update({
-      where: { id }, data: { mergeSameDay, workdaysOnly },
+      where: { id },
+      data: {
+        mergeSameDay, workdaysOnly,
+        ...(planned !== null ? { value: planned } : {}),
+      },
     });
 
     // Remove, update, add.

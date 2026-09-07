@@ -873,6 +873,7 @@ function AssignDialog({ c, boot, onClose, onSaved }: {
 
 interface EditLine {
   svId: string;
+  rate: number; // per-visit price, ex-GST
   visits: number;
   months: number;
   mins: number;
@@ -889,6 +890,7 @@ function PlanDialog({ c, boot, onClose, onSaved }: {
   // Work on a copy so Cancel really cancels.
   const [lines, setLines] = useState<EditLine[]>(() => c.plan.map((l) => ({
     svId: l.svId,
+    rate: Math.max(0, l.rate || 0),
     visits: l.visits,
     months: l.months || c.months || 12,
     mins: l.mins,
@@ -916,7 +918,7 @@ function PlanDialog({ c, boot, onClose, onSaved }: {
     plan: lines.map((l) => ({
       svId: l.svId, visits: l.visits, months: l.months, mins: l.mins,
       dayRule: 'dom:' + l.day, slot: l.slot, crew: l.crew, techIds: l.techIds,
-      startAt: l.startAt,
+      startAt: l.startAt, rate: l.rate,
     })),
   }), [lines, merge, workdays]);
 
@@ -989,9 +991,10 @@ function PlanDialog({ c, boot, onClose, onSaved }: {
 
         {/* ------------------------------------------------- editable grid */}
         <div className="mt-4 rounded border border-line overflow-x-auto">
-          <div className="min-w-[620px]">
+          <div className="min-w-[700px]">
             <div className="flex gap-2 px-3 py-2 bg-wash border-b border-line text-[10px] font-bold uppercase tracking-wider text-muted-2">
               <span className="flex-1">Service</span>
+              <span className="w-[78px] shrink-0 text-right">Rate ₹</span>
               <span className="w-[58px] shrink-0">Services</span>
               <span className="w-[64px] shrink-0">Months</span>
               <span className="w-[56px] shrink-0">Day</span>
@@ -1007,6 +1010,15 @@ function PlanDialog({ c, boot, onClose, onSaved }: {
                     <span className="text-navy font-semibold">{cadenceOf(l).toLowerCase()}</span>
                   </p>
                 </div>
+                {/* The price per visit. It is asked for when the contract is
+                    written and was then unreachable — while this very dialog
+                    silently reset it to zero on every apply. */}
+                <input className={num + ' w-[78px] shrink-0 text-right px-2'} type="number" min={0}
+                  title="What one visit of this service costs, before GST"
+                  value={l.rate}
+                  onChange={(e) => setLine(i, {
+                    rate: Math.max(0, Math.round(Number(e.target.value) || 0)),
+                  })} />
                 <input className={num + ' w-[58px] shrink-0'} type="number" min={1} max={120}
                   value={l.visits}
                   onChange={(e) => setLine(i, {
@@ -1032,6 +1044,26 @@ function PlanDialog({ c, boot, onClose, onSaved }: {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Rates and visit counts are both on this screen, and both move the
+            contract value — so it is shown here rather than found out later
+            on an invoice. */}
+        <div className="flex items-baseline justify-between gap-4 mt-3 px-3 py-2 rounded border border-line bg-wash text-[12.5px] flex-wrap">
+          <span className="text-muted">
+            {lines.reduce((a, l) => a + l.rate * l.visits, 0) !== c.value + (c.discount || 0)
+              ? 'Contract value after this change' : 'Contract value'}
+          </span>
+          <span className="font-semibold tabular-nums">
+            ₹{Math.max(0, lines.reduce((a, l) => a + Math.max(0, l.rate) * Math.max(1, l.visits), 0)
+              - (c.discount || 0)).toLocaleString('en-IN')}
+            {c.discount ? (
+              <span className="font-normal text-muted-2">
+                {' '}· after ₹{(c.discount || 0).toLocaleString('en-IN')} discount
+              </span>
+            ) : null}
+            <span className="font-normal text-muted-2"> · before GST</span>
+          </span>
         </div>
 
         <div className="flex gap-6 mt-3.5 text-[13px]">

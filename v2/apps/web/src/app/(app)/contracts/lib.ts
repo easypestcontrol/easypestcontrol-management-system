@@ -163,6 +163,7 @@ export interface PlanLineDto {
   slot: string;
   freq: string;
   crew: number;
+  rate: number; // per-visit price, ex-GST — what the customer agreed to
   techIds: string[];
 }
 

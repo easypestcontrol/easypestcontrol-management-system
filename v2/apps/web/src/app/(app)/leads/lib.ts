@@ -11,7 +11,10 @@ export interface LogEntry { at: string; text: string; by: string }
 
 export interface Lead {
   id: string; name: string; phone: string; email: string; type: string;
-  area: string; source: string; stage: string; value: number;
+  area: string; source: string; stage: string;
+  /* The services they said they wanted. `value` is their catalogue prices
+     added up, so the two always move together. */
+  interest: string[]; value: number;
   followUp: string; notes: string; owner: string; branch: string;
   clientId: string; contractId: string; log: LogEntry[]; createdAt: string;
 }

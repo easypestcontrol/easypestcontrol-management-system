@@ -249,6 +249,11 @@ model Lead {
   area       String    @default("")
   source     String    @default("")
   stage      LeadStage @default(new)
+  /// Service ids the customer said they wanted. `value` is their catalogue
+  /// prices added up — which is why the list has to be kept and not just the
+  /// sum: a lead captured with the wrong services ticked could never be put
+  /// right, and its value was stuck in the pipeline totals for ever.
+  interest   String[]  @default([])
   value      Int       @default(0)
   followUp   String    @default("") // ISO date
   notes      String    @default("")

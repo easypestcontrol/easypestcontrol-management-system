@@ -16,7 +16,7 @@ import TimePicker from '@/components/time-picker';
 import {
   stageLabel, isOpen, assignableUsers, dueState, fmtDate, relDay,
   tomorrowISO, initials, LEAD_SOURCES, PROPERTY_TYPES,
-  type LeadDetail, type BootUser,
+  type LeadDetail, type BootUser, type BootService,
 } from './lib';
 
 /**
@@ -76,6 +76,8 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
   const [note, setNote] = useState('');
   const [edit, setEdit] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
+  /* Kept beside `form`, which only holds strings. */
+  const [interest, setInterest] = useState<string[]>([]);
   const [err, setErr] = useState('');
 
   const users = boot.users as unknown as BootUser[];
@@ -95,6 +97,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
         name: d.name, phone: d.phone, email: d.email, area: d.area,
         type: d.type, source: d.source, notes: d.notes,
       });
+      setInterest(d.interest || []);
     }).catch(() => { if (!dead) setErr('Could not load this lead'); });
     return () => { dead = true; };
   }, [id, rev]);
@@ -496,6 +499,33 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
                   {LEAD_SOURCES.map((s) => <option key={s}>{s}</option>)}
                 </select>
               </label>
+              {/* The same list the lead was captured with. It sets the lead's
+                  value, and until now it could only ever be ticked once — so
+                  a mistake at capture sat in the pipeline totals for good. */}
+              <div className="col-span-2">
+                <span className="block text-[11px] text-muted mb-1">Services required</span>
+                <div className="rounded border border-line max-h-[150px] overflow-y-auto px-2.5 py-1.5">
+                  {(boot.services as unknown as BootService[]).map((sv) => (
+                    <label key={sv.id} className="flex items-center gap-2.5 py-1 cursor-pointer">
+                      <input type="checkbox" checked={interest.indexOf(sv.id) >= 0}
+                        onChange={(e) => setInterest(e.target.checked
+                          ? [...interest, sv.id]
+                          : interest.filter((x) => x !== sv.id))}
+                        className="accent-[#141414]" />
+                      <span className="text-[12.5px] flex-1">{sv.name}</span>
+                      <span className="text-[12px] text-muted">{money(sv.price)}</span>
+                    </label>
+                  ))}
+                </div>
+                <span className="block text-[11px] text-muted-2 mt-1">
+                  {interest.length === 0
+                    ? 'Nothing ticked — the lead is carried at no value.'
+                    : 'Estimated value ' + money((boot.services as unknown as BootService[])
+                        .filter((sv) => interest.indexOf(sv.id) >= 0)
+                        .reduce((a, sv) => a + sv.price, 0)) + '.'}
+                </span>
+              </div>
+
               <label className="block col-span-2">
                 <span className="block text-[11px] text-muted mb-1">Notes</span>
                 <textarea value={form.notes || ''} rows={3}
@@ -505,7 +535,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
               <div className="col-span-2">
                 <button
                   onClick={async () => {
-                    if (await run(() => api.patch('/leads/' + id, form))) setEdit(false);
+                    if (await run(() => api.patch('/leads/' + id, { ...form, interest }))) setEdit(false);
                   }}
                   className="h-8 px-3 rounded bg-accent text-white text-[12.5px] font-semibold hover:brightness-90">
                   Save changes
