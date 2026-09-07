@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { money } from 'shared';
 import { api } from '@/lib/api';
 import { STATES, fmtDate, type Boot, type ContractDetail } from '../../lib';
+import TimePicker from '@/components/time-picker';
 
 const CYCLES = ['Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'];
 
@@ -276,10 +277,8 @@ export default function EditContract() {
                     <>
                       <td><input type="date" className={inp + ' w-[140px]'} value={row.date}
                         onChange={(e) => set({ date: e.target.value })} /></td>
-                      <td><input type="time" className={inp + ' w-[92px]'} value={row.slot}
-                        onChange={(e) => set({ slot: e.target.value })} /></td>
-                      <td><input type="time" className={inp + ' w-[92px]'} value={row.slotEnd}
-                        onChange={(e) => set({ slotEnd: e.target.value })} /></td>
+                      <td><TimePicker value={row.slot} onChange={(__t) => set({ slot: __t })} className={inp + ' w-[92px]'} /></td>
+                      <td><TimePicker value={row.slotEnd} onChange={(__t) => set({ slotEnd: __t })} className={inp + ' w-[92px]'} /></td>
                       <td><span className="zpill outline">Scheduled</span></td>
                     </>
                   )}

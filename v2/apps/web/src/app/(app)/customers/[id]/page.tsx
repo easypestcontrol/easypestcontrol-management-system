@@ -67,10 +67,13 @@ export default function CustomerDetail() {
       ['Mobile number', !!c.phone],
       ['Email', !!c.email],
       ['Site address', !!c.addr],
-      ['Area / locality', !!c.area],
       ['PIN code', !!c.pin],
       ['Billing address', !!c.billing?.street1],
-      ['Property size', !!c.propertySize],
+      /*
+       * Area and property size were counted here and are no longer asked for
+       * anywhere. A meter that can never reach 100%, offering chips that open
+       * a form without those fields in it, teaches people to ignore the meter.
+       */
       ...(commercial
         ? ([['GSTIN', !!c.gstin], ['PAN', !!c.pan]] as Array<[string, boolean]>)
         : []),
@@ -80,6 +83,19 @@ export default function CustomerDetail() {
   }, [c]);
 
   /** A returning customer with a fresh enquiry goes back into the pipeline. */
+  /**
+   * Put a customer back in the pipeline — by OPENING the capture form, not by
+   * quietly creating a lead behind it.
+   *
+   * It used to POST straight away and land on the new lead's drawer. That
+   * skipped every question the form exists to ask: where the enquiry came
+   * from, which services they want, who is to follow it up, when to call
+   * back, and what was actually said. A lead created without those is a row
+   * somebody has to open and finish anyway, so the form may as well be shown
+   * while the person still has the customer on the phone.
+   *
+   * The form fills itself in from the customer, so nothing is retyped.
+   */
   async function moveToLead() {
     if (!c) return;
     if (!c.phone) {
@@ -88,25 +104,17 @@ export default function CustomerDetail() {
       return;
     }
     try {
-      // Same person already in the pipeline? Open that lead instead of
-      // creating a duplicate — the phone number is the identity key.
+      // Same person already in the pipeline? Open that lead rather than
+      // starting a second one — the phone number is the identity key.
       const rows = await api.get<Array<{ id: string; phone: string; stage: string }>>('/leads');
       const existing = rows
         .filter((l) => isOpen(l) && phoneKey(l.phone) === phoneKey(c.phone))
         .sort((a, b) => (a.id < b.id ? 1 : -1))[0];
-      if (existing) {
-        router.push('/leads?open=' + existing.id);
-        return;
-      }
-      const lead = await api.post<{ id: string }>('/leads', {
-        name: c.name, phone: c.phone, email: c.email, type: c.type,
-        area: c.area || c.city, branch: c.branch,
-        source: 'Existing customer',
-        notes: 'Returning customer — ' + c.id + '. Fresh enquiry to work through the pipeline.',
-      });
-      router.push('/leads?open=' + lead.id);
-    } catch (e) {
-      setNote(e instanceof Error ? e.message : 'Could not create the lead');
+      router.push(existing ? '/leads?open=' + existing.id : '/leads?capture=' + c.id);
+    } catch {
+      // The duplicate check is a courtesy, not a gate. If the list cannot be
+      // read, still open the form.
+      router.push('/leads?capture=' + c.id);
     }
   }
 

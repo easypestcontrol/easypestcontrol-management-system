@@ -35,8 +35,10 @@ const inputCls =
 const selectCls =
   'w-full h-9 px-2 rounded border border-line text-[13px] bg-white outline-none';
 
-export default function NewLead({ boot, me, leads, onClose, onSaved }: {
+export default function NewLead({ boot, me, leads, presetClient, onClose, onSaved }: {
   boot: Bootstrap; me: SessionUser | null; leads: Lead[];
+  /** A customer id to start from — everything about them fills itself in. */
+  presetClient?: string;
   onClose: () => void; onSaved: (id: string) => void;
 }) {
   const users = boot.users as unknown as BootUser[];
@@ -163,6 +165,16 @@ export default function NewLead({ boot, me, leads, onClose, onSaved }: {
       if (!matched || matched.id !== c.id) { setPhone(c.phone); fill(c); }
     } else clearMatch();
   }
+
+  /* Opened from a customer: choose them as though somebody had picked them
+     off the list, once the directory has loaded. */
+  const preset = useRef(false);
+  useEffect(() => {
+    if (preset.current || !presetClient || !dir.length) return;
+    preset.current = true;
+    onPick(presetClient);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetClient, dir]);
 
   function onPick(id: string) {
     if (!id) {

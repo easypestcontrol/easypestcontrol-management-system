@@ -20,6 +20,7 @@ import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { isFieldTech } from 'shared';
 import MemberMobile from './mobile';
+import TimePicker from '@/components/time-picker';
 
 /* ------------------------------------------------------------ vocabulary */
 
@@ -647,12 +648,10 @@ export default function TeamMember() {
           </p>
           <div className="flex items-end gap-4 flex-wrap">
             <Field label="From">
-              <input type="time" className={fieldCls + ' w-[120px]'} value={draft.hoursFrom}
-                onChange={(e) => set('hoursFrom', e.target.value)} />
+              <TimePicker value={draft.hoursFrom} onChange={(__t) => set('hoursFrom', __t)} className={fieldCls + ' w-[120px]'} />
             </Field>
             <Field label="To">
-              <input type="time" className={fieldCls + ' w-[120px]'} value={draft.hoursTo}
-                onChange={(e) => set('hoursTo', e.target.value)} />
+              <TimePicker value={draft.hoursTo} onChange={(__t) => set('hoursTo', __t)} className={fieldCls + ' w-[120px]'} />
             </Field>
             <div>
               <span className={labelCls}>Days</span>

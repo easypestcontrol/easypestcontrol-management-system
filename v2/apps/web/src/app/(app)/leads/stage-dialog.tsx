@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { api } from '@/lib/api';
 import { tomorrowISO, type Lead, type BootUser } from './lib';
 import { isFieldTech } from 'shared';
+import TimePicker from '@/components/time-picker';
 
 export default function StageDialog({ lead, to, users, onClose, onDone }: {
   lead: Lead; to: string; users: BootUser[];
@@ -69,8 +70,7 @@ export default function StageDialog({ lead, to, users, onClose, onDone }: {
             <div className="flex gap-2">
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
                 className="h-9 px-3 rounded border border-line text-[13px] outline-none focus:border-navy" />
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)}
-                className="h-9 px-3 rounded border border-line text-[13px] outline-none focus:border-navy" />
+              <TimePicker value={time} onChange={(__t) => setTime(__t)} className="h-9 px-3 rounded border border-line text-[13px] outline-none focus:border-navy" />
             </div>
             {to === 'inspection' && (
               <select value={who} onChange={(e) => setWho(e.target.value)}

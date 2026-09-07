@@ -22,6 +22,7 @@ import {
 import ContractMobile from './mobile';
 import Mandate, { mandatePossible } from '@/components/mandate';
 import Collect from '@/components/collect';
+import TimePicker from '@/components/time-picker';
 
 /* --------------------------------------------------------------- utilities */
 
@@ -1009,8 +1010,7 @@ function PlanDialog({ c, boot, onClose, onSaved }: {
                   onChange={(e) => setLine(i, {
                     day: Math.min(31, Math.max(1, parseInt(e.target.value, 10) || 1)),
                   })} />
-                <input className={num + ' w-[92px] shrink-0 px-1'} type="time" value={l.slot}
-                  onChange={(e) => setLine(i, { slot: e.target.value || '10:00' })} />
+                <TimePicker value={l.slot} onChange={(__t) => setLine(i, { slot: __t || '10:00' })} className={num + ' w-[92px] shrink-0 px-1'} />
                 <input className={num + ' w-[74px] shrink-0'} type="number" min={1} max={9}
                   title="How many technicians this service takes"
                   value={l.crew}

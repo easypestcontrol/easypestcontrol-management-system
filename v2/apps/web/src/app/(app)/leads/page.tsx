@@ -46,6 +46,20 @@ export default function Leads() {
     if (want) setOpenId(want);
   }, []);
   const [showNew, setShowNew] = useState(false);
+  /* Arriving from a customer's "Move to lead": open the capture form with
+     that customer already chosen, so the enquiry is asked about rather than
+     assumed. */
+  const [capture, setCapture] = useState('');
+  useEffect(() => {
+    const want = new URLSearchParams(window.location.search).get('capture');
+    if (want) { setCapture(want); setShowNew(true); }
+  }, []);
+  /** Drop the query string so a refresh does not reopen the form. */
+  const clearCapture = () => {
+    if (!capture) return;
+    setCapture('');
+    window.history.replaceState({}, '', '/leads');
+  };
   const [move, setMove] = useState<{ lead: Lead; to: string } | null>(null);
   const [dragOver, setDragOver] = useState('');
 
@@ -329,9 +343,9 @@ export default function Leads() {
           onClose={() => setOpenId(null)} onChanged={reload} />
       )}
       {showNew && boot && (
-        <NewLead boot={boot} me={me} leads={rows || []}
-          onClose={() => setShowNew(false)}
-          onSaved={(id) => { setShowNew(false); reload(); setOpenId(id); }} />
+        <NewLead boot={boot} me={me} leads={rows || []} presetClient={capture}
+          onClose={() => { setShowNew(false); clearCapture(); }}
+          onSaved={(id) => { setShowNew(false); clearCapture(); reload(); setOpenId(id); }} />
       )}
       {move && (
         <StageDialog lead={move.lead} to={move.to} users={users}

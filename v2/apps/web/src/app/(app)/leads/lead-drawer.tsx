@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { api, type Bootstrap } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { isFieldTech, money, moneyShort } from 'shared';
+import TimePicker from '@/components/time-picker';
 import {
   stageLabel, isOpen, assignableUsers, dueState, fmtDate, relDay,
   tomorrowISO, initials, LEAD_SOURCES, PROPERTY_TYPES,
@@ -179,8 +180,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
           <div className="flex gap-2 flex-wrap">
             <input type="date" value={sopDate} onChange={(e) => setSopDate(e.target.value)}
               className="h-8 px-2.5 rounded border border-line text-[12.5px] outline-none focus:border-navy" />
-            <input type="time" value={sopTime} onChange={(e) => setSopTime(e.target.value)}
-              className="h-8 px-2.5 rounded border border-line text-[12.5px] outline-none focus:border-navy" />
+            <TimePicker value={sopTime} onChange={(__t) => setSopTime(__t)} className="h-8 px-2.5 rounded border border-line text-[12.5px] outline-none focus:border-navy" />
             {isInspect && (
               <select value={sopWho} onChange={(e) => setSopWho(e.target.value)}
                 className="h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none min-w-[160px]">

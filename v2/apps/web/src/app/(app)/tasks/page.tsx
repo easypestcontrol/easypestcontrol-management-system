@@ -15,6 +15,7 @@ import { Icon } from '@/components/icons';
 import { useBranchFilter } from '@/components/branch-filter';
 import { usePager } from '@/components/pager';
 import { ListScreen, niceDate } from '@/components/mobile';
+import TimePicker from '@/components/time-picker';
 
 /* ------------------------------------------------------------------ types */
 
@@ -654,8 +655,7 @@ function TaskForm({ draft, setDraft, boot, editing, onClose, onSaved }: {
             </label>
             <label className="block">
               <span className={labelCls}>Time</span>
-              <input type="time" value={d.dueTime} onChange={(e) => set({ dueTime: e.target.value })}
-                className={inputCls} />
+              <TimePicker value={d.dueTime} onChange={(__t) => set({ dueTime: __t })} className={inputCls} />
             </label>
             <label className="block">
               <span className={labelCls}>Priority</span>

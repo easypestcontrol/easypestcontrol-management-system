@@ -22,6 +22,7 @@ import { billingPlan,
 } from 'shared';
 import { api, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import TimePicker from '@/components/time-picker';
 import {
   addMinsHHMM, fmtDate, fmtShort, fmtTime, slotLabel, todayISO,
   SLOTS, STATES,
@@ -493,11 +494,9 @@ function NewContractForm() {
               <div>
                 <span className={label}>Time window *</span>
                 <div className="flex items-center gap-2">
-                  <input className={input} type="time" value={draft.slot}
-                    onChange={(e) => set({ slot: e.target.value })} />
+                  <TimePicker value={draft.slot} onChange={(__t) => set({ slot: __t })} className={input} />
                   <span className="text-muted text-[12px]">to</span>
-                  <input className={input} type="time" value={draft.slotEnd}
-                    onChange={(e) => set({ slotEnd: e.target.value })} />
+                  <TimePicker value={draft.slotEnd} onChange={(__t) => set({ slotEnd: __t })} className={input} />
                 </div>
                 <span className="block text-[11px] text-muted-2 mt-1">
                   {fmtTime(draft.slot)} – {fmtTime(draft.slotEnd || addMinsHHMM(draft.slot, 120))} ·{' '}
@@ -780,12 +779,9 @@ function NewContractForm() {
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                            <input className={field + ' h-8 w-[92px] text-[12px]'} type="time" value={l.slot}
-                              onChange={(e) => setLine(i, { slot: e.target.value })} />
+                            <TimePicker value={l.slot} onChange={(__t) => setLine(i, { slot: __t })} className={field + ' h-8 w-[92px] text-[12px]'} />
                             <span className="text-muted text-[11px]">to</span>
-                            <input className={field + ' h-8 w-[92px] text-[12px]'} type="time"
-                              value={l.slotEnd || addMinsHHMM(l.slot, 120)}
-                              onChange={(e) => setLine(i, { slotEnd: e.target.value })} />
+                            <TimePicker value={l.slotEnd || addMinsHHMM(l.slot, 120)} onChange={(__t) => setLine(i, { slotEnd: __t })} className={field + ' h-8 w-[92px] text-[12px]'} />
                           </span>
                         )}
                       </td>

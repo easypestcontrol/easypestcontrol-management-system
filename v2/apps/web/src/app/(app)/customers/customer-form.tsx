@@ -31,7 +31,10 @@ const BLANK = {
   channels: ['Email', 'WhatsApp'] as string[],
   gstTreatment: '', placeOfSupply: 'Tamil Nadu', pan: '', taxPref: 'Taxable',
   currency: 'INR - Indian Rupee', openingBalance: 0,
-  payTerms: 'Due on Receipt', propertySize: '', portal: false,
+  payTerms: 'Due on Receipt', propertySize: '',
+  // On by default. A customer who can see their own contracts, visits and
+  // invoices is a customer who does not ring the office to ask for them.
+  portal: true,
   billing: { ...BLANK_ADDR } as AddressBlock,
   shipping: { ...BLANK_ADDR } as AddressBlock,
   contacts: [] as ContactPerson[],
@@ -111,6 +114,16 @@ export default function CustomerForm({ initial, onDone, onClose }: {
 
   async function save() {
     if (!f.name.trim()) { setErr('The customer needs a display name.'); setTab('Overview'); return; }
+    /*
+     * A customer without a mobile cannot be reached by any route this app has.
+     * Every visit reminder, every payment link, every share goes out on
+     * WhatsApp — so a record with no number is a record nobody can serve.
+     */
+    if (!f.phone.trim()) {
+      setErr('A mobile number is needed — it is how every reminder and payment link reaches them.');
+      setTab('Overview');
+      return;
+    }
     setErr(''); setBusy(true);
 
     // The flat summary every screen reads, derived from the detailed blocks:
@@ -192,9 +205,9 @@ export default function CustomerForm({ initial, onDone, onClose }: {
         <input value={f.workPhone} onChange={(e) => set('workPhone', e.target.value)}
           placeholder="+91 …" className={INPUT} />
       </label>
-      <label className="block"><L>Mobile</L>
+      <label className="block"><L>Mobile <span className="text-accent">*</span></L>
         <input value={f.phone} onChange={(e) => set('phone', e.target.value)}
-          placeholder="+91 …" className={INPUT} />
+          inputMode="tel" placeholder="+91 …" className={INPUT} />
         <span className="block text-[11px] text-muted-2 mt-1">Used for WhatsApp and the visit reminders.</span>
       </label>
 
@@ -271,21 +284,10 @@ export default function CustomerForm({ initial, onDone, onClose }: {
         </select>
       </label>
 
-      <label className="block"><L>Branch</L>
-        <select value={f.branch} onChange={(e) => set('branch', e.target.value)} className={SELECT}>
-          <option value="">— by area —</option>
-          {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
-      </label>
-      <label className="block"><L>Area / locality</L>
-        <input value={f.area} onChange={(e) => set('area', e.target.value)}
-          placeholder="Adyar, Velachery…" className={INPUT} />
-      </label>
-
-      <label className="block"><L>Property size</L>
-        <input value={f.propertySize} onChange={(e) => set('propertySize', e.target.value)}
-          placeholder="e.g. 3 BHK / 1,450 sq.ft" className={INPUT} />
-      </label>
+      {/* Branch, area and property size used to sit here. None of the three
+          is a tax or a payment term, and the branch already works itself out
+          from the address. Asking for them on this tab made a short form feel
+          like a long one. */}
       <label className="block"><L>Customer portal</L>
         <span className="flex h-9 items-center">
           <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">

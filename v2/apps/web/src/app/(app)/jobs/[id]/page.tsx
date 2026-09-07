@@ -26,6 +26,7 @@ import { isFieldTech, money, toMin } from 'shared';
 import { Icon } from '@/components/icons';
 import PaidTick from '@/components/paid-tick';
 import UpiQr from '@/components/upi-qr';
+import TimePicker from '@/components/time-picker';
 import {
   SLOTS, durationText, fmtDate, fmtLong, fmtTime, relDay,
   type AreaFinding, type DayBoard, type ExecRecord, type JobDetail,
@@ -730,10 +731,10 @@ function RescheduleModal({ j, onClose, onDone }: {
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
         </Field>
         <Field label="From">
-          <input type="time" value={slot} onChange={(e) => setSlot(e.target.value)} className={inputCls} />
+          <TimePicker value={slot} onChange={(__t) => setSlot(__t)} className={inputCls} />
         </Field>
         <Field label="To">
-          <input type="time" value={slotEnd} onChange={(e) => setSlotEnd(e.target.value)} className={inputCls} />
+          <TimePicker value={slotEnd} onChange={(__t) => setSlotEnd(__t)} className={inputCls} />
         </Field>
       </div>
       <p className="text-[11px] text-muted-2 mt-1.5">
