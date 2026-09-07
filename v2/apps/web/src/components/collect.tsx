@@ -84,7 +84,7 @@ export default function Collect({ contractId, clientName, phone, role, variant =
 
   const wrap = phone_
     ? 'bg-white rounded-2xl p-4'
-    : 'rounded-md border border-line-soft p-3.5 mt-4';
+    : 'card-soft p-3.5 mt-4';
   const input = phone_
     ? 'w-full h-11 px-3 rounded-xl border border-line text-[15.5px] outline-none focus:border-navy'
     : 'w-full h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy';

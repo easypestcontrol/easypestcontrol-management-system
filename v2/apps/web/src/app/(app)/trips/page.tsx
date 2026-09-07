@@ -119,7 +119,7 @@ export default function TripsDashboard() {
         ))}
       </div>
 
-      <div className="rounded-md border border-line bg-white shadow-card overflow-hidden">
+      <div className="card overflow-hidden">
         <div className="flex items-center justify-between px-4 h-11 border-b border-line-soft">
           <h2 className="text-[13.5px] font-semibold">Every trip, today</h2>
           <span className="text-[11.5px] text-muted">newest first</span>

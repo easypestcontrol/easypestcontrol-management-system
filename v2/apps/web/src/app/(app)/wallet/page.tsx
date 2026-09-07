@@ -84,7 +84,7 @@ export default function WalletPage() {
         {/* This existed only on the phone layout, which meant anybody working
             at a desk had no way to pay in what they were holding. */}
         {data.inHand > 0 && (
-          <section className="rounded-md border border-line p-5 mb-6">
+          <section className="card p-5 mb-6">
             <PayIn amount={data.inHand} />
           </section>
         )}
@@ -116,26 +116,26 @@ export default function WalletPage() {
 
       {/* ------------------------------------------------ the summary strip */}
       <div className="grid grid-cols-3 gap-3 mb-5">
-        <div className="rounded-md border border-line bg-white p-3.5 shadow-card">
+        <div className="card p-3.5 shadow-card">
           <p className="text-[10.5px] font-semibold uppercase tracking-wide text-muted">Cash in the field</p>
           <p className={'mt-1 text-[20px] font-bold leading-none ' + (fieldCash > 0 ? 'text-accent' : 'text-ink')}>
             {money(fieldCash)}
           </p>
         </div>
-        <div className="rounded-md border border-line bg-white p-3.5 shadow-card">
+        <div className="card p-3.5 shadow-card">
           <p className="text-[10.5px] font-semibold uppercase tracking-wide text-muted">Holding it</p>
           <p className="mt-1 text-[20px] font-bold leading-none">
             {holders.length} <span className="text-[12px] font-normal text-muted">people</span>
           </p>
         </div>
-        <div className="rounded-md border border-line bg-white p-3.5 shadow-card">
+        <div className="card p-3.5 shadow-card">
           <p className="text-[10.5px] font-semibold uppercase tracking-wide text-muted">Receipts out</p>
           <p className="mt-1 text-[20px] font-bold leading-none">{receiptsOut}</p>
         </div>
       </div>
 
       {data.techs.length === 0 ? (
-        <div className="rounded-md border border-line p-10 text-center text-muted text-[13px]">
+        <div className="card p-10 text-center text-muted text-[13px]">
           No cash collections recorded yet.
         </div>
       ) : (
@@ -192,7 +192,7 @@ export default function WalletPage() {
           })}
 
           {holders.length === 0 && (
-            <div className="rounded-md border border-line p-6 text-center text-[13px] text-muted mb-3">
+            <div className="card p-6 text-center text-[13px] text-muted mb-3">
               Every rupee collected has reached the drawer — no cash in the field.
             </div>
           )}
@@ -207,7 +207,7 @@ export default function WalletPage() {
                 {cleared.map((t) => {
                   const openNow = open === t.techId;
                   return (
-                    <section key={t.techId} className="rounded-md border border-line mb-2 overflow-hidden bg-white">
+                    <section key={t.techId} className="card mb-2 overflow-hidden bg-white">
                       <button onClick={() => setOpen(openNow ? '' : t.techId)}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-wash">
                         <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10.5px] font-bold shrink-0"

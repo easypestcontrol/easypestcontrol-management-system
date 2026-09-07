@@ -48,11 +48,14 @@ export default function TripReport() {
       '?\nEach person gets a folder of their un-rejected trips, ready for payout.')) return;
     setBusy(true); setMsg('');
     try {
-      const out = await api.post<{ pushed: number; folders: number }>('/trips/report/push',
+      const out = await api.post<{ pushed: number; missingReports: string[] }>('/trips/report/push',
         { date, branch: bf.branch || '' });
-      setMsg(out.pushed === 0
-        ? 'Nothing new to push — those trips are already on a claim.'
-        : out.pushed + ' trip(s) pushed into ' + out.folders + ' expense folder(s).');
+      const miss = (out.missingReports || []).length
+        ? ' No open report for: ' + out.missingReports.join(', ') + ' — open one on the Expenses page first.'
+        : '';
+      setMsg((out.pushed === 0
+        ? 'Nothing new to push — those trips are already in a report.'
+        : out.pushed + ' trip(s) added to their branch’s expense report.') + miss);
       load();
     } catch (e) { setMsg(e instanceof ApiError ? e.message : 'Could not push'); }
     setBusy(false);
@@ -88,11 +91,11 @@ export default function TripReport() {
       {!r ? (
         <div className="p-6 text-muted text-[13px]">Loading…</div>
       ) : r.people.length === 0 ? (
-        <div className="rounded-md border border-line bg-white p-10 text-center text-muted text-[13px]">
+        <div className="card p-10 text-center text-muted text-[13px]">
           No trips on this day.
         </div>
       ) : (
-        <div className="rounded-md border border-line bg-white shadow-card overflow-hidden">
+        <div className="card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-[12.5px] border-collapse">
               <thead>

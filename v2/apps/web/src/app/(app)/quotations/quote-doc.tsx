@@ -257,7 +257,7 @@ export default function QuoteDoc({ q, company }: { q: QuoteFull; company: DocCom
           {q.sheets!.map((sh) => {
             const sheetUrl = '/api/public/quotes/' + q.id + '/sheet/' + sh.id;
             return (
-              <div key={sh.id} className="rounded-md border border-line bg-white mb-4 overflow-hidden">
+              <div key={sh.id} className="card mb-4 overflow-hidden">
                 <div className="flex items-center gap-2.5 px-4 py-2.5 border-b border-line-soft">
                   <span className="w-8 h-8 rounded bg-red-wash text-accent flex items-center justify-center font-bold text-[10px] shrink-0">
                     PDF

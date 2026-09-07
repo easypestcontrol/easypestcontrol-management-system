@@ -1,319 +1,228 @@
 'use client';
 
 /* ============================================================================
-   Expenses — the report shelf, the way Zoho Expense shows it: analytics on
-   top, status tabs, then the folders grouped by month, each a rich card with
-   the claimant's avatar and a colored status chip. The admin's shelf leads
-   with what needs a decision.
+   Expenses — one door, two rooms.
+   • Admin / branch manager: the branch+date reports, each a folder of the
+     whole branch's expenses; they open new reports and step in to review.
+   • Everyone else: their own expense history and an Add-Expense button. They
+     never see a report containing coworkers' money.
    ========================================================================== */
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { money } from 'shared';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, type Bootstrap, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
-import { initials } from '../contracts/lib';
-import { catIcon, STATUS_CHIP } from './ui';
-import { ListScreen, niceDate } from '@/components/mobile';
+import { useBranchFilter } from '@/components/branch-filter';
+import { catIcon, chip } from './ui';
+import AddExpense from './add-expense';
 
-interface Row {
-  id: string; title: string; date: string; status: string; branch: string;
-  by: string; byName: string; byColor: string; count: number; total: number;
-  payMode: string;
+interface ReportRow {
+  id: string; title: string; date: string; branch: string; branchName: string; status: string;
+  count: number; employees: number; total: number; pending: number; approved: number; reimbursed: number; rejected: number;
 }
-interface List {
-  canManage: boolean; kmRate: number; rows: Row[];
-  byMonth: Array<{ label: string; total: number }>;
-  byCategory: Array<{ name: string; total: number }>;
+interface MineRow {
+  id: string; date: string; category: string; merchant: string; note: string; amount: number;
+  status: string; source: string; tripId: string; rejectReason: string; hasReceipt: boolean;
 }
 
-const TABS: Array<{ key: string; label: string; match: (r: Row) => boolean }> = [
-  { key: 'all', label: 'All', match: () => true },
-  { key: 'open', label: 'Open', match: (r) => r.status === 'open' },
-  { key: 'submitted', label: 'Awaiting', match: (r) => r.status === 'submitted' },
-  { key: 'approved', label: 'To pay', match: (r) => r.status === 'approved' },
-  { key: 'paid', label: 'Paid', match: (r) => r.status === 'paid' },
-  { key: 'rejected', label: 'Returned', match: (r) => r.status === 'rejected' },
-];
-
-const MONTH_FULL = ['January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'];
-const monthName = (iso: string) => {
-  const p = iso.split('-');
-  return p.length >= 2 ? `${MONTH_FULL[Number(p[1]) - 1]} ${p[0]}` : iso;
-};
-const fmtDate = (iso: string) => {
+const niceDate = (iso: string) => {
   const p = String(iso || '').split('-');
-  return p.length === 3 ? `${p[2]}/${p[1]}` : iso;
+  const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return p.length === 3 ? `${Number(p[2])} ${M[Number(p[1]) - 1]}` : iso;
 };
 
 export default function ExpensesPage() {
+  const [me, setMe] = useState<SessionUser | null>(null);
+  useEffect(() => { api.get<SessionUser>('/auth/me').then(setMe).catch(() => {}); }, []);
+  if (!me) return <div className="p-6 text-muted text-[13px]">Loading…</div>;
+  const manage = me.role === 'admin' || me.role === 'ops';
+  return manage ? <ManagerView me={me} /> : <EmployeeView />;
+}
+
+/* ------------------------------------------------------- manager: reports */
+function ManagerView({ me }: { me: SessionUser }) {
   const router = useRouter();
-  const [data, setData] = useState<List | null>(null);
-  const [tab, setTab] = useState('all');
-  const [q, setQ] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [err, setErr] = useState('');
+  const [rows, setRows] = useState<ReportRow[] | null>(null);
+  const [opening, setOpening] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const bf = useBranchFilter();
 
   const load = useCallback(() => {
-    api.get<List>('/expenses').then(setData).catch(() => {});
-  }, []);
+    api.get<{ rows: ReportRow[] }>('/expenses/reports' + (bf.branch ? '?branch=' + bf.branch : ''))
+      .then((r) => setRows(r.rows)).catch(() => setRows([]));
+  }, [bf.branch]);
   useEffect(() => { load(); }, [load]);
 
-  async function newFolder() {
-    if (creating) return;
-    setCreating(true); setErr('');
-    try {
-      const r = await api.post<{ id: string }>('/expenses/reports', {});
-      router.push('/expenses/' + r.id);
-    } catch (e) {
-      setErr(e instanceof ApiError ? e.message : 'Could not create the folder');
-      setCreating(false);
-    }
-  }
-
-  if (!data) return <div className="p-6 text-muted text-[13px]">Loading…</div>;
-
-  const rows = data.rows;
-  const monthKey = new Date().toISOString().slice(0, 7);
-  const monthTotal = rows.filter((r) => r.date.startsWith(monthKey) && r.status !== 'rejected')
-    .reduce((a, r) => a + r.total, 0);
-  const queueN = rows.filter((r) => r.status === 'submitted').length;
-  const owed = rows.filter((r) => r.status === 'approved').reduce((a, r) => a + r.total, 0);
-
-  const active = TABS.find((t) => t.key === tab) || TABS[0];
-  const ql = q.trim().toLowerCase();
-  const shown = rows.filter(active.match).filter((r) =>
-    !ql || r.title.toLowerCase().includes(ql) || r.byName.toLowerCase().includes(ql)
-    || r.id.toLowerCase().includes(ql));
-
-  // Zoho groups the shelf by month.
-  const groups: Array<{ month: string; rows: Row[] }> = [];
-  for (const r of shown) {
-    const m = monthName(r.date.slice(0, 7));
+  // group by month for a tidy shelf
+  const groups: Array<{ m: string; rows: ReportRow[] }> = [];
+  for (const r of rows || []) {
+    const M = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const p = r.date.split('-'); const m = p.length === 3 ? `${M[Number(p[1]) - 1]} ${p[0]}` : r.date;
     const g = groups[groups.length - 1];
-    if (g && g.month === m) g.rows.push(r);
-    else groups.push({ month: m, rows: [r] });
+    if (g && g.m === m) g.rows.push(r); else groups.push({ m, rows: [r] });
   }
-
-  const hasSpend = data.byMonth.some((m) => m.total > 0);
 
   return (
-    <>
-      {/* A claim is photographed and filed on a phone, at a fuel pump or a
-          shop counter, so this is the screen that matters most on one. */}
-      <ListScreen
-        back="/dashboard"
-        title="Expenses"
-        loading={!data}
-        search={q}
-        onSearch={setQ}
-        filters={TABS.map((t) => ({ key: t.key, label: t.label }))}
-        filter={tab}
-        onFilter={setTab}
-        // The desktop groups by month below and filters as it goes; the phone
-        // list must apply the chosen tab itself, or the chip highlights and
-        // changes nothing.
-        rows={rows.filter(TABS.find((t) => t.key === tab)?.match || (() => true))
-          .map((r) => ({
-          id: r.id,
-          href: '/expenses/' + r.id,
-          title: r.title || 'Claim',
-          amount: money(r.total),
-          meta: [niceDate(r.date), r.byName,
-            r.count + (r.count === 1 ? ' item' : ' items')].filter(Boolean).join(' · '),
-          tone: (r.status === 'paid' ? 'good'
-            : r.status === 'rejected' ? 'bad'
-            : r.status === 'approved' ? 'info'
-            : r.status === 'submitted' ? 'warn' : 'plain') as 'good' | 'bad' | 'info' | 'warn' | 'plain',
-          state: r.status === 'paid' ? 'Paid out'
-            : r.status === 'rejected' ? 'Rejected'
-            : r.status === 'approved' ? 'Approved, awaiting payout'
-            : r.status === 'submitted' ? 'Waiting on the office' : 'Draft',
-          }))}
-        empty={q ? 'Nothing matches that' : 'No claims yet'}
-        emptyHint={q ? 'Try the title or who filed it.'
-          : 'Photograph a receipt and file it with the red button.'}
-        fabOnClick={() => setCreating(true)}
-        fabLabel="New claim"
-      />
-
-    <div className="max-lg:hidden p-4 lg:p-6">
+    <div className="p-4 lg:p-6 max-w-[1000px]">
       <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-[20px] font-semibold">Expenses</h1>
-          <p className="text-muted text-[13px] mt-0.5">
-            A folder per day, the day&rsquo;s spends inside it — approved and repaid by the admin.
-          </p>
+          <p className="text-muted text-[13px] mt-0.5">One report per branch per day — the whole branch&rsquo;s expenses in one place.</p>
         </div>
-        <button onClick={newFolder} disabled={creating}
-          className="flex items-center gap-1.5 h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-60">
-          <Icon name="plus" size={15} /> New folder for today
-        </button>
+        <div className="flex items-center gap-2">
+          {bf.el}
+          <button onClick={() => setAdding(true)} className="h-9 px-3.5 rounded border border-line text-[13px] font-semibold hover:bg-wash">Add my expense</button>
+          <button onClick={() => setOpening(true)} className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90">Open report</button>
+        </div>
       </div>
-      {err && <p className="text-[12.5px] text-accent mb-3">{err}</p>}
 
-      {/* ------------------------------------------------ analytics band */}
-      {hasSpend && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-          <section className="rounded-md border border-line bg-white p-4 shadow-card">
-            <div className="mb-2 flex items-baseline gap-2">
-              <h2 className="text-[13px] font-semibold">Spend, month by month</h2>
-              <span className="text-[11px] text-muted-2">last 6 months</span>
-            </div>
-            <SpendBars months={data.byMonth} />
-          </section>
-          <section className="rounded-md border border-line bg-white p-4 shadow-card">
-            <div className="mb-2 flex items-baseline gap-2">
-              <h2 className="text-[13px] font-semibold">Where the money goes</h2>
-              <span className="text-[11px] text-muted-2">by category</span>
-            </div>
-            <CategoryBars cats={data.byCategory} />
-          </section>
-          <div className="max-lg:hidden flex flex-col gap-3">
-            {[
-              { label: 'This month', v: money(monthTotal), hot: false },
-              { label: data.canManage ? 'To approve' : 'With the admin', v: String(queueN), hot: queueN > 0 },
-              { label: data.canManage ? 'To pay out' : 'Owed to you', v: money(owed), hot: owed > 0 },
-            ].map((c) => (
-              <div key={c.label} className="flex-1 rounded-md border border-line bg-white px-4 py-3 shadow-card flex items-center justify-between">
-                <p className="text-[10.5px] font-semibold uppercase tracking-wide text-muted">{c.label}</p>
-                <p className={'text-[19px] font-bold leading-none ' + (c.hot ? 'text-accent' : '')}>{c.v}</p>
-              </div>
-            ))}
+      {!rows ? <div className="text-muted text-[13px]">Loading…</div>
+        : rows.length === 0 ? (
+          <div className="card p-10 text-center text-muted text-[13px]">
+            No reports yet. Open one for a branch and a date, then the branch&rsquo;s people add their expenses.
           </div>
+        ) : groups.map((g) => (
+          <div key={g.m} className="mb-5">
+            <h2 className="text-[11.5px] font-bold uppercase tracking-wide text-muted-2 mb-2">{g.m}</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {g.rows.map((r) => (
+                <button key={r.id} onClick={() => router.push('/expenses/' + r.id)}
+                  className="text-left card p-4 hover:border-navy/50 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="text-[14px] font-bold flex items-center gap-2">
+                        {niceDate(r.date)} · {r.branchName}
+                        {r.status === 'closed' && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-wash text-muted border border-line">CLOSED</span>}
+                      </div>
+                      <div className="text-[11.5px] text-muted mt-0.5">{r.employees} {r.employees === 1 ? 'employee' : 'employees'} · {r.count} expense{r.count === 1 ? '' : 's'} · {r.id}</div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-[16px] font-bold">{money(r.total)}</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-1.5 text-[10.5px] font-semibold">
+                    {r.pending > 0 && <span className="px-2 py-0.5 rounded-full bg-amber text-amber-ink">{money(r.pending)} pending</span>}
+                    {r.approved > 0 && <span className="px-2 py-0.5 rounded-full bg-wash text-navy border border-navy">{money(r.approved)} approved</span>}
+                    {r.reimbursed > 0 && <span className="px-2 py-0.5 rounded-full bg-navy text-white">{money(r.reimbursed)} reimbursed</span>}
+                    {r.rejected > 0 && <span className="px-2 py-0.5 rounded-full bg-red-wash text-accent">{money(r.rejected)} rejected</span>}
+                    {r.count === 0 && <span className="text-muted-2">empty</span>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+
+      {opening && <OpenReport onClose={() => setOpening(false)} onDone={() => { setOpening(false); load(); }} />}
+      {adding && <AddExpense onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} />}
+    </div>
+  );
+}
+
+/* ------------------------------------------------- open-report dialog */
+function OpenReport({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const todayISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const [date, setDate] = useState(todayISO());
+  const [branch, setBranch] = useState('');
+  const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    api.get<Bootstrap>('/org/bootstrap').then((b) => {
+      setBranches(b.branches); if (b.branches[0]) setBranch(b.branches[0].id);
+    }).catch(() => {});
+  }, []);
+  async function create() {
+    if (busy || !branch) return;
+    setBusy(true); setErr('');
+    try { await api.post('/expenses/reports', { date, branch }); onDone(); }
+    catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not open the report'); setBusy(false); }
+  }
+  const input = 'w-full h-10 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy bg-white';
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white w-full max-w-[400px] rounded-xl shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 h-14 border-b border-line-soft">
+          <h2 className="text-[15px] font-bold">Open an expense report</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded hover:bg-wash flex items-center justify-center"><Icon name="x" size={16} /></button>
         </div>
-      )}
+        <div className="p-5 flex flex-col gap-3.5">
+          <label className="block"><span className="block text-[12px] font-semibold text-ink-2 mb-1">Date</span>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={input} /></label>
+          <label className="block"><span className="block text-[12px] font-semibold text-ink-2 mb-1">Branch</span>
+            <select value={branch} onChange={(e) => setBranch(e.target.value)} className={input}>
+              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select></label>
+          <p className="text-[11.5px] text-muted">One report per branch per day. The branch&rsquo;s people then add their expenses into it.</p>
+          {err && <p className="text-[12.5px] text-accent">{err}</p>}
+          <button onClick={create} disabled={busy} className="h-11 rounded-md bg-accent text-white text-[14px] font-bold hover:brightness-90 disabled:opacity-50">Open report</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-      {/* ------------------------------------------------- summary chips */}
-      <div className={'grid grid-cols-3 gap-3 mb-4 ' + (hasSpend ? 'lg:hidden' : '')}>
-        {[
-          { label: 'This month', v: money(monthTotal), hot: false },
-          { label: data.canManage ? 'To approve' : 'With the admin', v: String(queueN), hot: queueN > 0 },
-          { label: data.canManage ? 'To pay out' : 'Owed to you', v: money(owed), hot: owed > 0 },
-        ].map((c) => (
-          <div key={c.label} className="rounded-md border border-line bg-white p-3.5 shadow-card">
-            <p className="text-[10.5px] font-semibold uppercase tracking-wide text-muted">{c.label}</p>
-            <p className={'mt-1 text-[18px] font-bold leading-none ' + (c.hot ? 'text-accent' : '')}>{c.v}</p>
-          </div>
+/* ------------------------------------------------------ employee: mine */
+function EmployeeView() {
+  const [rows, setRows] = useState<MineRow[] | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [f, setF] = useState('all');
+  const load = useCallback(() => { api.get<{ rows: MineRow[] }>('/expenses/mine').then((r) => setRows(r.rows)).catch(() => setRows([])); }, []);
+  useEffect(() => { load(); }, [load]);
+  const shown = (rows || []).filter((r) => f === 'all' || r.status === f);
+  const TABS = [['all', 'All'], ['pending', 'Pending'], ['approved', 'Approved'], ['rejected', 'Rejected'], ['reimbursed', 'Reimbursed']];
+
+  return (
+    <div className="p-4 lg:p-6 max-w-[720px]">
+      <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-[20px] font-semibold">My expenses</h1>
+          <p className="text-muted text-[13px] mt-0.5">Your submissions and where each one stands.</p>
+        </div>
+        <button onClick={() => setAdding(true)} className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90">Add expense</button>
+      </div>
+
+      <div className="flex gap-1 overflow-x-auto no-scrollbar mb-4">
+        {TABS.map(([k, l]) => (
+          <button key={k} onClick={() => setF(k)}
+            className={'h-8 px-3 rounded-full text-[12.5px] font-semibold whitespace-nowrap border ' + (f === k ? 'bg-navy text-white border-navy' : 'border-line text-muted hover:bg-wash')}>{l}</button>
         ))}
       </div>
 
-      {/* ------------------------------------------------- tabs + search */}
-      <div className="mb-4 flex items-center gap-2 flex-wrap">
-        <div className="flex gap-1 overflow-x-auto no-scrollbar">
-          {TABS.map((t) => {
-            const n = t.key === 'all' ? rows.length : rows.filter(t.match).length;
-            if (t.key !== 'all' && n === 0 && tab !== t.key) return null;
-            return (
-              <button key={t.key} onClick={() => setTab(t.key)}
-                className={'h-8 px-3 rounded-full text-[12.5px] font-semibold whitespace-nowrap border transition-colors '
-                  + (tab === t.key ? 'bg-navy text-white border-navy' : 'border-line text-muted hover:bg-wash')}>
-                {t.label} · {n}
-              </button>
-            );
-          })}
-        </div>
-        <label className="flex items-center gap-2 h-8 px-3 rounded-full border border-line bg-wash focus-within:bg-white ml-auto min-w-[180px]">
-          <Icon name="search" size={13} className="text-muted-2" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search folders…"
-            className="flex-1 bg-transparent outline-none text-[12.5px] w-[110px]" />
-        </label>
-      </div>
-
-      {/* --------------------------------------------- the shelf, by month */}
-      {shown.length === 0 ? (
-        <div className="rounded-md border border-line p-10 text-center text-muted text-[13px]">
-          {rows.length === 0
-            ? <>No expense folders yet. Make one for today and put the day&rsquo;s bills inside.</>
-            : <>Nothing here — switch the tab or clear the search.</>}
-        </div>
-      ) : groups.map((g) => (
-        <div key={g.month} className="mb-5">
-          <h2 className="text-[11.5px] font-bold uppercase tracking-wide text-muted-2 mb-2">{g.month}</h2>
-          <div className="flex flex-col gap-2">
-            {g.rows.map((r) => {
-              const chip = STATUS_CHIP[r.status] || STATUS_CHIP.open;
+      {!rows ? <div className="text-muted text-[13px]">Loading…</div>
+        : shown.length === 0 ? (
+          <div className="card p-10 text-center text-muted text-[13px]">
+            {rows.length === 0 ? 'No expenses yet. Add one with the red button.' : 'Nothing in this filter.'}
+          </div>
+        ) : (
+          <div className="card divide-y divide-line-soft">
+            {shown.map((e) => {
+              const c = chip(e.status);
               return (
-                <button key={r.id} onClick={() => router.push('/expenses/' + r.id)}
-                  className="w-full text-left rounded-md border border-line bg-white shadow-card px-4 py-3 flex items-center gap-3 hover:border-navy/50 transition-colors">
-                  <span className="w-10 h-10 rounded-full flex items-center justify-center text-white text-[12px] font-bold shrink-0"
-                    style={{ background: r.byColor }}>
-                    {initials(r.byName)}
-                  </span>
+                <div key={e.id} className="flex items-start gap-3 px-4 py-3">
+                  <span className="w-9 h-9 rounded-lg bg-red-wash text-accent flex items-center justify-center shrink-0 mt-0.5"><Icon name={catIcon(e.category)} size={16} /></span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-[13.5px] font-semibold truncate">{r.title}</span>
-                    <span className="block text-[11.5px] text-muted truncate">
-                      {data.canManage ? r.byName + ' · ' : ''}{r.count} expense{r.count === 1 ? '' : 's'} · {fmtDate(r.date)} · {r.id}
+                    <span className="block text-[13px] font-semibold">
+                      {e.category}
+                      {e.source === 'auto_trip' && <span className="ml-2 text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-wash text-muted border border-line align-middle">AUTO · TRIP</span>}
                     </span>
+                    <span className="block text-[11.5px] text-muted">{niceDate(e.date)}{e.merchant ? ' · ' + e.merchant : ''}{e.note ? ' · ' + e.note : ''}</span>
+                    {e.status === 'rejected' && e.rejectReason && (
+                      <span className="block text-[11.5px] text-accent mt-1">Reason: {e.rejectReason}</span>
+                    )}
                   </span>
                   <span className="text-right shrink-0">
-                    <span className="block text-[15px] font-bold">{money(r.total)}</span>
-                    <span className={'inline-block mt-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold ' + chip.cls}>
-                      {chip.label}
-                    </span>
+                    <span className="block text-[13.5px] font-bold">{money(e.amount)}</span>
+                    <span className={'inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold ' + c.cls}>{c.label}</span>
                   </span>
-                </button>
+                </div>
               );
             })}
           </div>
-        </div>
-      ))}
+        )}
 
-    </div>
-      {data.canManage && !data.kmRate && (
-        <p className="mt-2 text-[12px] text-muted">
-          Trip allowances need a rate: set <b>₹ per km</b> in Settings → Organisation.
-        </p>
-      )}
-    </>
-  );
-}
-
-/* ------------------------------------------------------------- the charts */
-
-const short = (n: number) =>
-  n >= 100000 ? '₹' + (n / 100000).toFixed(1).replace(/\.0$/, '') + 'L'
-  : n >= 1000 ? '₹' + Math.round(n / 1000) + 'k' : '₹' + Math.round(n);
-
-function SpendBars({ months }: { months: List['byMonth'] }) {
-  const max = Math.max(1, ...months.map((m) => m.total));
-  return (
-    <div className="flex items-end gap-2 h-[110px]">
-      {months.map((m) => (
-        <div key={m.label} className="flex-1 flex flex-col items-center justify-end h-full gap-1">
-          <span className="text-[9.5px] text-muted-2">{m.total > 0 ? short(m.total) : ''}</span>
-          <div className="w-full max-w-[36px] rounded-t bg-accent"
-            style={{ height: Math.max(m.total > 0 ? 6 : 2, (m.total / max) * 78) + 'px',
-              opacity: m.total > 0 ? 1 : 0.15 }} />
-          <span className="text-[10px] text-muted">{m.label}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function CategoryBars({ cats }: { cats: List['byCategory'] }) {
-  if (!cats.length) return <p className="py-6 text-center text-[12px] text-muted">Nothing yet.</p>;
-  const max = Math.max(1, ...cats.map((c) => c.total));
-  return (
-    <div className="flex flex-col gap-2">
-      {cats.map((c) => (
-        <div key={c.name} className="flex items-center gap-2.5">
-          <span className="w-7 h-7 rounded bg-red-wash text-accent flex items-center justify-center shrink-0">
-            <Icon name={catIcon(c.name)} size={14} />
-          </span>
-          <span className="flex-1 min-w-0">
-            <span className="flex justify-between text-[12px] mb-0.5">
-              <span className="truncate pr-2">{c.name}</span>
-              <span className="font-semibold shrink-0">{money(c.total)}</span>
-            </span>
-            <span className="block h-1.5 rounded bg-wash overflow-hidden">
-              <span className="block h-full rounded bg-navy" style={{ width: (c.total / max) * 100 + '%' }} />
-            </span>
-          </span>
-        </div>
-      ))}
+      {adding && <AddExpense onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} />}
     </div>
   );
 }

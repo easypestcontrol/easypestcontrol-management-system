@@ -83,7 +83,7 @@ export default function TrainingPage() {
       {!rows ? (
         <p className="text-muted text-[13px]">Loading…</p>
       ) : rows.length === 0 ? (
-        <div className="rounded-md border border-line p-10 text-center">
+        <div className="card p-10 text-center">
           <p className="text-[14px] font-medium">Nothing here yet</p>
           <p className="text-muted text-[12.5px] mt-1">
             Lessons published for your role will appear on this page.
@@ -93,7 +93,7 @@ export default function TrainingPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {rows.map((l) => (
             <button key={l.id} onClick={() => setOpen(l)}
-              className="text-left rounded-md border border-line p-4 hover:border-navy transition-colors">
+              className="text-left card p-4 hover:border-navy transition-colors">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="zpill outline">{ROLE_LABEL[l.role] || l.role}</span>
                 {l.hasVideo && <span className="zpill navy">video</span>}
@@ -143,10 +143,10 @@ function Viewer({ lesson, onClose, onDeleted }: {
         </div>
         <div className="p-5">
           {videoSrc && (
-            <video controls className="w-full rounded-md border border-line mb-4 bg-black" src={videoSrc} />
+            <video controls className="w-full card mb-4 bg-black" src={videoSrc} />
           )}
           {embed && (
-            <iframe src={embed} className="w-full aspect-video rounded-md border border-line mb-4" allowFullScreen />
+            <iframe src={embed} className="w-full aspect-video card mb-4" allowFullScreen />
           )}
           {lesson.link && !embed && (
             <a href={lesson.link} target="_blank" rel="noreferrer"

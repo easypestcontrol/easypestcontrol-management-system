@@ -212,14 +212,14 @@ function ReceiveDialog({ po, branchName, onClose, onDone }: {
           const left = l.qty - l.receivedQty;
           if (left === 0) {
             return (
-              <div key={l.id} className="rounded-md border border-line-soft bg-wash px-3 py-2.5">
+              <div key={l.id} className="card-soft bg-wash px-3 py-2.5">
                 <p className="text-[13px] font-semibold text-muted">{l.name}</p>
                 <p className="text-[12px] text-muted-2">All {l.qty} {l.packUnit} already received</p>
               </div>
             );
           }
           return (
-            <div key={l.id} className="rounded-md border border-line px-3 py-2.5">
+            <div key={l.id} className="card px-3 py-2.5">
               <p className="text-[13.5px] font-semibold">{l.name}</p>
               <p className="text-[12px] text-muted mb-2">
                 {left} {l.packUnit} outstanding · {l.packSize.toLocaleString('en-IN')} {l.baseUnit} each

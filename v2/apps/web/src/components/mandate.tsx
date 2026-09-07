@@ -102,7 +102,7 @@ export default function Mandate({ contractId, role, variant = 'desk' }: {
   return (
     <div className={phone
       ? 'bg-white rounded-2xl p-4'
-      : 'rounded-md border border-line-soft p-3.5 mt-4'}>
+      : 'card-soft p-3.5 mt-4'}>
       <div className="flex items-center gap-2">
         <Icon name={s.active ? 'check' : 'receipt'} size={16}
           className={s.active ? 'text-green-ink' : 'text-muted'} />

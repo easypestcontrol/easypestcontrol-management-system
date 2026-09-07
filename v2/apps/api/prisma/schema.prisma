@@ -526,44 +526,56 @@ model Payment {
 /// Expenses are recorded INSIDE a folder and the folder travels as one unit:
 /// open → submitted → approved | rejected → paid. Approval and payment are
 /// the admin's alone; the money goes out through RazorpayX or by hand.
+/// A branch's expenses for ONE day: one date + one branch = one report. It is
+/// a container many employees drop expenses into, opened by an admin or a
+/// branch manager (never an employee). The lifecycle lives on each Expense,
+/// not here; the report only opens or closes (archive).
 model ExpenseReport {
-  id         String    @id // EXR-1
-  title      String    @default("")
-  date       String
-  by         String // user id of whoever is claiming
-  branch     String    @default("")
-  status     String    @default("open") // open | submitted | approved | rejected | paid
-  note       String    @default("")
-  adminNote  String    @default("") // the reason on a rejection
-  approvedBy String    @default("")
-  submittedAt String   @default("")
-  decidedAt  String    @default("")
-  paidAt     String    @default("")
-  payMode    String    @default("") // razorpayx | manual
-  payoutId   String    @default("") // RazorpayX payout id, for the audit trail
-  // The report's own diary — [{at, text}], appended at every step, shown as
-  // the history trail the way Zoho shows Report History.
-  history    Json      @default("[]")
-  createdAt  DateTime  @default(now())
-  expenses   Expense[]
+  id          String    @id // EXR-1
+  title       String    @default("")
+  description String    @default("")
+  date        String    // YYYY-MM-DD
+  branch      String    @default("")
+  status      String    @default("open") // open | closed
+  createdBy   String    @default("") // the admin/manager who opened it
+  // The report's own diary — [{at, text}], the audit trail.
+  history     Json      @default("[]")
+  createdAt   DateTime  @default(now())
+  expenses    Expense[]
+  // The rule, enforced by the database: never two reports for the same day+branch.
+  @@unique([date, branch])
 }
 
 /// One line inside a folder. kind 'trip' is the distance allowance: the
 /// amount is km × the company's ₹/km rate, locked at entry time so a later
 /// rate change never rewrites old claims.
+/// One expense, self-contained: it carries its own employee, branch, status
+/// and source, so nothing is inferred from the report. A trip-generated
+/// expense keeps a reference back to the Trip it came from.
 model Expense {
-  id       String        @id // EXP-1
-  reportId String
-  report   ExpenseReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  kind     String        @default("expense") // expense | trip
-  date     String
-  category String        @default("")
-  merchant String        @default("")
-  note     String        @default("")
-  amount   Int
-  km       Float         @default(0)
-  rate     Float         @default(0)
-  images   Json          @default("[]") // receipt photos, data URLs
+  id           String        @id // EXP-1
+  reportId     String
+  report       ExpenseReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  userId       String        @default("") // the employee who owns it (server-set)
+  branch       String        @default("")
+  date         String
+  category     String        @default("")
+  merchant     String        @default("") // shop / vendor
+  note         String        @default("") // description
+  amount       Int
+  km           Float         @default(0)
+  rate         Float         @default(0)
+  source       String        @default("manual") // manual | auto_trip
+  tripId       String        @default("") // the Trip a source=auto_trip expense came from
+  status       String        @default("pending") // pending|approved|rejected|processing|reimbursed|payment_failed
+  rejectReason String        @default("")
+  approvedBy   String        @default("")
+  paidAt       String        @default("")
+  payMode      String        @default("") // razorpayx | manual
+  payoutId     String        @default("")
+  images       Json          @default("[]") // receipt photos, data URLs
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 // ---------------------------------------------------------------- resources

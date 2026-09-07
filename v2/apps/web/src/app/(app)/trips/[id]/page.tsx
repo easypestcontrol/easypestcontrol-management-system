@@ -107,13 +107,13 @@ export default function TripReview() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4 items-start">
         {/* map */}
-        <div className="rounded-md border border-line bg-white shadow-card overflow-hidden">
+        <div className="card overflow-hidden">
           <TripMap pts={pts} planned={t.plannedM} driven={t.distanceM} start={t.startPlace} end={t.endPlace || t.dest} />
         </div>
 
         {/* facts + actions */}
         <div>
-          <div className="rounded-md border border-line bg-white shadow-card px-4 py-1">
+          <div className="card px-4 py-1">
             {[
               ['Started', (t.startPlace || '—') + ' · ' + clock(t.startAt)],
               ['Ended', (t.endPlace || t.dest || '—') + ' · ' + clock(t.endAt)],

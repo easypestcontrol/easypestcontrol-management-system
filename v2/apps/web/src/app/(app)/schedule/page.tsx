@@ -115,7 +115,7 @@ export default function Schedule() {
       {view === 'month' ? (
         <div className="p-6">
           {/* ------------------------------------------------ month card */}
-          <div className="rounded-md border border-line mb-4">
+          <div className="card mb-4">
             <div className="flex items-center gap-2 px-4 py-2.5 border-b border-line-soft">
               <button onClick={() => nav(-1)} aria-label="Previous month"
                 className="w-7 h-7 rounded flex items-center justify-center text-muted hover:bg-wash">
@@ -150,7 +150,7 @@ export default function Schedule() {
           </div>
 
           {/* ------------------------------------------- selected day list */}
-          <section className="rounded-md border border-line">
+          <section className="card">
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-line-soft bg-wash rounded-t-md">
               <h3 className="text-[12px] font-semibold uppercase tracking-wide text-muted">
                 {fmtLong(selDate)}
@@ -328,7 +328,7 @@ function DayView({ day, selDate, onNav, onPickDay, onOpen }: {
       ) : (
         <div className="flex gap-3 mt-4 overflow-x-auto items-start pb-2">
           {day.techs.map((t) => (
-            <div key={t.id} className="w-[250px] shrink-0 rounded-md border border-line flex flex-col">
+            <div key={t.id} className="w-[250px] shrink-0 card flex flex-col">
               <div className="flex items-center gap-2 px-3 py-2 border-b border-line-soft">
                 <Avatar name={t.name} color={t.color} size={22} />
                 <span className="min-w-0 flex-1 text-[12.5px] font-semibold truncate">{t.name}</span>

@@ -325,7 +325,7 @@ export default function Leads() {
       {!rows ? (
         <div className="p-4 flex gap-3">
           {Array.from({ length: 7 }).map((_, i) => (
-            <div key={i} className="flex-1 h-[260px] rounded-md border border-line-soft bg-wash animate-pulse" />
+            <div key={i} className="flex-1 h-[260px] card-soft bg-wash animate-pulse" />
           ))}
         </div>
       ) : rows.length === 0 ? (

@@ -154,7 +154,7 @@ export default function EditContract() {
       </div>
       {err && <p className="mb-4 text-[13px] font-medium text-accent">{err}</p>}
 
-      <section className="rounded-md border border-line p-5 mb-5">
+      <section className="card p-5 mb-5">
         <h2 className="text-[13.5px] font-semibold mb-4">The agreement</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <label className="block col-span-2">
@@ -201,7 +201,7 @@ export default function EditContract() {
         </div>
       </section>
 
-      <section className="rounded-md border border-line p-5 mb-5">
+      <section className="card p-5 mb-5">
         <h2 className="text-[13.5px] font-semibold mb-4">Addresses & tax</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <label className="block">
@@ -234,7 +234,7 @@ export default function EditContract() {
         </div>
       </section>
 
-      <section className="rounded-md border border-line p-5 mb-5">
+      <section className="card p-5 mb-5">
         <h2 className="text-[13.5px] font-semibold mb-3">Customer signature</h2>
         {signCustomer ? (
           <>
@@ -266,7 +266,7 @@ export default function EditContract() {
         )}
       </section>
 
-      <section className="rounded-md border border-line p-5 mb-5">
+      <section className="card p-5 mb-5">
         <h2 className="text-[13.5px] font-semibold mb-1">How is this billed?</h2>
         <p className="text-muted text-[12.5px] mb-4">
           Changing the mode reshapes the plan for what has NOT been invoiced yet — issued invoices stay as they are.
@@ -301,7 +301,7 @@ export default function EditContract() {
         </div>
       </section>
 
-      <section className="rounded-md border border-line p-5 mb-5">
+      <section className="card p-5 mb-5">
         <h2 className="text-[13.5px] font-semibold mb-4">Notes & terms</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <label className="block">
@@ -316,7 +316,7 @@ export default function EditContract() {
         </div>
       </section>
 
-      <section className="rounded-md border border-line mb-5 overflow-hidden">
+      <section className="card mb-5 overflow-hidden">
         <div className="px-5 py-4 border-b border-line-soft">
           <h2 className="text-[13.5px] font-semibold">Service schedule</h2>
           <p className="text-muted text-[12.5px] mt-0.5">

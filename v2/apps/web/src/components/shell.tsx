@@ -398,7 +398,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             </label>
 
             {searchOpen && hits && (
-              <div className="absolute top-9 left-0 right-0 rounded-md border border-line bg-white shadow-pop max-h-[420px] overflow-y-auto">
+              <div className="absolute top-9 left-0 right-0 card shadow-pop max-h-[420px] overflow-y-auto">
                 {hitGroups.length === 0 ? (
                   <p className="p-4 text-muted text-[13px]">Nothing matches “{q}”.</p>
                 ) : hitGroups.map(([group, rows]) => (
@@ -435,7 +435,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               <Icon name="chevDown" size={13} className="opacity-80" />
             </button>
             {menuOpen && (
-              <div className="absolute top-9 right-0 w-[190px] rounded-md border border-line bg-white shadow-pop py-1">
+              <div className="absolute top-9 right-0 w-[190px] card shadow-pop py-1">
                 {QUICK.filter((n) => !n.roles || !me || n.roles.includes(me.role)).map((n) => (
                   <button key={n.href}
                     onClick={() => { setMenuOpen(false); router.push(n.href); }}
@@ -459,7 +459,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               )}
             </button>
             {bellOpen && (
-              <div className="absolute top-9 right-0 w-[320px] rounded-md border border-line bg-white shadow-pop max-h-[400px] overflow-y-auto">
+              <div className="absolute top-9 right-0 w-[320px] card shadow-pop max-h-[400px] overflow-y-auto">
                 <p className="px-3.5 pt-3 pb-2 text-[12px] font-semibold border-b border-line-soft">
                   Notifications
                 </p>
@@ -481,7 +481,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           </Link>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-white max-lg:pb-20">{children}</main>
+        {/* The content sits on the grey ground; every card on it is white. That
+            single swap is what stops the desktop reading as a document with
+            hairlines drawn on it. */}
+        <main className="flex-1 overflow-y-auto bg-ground max-lg:pb-20">{children}</main>
 
         {/* ---------------------------------------------- bottom navigation
             The phone's way around the app — replaces the sidebar entirely. */}

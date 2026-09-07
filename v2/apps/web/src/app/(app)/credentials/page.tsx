@@ -452,7 +452,7 @@ export default function Credentials() {
             const wantsSecret = !!p.secretLabel;
             const wantsAccount = !!p.accountLabel;
             return (
-              <div className="mt-4 rounded-md border border-line overflow-hidden">
+              <div className="mt-4 card overflow-hidden">
                 <div className="px-3.5 py-2.5 border-b border-line-soft bg-wash">
                   <span className="text-[12.5px] font-semibold">Where the figures come from</span>
                 </div>

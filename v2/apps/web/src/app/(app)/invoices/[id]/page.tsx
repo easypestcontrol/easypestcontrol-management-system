@@ -128,7 +128,7 @@ export default function InvoicePage() {
       </div>
 
       {notice && (
-        <div className="no-print mb-4 rounded-md border border-line bg-wash px-4 py-2.5 text-[12.5px] text-ink-2">
+        <div className="no-print mb-4 card bg-wash px-4 py-2.5 text-[12.5px] text-ink-2">
           {notice}
         </div>
       )}
@@ -164,7 +164,7 @@ export default function InvoicePage() {
         </div>
       )}
       {inv.status === 'paid' && (
-        <div className="no-print mb-4 rounded-md border border-line bg-wash p-4">
+        <div className="no-print mb-4 card bg-wash p-4">
           <p className="text-[13.5px] font-semibold">Fully paid</p>
           <p className="text-[13px] text-muted mt-0.5">
             Settled on {fmtDate(lastPay?.date)} via {lastPay?.mode || '—'}.
@@ -180,7 +180,7 @@ export default function InvoicePage() {
 
       {/* ----------------------------------------------- payment history */}
       {inv.payments.length > 0 && (
-        <div className="no-print mb-5 rounded-md border border-line">
+        <div className="no-print mb-5 card">
           <div className="flex items-center justify-between px-4 h-11 border-b border-line-soft">
             <h2 className="text-[13.5px] font-semibold">Payment history</h2>
             <span className="zpill navy">{money(t.paid)} received</span>

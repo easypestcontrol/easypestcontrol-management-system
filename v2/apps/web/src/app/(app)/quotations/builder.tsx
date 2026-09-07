@@ -642,7 +642,7 @@ export default function Builder({ edit, presetClient, presetLead }: {
                 Ticking more than one is deliberate: a contract that covers
                 three blocks of the same property should print all three.   */}
             {sitePicks.length > 0 && (
-              <div className="rounded-md border border-line divide-y divide-line-soft mb-2">
+              <div className="card divide-y divide-line-soft mb-2">
                 {sitePicks.map((sp) => {
                   const on = shipAddr.split('\n\n').includes(sp.text);
                   return (

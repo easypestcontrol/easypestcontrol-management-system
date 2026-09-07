@@ -119,7 +119,7 @@ function BankCard({ userId, bank, onSaved }: {
   const field = 'h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy';
 
   return (
-    <section className="rounded-md border border-line mt-5">
+    <section className="card mt-5">
       <h2 className="text-[13.5px] font-semibold px-5 py-3 border-b border-line-soft
         flex items-center justify-between gap-3 flex-wrap">
         <span>Bank account — for expense and trip reimbursements</span>
@@ -468,7 +468,7 @@ export default function TeamMember() {
           </div>
         )}
 
-        <div className="rounded-md border border-line p-5">
+        <div className="card p-5">
           {/* ------------------------------------------------- photo + sign */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="flex items-center gap-4">
@@ -835,7 +835,7 @@ export default function TeamMember() {
               { label: 'Customer rating', value: p.rating.toFixed(1) + '★', foot: p.ratedN + ' rated visits' },
               { label: 'Hours on site', value: (p.hours ?? 0) + 'h', foot: 'Logged through the app' },
             ].map((s) => (
-              <div key={s.label} className="rounded-md border border-line p-4">
+              <div key={s.label} className="card p-4">
                 <p className="text-muted text-[11.5px] font-semibold uppercase tracking-wide">{s.label}</p>
                 <p className="text-[22px] font-semibold mt-1">{s.value}</p>
                 <p className="text-muted-2 text-[11.5px] mt-0.5">{s.foot}</p>
@@ -846,7 +846,7 @@ export default function TeamMember() {
 
         <div className="grid grid-cols-[1fr_360px] gap-5 items-start">
           {/* -------------------------------------------------------- record */}
-          <section className="rounded-md border border-line">
+          <section className="card">
             <h2 className="text-[13.5px] font-semibold px-5 py-3 border-b border-line-soft">
               Employee record
             </h2>
@@ -862,7 +862,7 @@ export default function TeamMember() {
 
           <div className="flex flex-col gap-5">
             {/* --------------------------------------------------- emergency */}
-            <section className="rounded-md border border-line">
+            <section className="card">
               <h2 className="text-[13.5px] font-semibold px-5 py-3 border-b border-line-soft flex items-center justify-between">
                 Emergency contacts <span className="zpill">{kin.length}</span>
               </h2>
@@ -884,7 +884,7 @@ export default function TeamMember() {
             </section>
 
             {/* --------------------------------------------------- signature */}
-            <section className="rounded-md border border-line">
+            <section className="card">
               <h2 className="text-[13.5px] font-semibold px-5 py-3 border-b border-line-soft">
                 Signature on file
               </h2>
@@ -912,7 +912,7 @@ export default function TeamMember() {
 
         {/* --------------------------------------------------- tech schedule */}
         {isTech && (
-          <section className="rounded-md border border-line mt-5">
+          <section className="card mt-5">
             <h2 className="text-[13.5px] font-semibold px-5 py-3 border-b border-line-soft flex items-center justify-between">
               Today’s schedule
               {p && <span className="zpill navy">{p.todayDone}/{p.today}</span>}
@@ -942,7 +942,7 @@ export default function TeamMember() {
         )}
 
         {isTech && (
-          <section className="rounded-md border border-line mt-5">
+          <section className="card mt-5">
             <h2 className="text-[13.5px] font-semibold px-5 py-3 border-b border-line-soft">
               Recent completed work
             </h2>
@@ -997,7 +997,7 @@ function HoldingCard({ userId }: { userId: string }) {
   const short = rows.filter((r) => r.short).length;
 
   return (
-    <section className="rounded-md border border-line mt-5">
+    <section className="card mt-5">
       <h2 className="text-[13.5px] font-semibold px-5 py-3 border-b border-line-soft
         flex items-center justify-between">
         Chemicals in hand

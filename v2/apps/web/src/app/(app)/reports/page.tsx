@@ -64,7 +64,7 @@ function Card({ title, sub, foot, flush, children }: {
   title: string; sub?: string; foot?: string; flush?: boolean; children: ReactNode;
 }) {
   return (
-    <section className="rounded-md border border-line bg-white shadow-card flex flex-col">
+    <section className="card flex flex-col">
       <div className="px-5 pt-4 pb-3">
         <h2 className="text-[14px] font-semibold">{title}</h2>
         {sub && <p className="text-muted text-[12.5px] mt-0.5">{sub}</p>}
@@ -81,7 +81,7 @@ function Stat({ label, value, foot, alert }: {
   label: string; value: string; foot: string; alert?: boolean;
 }) {
   return (
-    <div className="rounded-md border border-line bg-white shadow-card px-5 py-4">
+    <div className="card px-5 py-4">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</p>
       <p className={'text-[22px] font-semibold mt-0.5 ' + (alert ? 'text-accent' : '')}>{value}</p>
       <p className="text-[12px] text-muted mt-1">{foot}</p>

@@ -196,7 +196,7 @@ export default function CustomerDetail() {
         {/* --------------------------------------------------- left rail */}
         <div>
           {profile && (
-            <section className="rounded-md border border-line p-4 mb-4">
+            <section className="card p-4 mb-4">
               <div className="flex items-baseline justify-between mb-2">
                 <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted">Profile</h2>
                 <span className={'text-[13.5px] font-bold ' + (profile.pct === 100 ? 'text-navy' : 'text-accent')}>
@@ -227,7 +227,7 @@ export default function CustomerDetail() {
             </section>
           )}
 
-          <section className="rounded-md border border-line p-4">
+          <section className="card p-4">
             <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-3">Contact</h2>
             {[
               ['Contact', c.contact], ['Phone', c.phone], ['Work phone', c.workPhone],
@@ -273,7 +273,7 @@ export default function CustomerDetail() {
           </section>
 
           {(c.docs?.length || c.remarks) ? (
-            <section className="rounded-md border border-line p-4 mt-4">
+            <section className="card p-4 mt-4">
               <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-3">
                 Documents{c.docs?.length ? ' (' + c.docs.length + ')' : ''}
               </h2>
@@ -293,7 +293,7 @@ export default function CustomerDetail() {
           ) : null}
 
           {moneyPos && (
-            <section className="rounded-md border border-line p-4 mt-4">
+            <section className="card p-4 mt-4">
               <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-3">Position</h2>
               {[
                 ['Services', `${done} done of ${c.jobs.length}`],
@@ -317,7 +317,7 @@ export default function CustomerDetail() {
 
         {/* ------------------------------------------------------ main */}
         <div className="min-w-0">
-          <section className="rounded-md border border-line mb-5">
+          <section className="card mb-5">
             <h2 className="px-4 pt-3.5 pb-2 text-[13.5px] font-semibold">
               Contracts <span className="text-muted-2 font-normal">{c.contracts.length}</span>
             </h2>
@@ -341,7 +341,7 @@ export default function CustomerDetail() {
             )}
           </section>
 
-          <section className="rounded-md border border-line mb-5">
+          <section className="card mb-5">
             <h2 className="px-4 pt-3.5 pb-2 text-[13.5px] font-semibold">
               Recent services <span className="text-muted-2 font-normal">{c.jobs.length}</span>
             </h2>
@@ -369,7 +369,7 @@ export default function CustomerDetail() {
             )}
           </section>
 
-          <section className="rounded-md border border-line">
+          <section className="card">
             <h2 className="px-4 pt-3.5 pb-2 text-[13.5px] font-semibold">
               Invoices <span className="text-muted-2 font-normal">{c.invoices.length}</span>
             </h2>

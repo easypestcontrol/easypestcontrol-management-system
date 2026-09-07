@@ -481,7 +481,7 @@ export function PayDialog({ inv, onClose, onDone }: {
 
       {/* ------------------------------------------------------- the UPI QR */}
       {mode === 'UPI' && inv.balance > 0 && (
-        <div className="mt-4 rounded-md border border-line overflow-hidden">
+        <div className="mt-4 card overflow-hidden">
           {qr ? (
             <div className="p-4 text-center">
               {/*
@@ -533,7 +533,7 @@ export function PayDialog({ inv, onClose, onDone }: {
 
       {/* ---------------------------------------------------- pay by link */}
       {inv.balance > 0 && (
-        <div className="mt-3 rounded-md border border-line overflow-hidden">
+        <div className="mt-3 card overflow-hidden">
           {link ? (
             <div className="p-3.5">
               <p className="text-[12.5px] font-semibold">

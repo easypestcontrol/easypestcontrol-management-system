@@ -407,7 +407,7 @@ export default function CustomerForm({ initial, onDone, onClose }: {
       )}
 
       {f.sites.map((a, i) => (
-        <div key={i} className="rounded-md border border-line p-3.5 mb-3">
+        <div key={i} className="card p-3.5 mb-3">
           <div className="flex items-center justify-between gap-3 mb-3">
             <input value={a.label || ''} onChange={(e) => setSite(i, 'label', e.target.value)}
               placeholder={'Name this site — e.g. Head office, Block B'}

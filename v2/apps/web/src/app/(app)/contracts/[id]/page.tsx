@@ -259,7 +259,7 @@ export default function ContractPage() {
       {/* --------------------------------------------------------- stats */}
       <div className="grid grid-cols-4 gap-3 mb-5">
         {stats.map((s) => (
-          <div key={s.label} className="rounded-md border border-line px-4 py-3">
+          <div key={s.label} className="card px-4 py-3">
             <p className="text-[11px] font-semibold text-muted uppercase tracking-wide">{s.label}</p>
             <p className={'text-[20px] font-semibold mt-0.5 ' + (s.red ? 'text-accent' : 'text-navy')}>
               {s.value}
@@ -288,7 +288,7 @@ export default function ContractPage() {
       )}
 
       {/* ---------------------------------------------------- service plan */}
-      <section className="rounded-md border border-line mb-5">
+      <section className="card mb-5">
         <h2 className="text-[13px] font-semibold px-4 py-3 border-b border-line-soft">Service plan</h2>
         {c.plan.length ? (
           <>
@@ -367,7 +367,7 @@ export default function ContractPage() {
 
       {/* -------------------------------------- schedule + side column */}
       <div className="grid grid-cols-[1fr_340px] gap-5 items-start">
-        <section className="rounded-md border border-line">
+        <section className="card">
           <div className="flex items-center justify-between px-4 py-3 border-b border-line-soft">
             <h2 className="text-[13px] font-semibold">Service schedule</h2>
             <span className="zpill navy">{c.progress.done}/{c.progress.total}</span>
@@ -437,7 +437,7 @@ export default function ContractPage() {
         </section>
 
         <div className="flex flex-col gap-4">
-          <section className="rounded-md border border-line p-4">
+          <section className="card p-4">
             <h2 className="text-[13px] font-semibold mb-3">Contract details</h2>
             <dl className="text-[12.5px]">
               {([
@@ -472,7 +472,7 @@ export default function ContractPage() {
             </dl>
           </section>
 
-          <section className="rounded-md border border-line p-4">
+          <section className="card p-4">
             <h2 className="text-[13px] font-semibold mb-2">Scope of work</h2>
             <p className="text-[12.5px] leading-relaxed text-ink-2">{c.scope}</p>
             {c.notes && (
@@ -488,7 +488,7 @@ export default function ContractPage() {
       </div>
 
       <div className="mt-5">
-<section className="rounded-md border border-line p-4">
+<section className="card p-4">
             <h2 className="text-[13px] font-semibold mb-2">Billing history</h2>
             {c.arrears > 0 && (
               <div className="mb-3 rounded border border-red-line bg-red-wash px-3.5 py-2.5 text-[12.5px]">
@@ -505,7 +505,7 @@ export default function ContractPage() {
                     : c.billingMode === 'pervisit' ? 'pay per service (collected on site)'
                     : c.billing + ' installments'}
                 </p>
-                <div className="rounded-md border border-line-soft divide-y divide-line-soft overflow-hidden">
+                <div className="card-soft divide-y divide-line-soft overflow-hidden">
                   {c.billingRows.map((r) => {
                     const open = () => r.invoice && router.push('/invoices/' + r.invoice.id);
                     const pill = !r.invoice ? <span className="zpill outline">not due yet</span>

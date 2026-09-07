@@ -461,7 +461,7 @@ function NewContractForm() {
      narrower than the quantity beside it. */
   const field = 'h-11 lg:h-9 px-3 rounded border border-line text-[16px] lg:text-[13.5px] outline-none focus:border-navy bg-white';
   const input = 'w-full ' + field;
-  const card = 'rounded-md border border-line';
+  const card = 'card';
 
   return (
     <div className="p-4 lg:p-6 max-w-[1180px] max-lg:pb-[calc(env(safe-area-inset-bottom)+92px)]">

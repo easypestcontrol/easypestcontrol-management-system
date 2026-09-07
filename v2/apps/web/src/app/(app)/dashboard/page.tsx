@@ -96,7 +96,7 @@ export default function Dashboard() {
       <div className="mb-5 flex flex-wrap gap-2">
         {actions.map((a) => (
           <Link key={a.href} href={a.href}
-            className="flex items-center gap-2 h-9 px-3.5 rounded-md border border-line bg-white text-[12.5px] font-semibold shadow-card hover:border-navy/50 hover:bg-wash transition-colors">
+            className="flex items-center gap-2 h-9 px-3.5 card text-[12.5px] font-semibold shadow-card hover:border-navy/50 hover:bg-wash transition-colors">
             <Icon name={a.icon} size={15} className="text-accent" /> {a.label}
           </Link>
         ))}
@@ -105,7 +105,7 @@ export default function Dashboard() {
       {!s ? (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-[104px] rounded-md border border-line-soft bg-wash animate-pulse" />
+            <div key={i} className="h-[104px] card-soft bg-wash animate-pulse" />
           ))}
         </div>
       ) : (
@@ -114,7 +114,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             {cards.map((c) => (
               <Link key={c.label} href={c.href}
-                className="rounded-md border border-line bg-white p-4 shadow-card hover:border-navy/40 transition-colors">
+                className="card p-4 shadow-card hover:border-navy/40 transition-colors">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{c.label}</p>
                 <p className={'mt-1.5 text-[26px] font-semibold leading-none ' + (c.alert ? 'text-accent' : 'text-ink')}>
                   {c.value}
@@ -219,7 +219,7 @@ function Panel({ title, sub, className, children }: {
   title: string; sub: string; className?: string; children: React.ReactNode;
 }) {
   return (
-    <section className={'rounded-md border border-line bg-white p-4 shadow-card ' + (className || '')}>
+    <section className={'card p-4 shadow-card ' + (className || '')}>
       <div className="mb-3 flex items-baseline gap-2">
         <h2 className="text-[13.5px] font-semibold">{title}</h2>
         <span className="text-[11.5px] text-muted-2">{sub}</span>

@@ -161,7 +161,7 @@ function Card({ title, children, foot }: {
   title: string; children: React.ReactNode; foot?: React.ReactNode;
 }) {
   return (
-    <section className="rounded-md border border-line">
+    <section className="card">
       <h3 className="px-4 py-2.5 text-[12px] font-semibold uppercase tracking-wide text-muted border-b border-line-soft bg-wash rounded-t-md">
         {title}
       </h3>
@@ -173,7 +173,7 @@ function Card({ title, children, foot }: {
 
 function StatTile({ label, value, foot }: { label: string; value: React.ReactNode; foot?: string }) {
   return (
-    <div className="rounded-md border border-line p-3.5">
+    <div className="card p-3.5">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</p>
       <p className="text-[19px] font-semibold text-navy mt-1 leading-tight">{value}</p>
       {foot && <p className="text-[11.5px] text-muted mt-0.5">{foot}</p>}
@@ -475,7 +475,7 @@ function ManagerDetail({ j, me, reload }: {
           shows is still only that the service was billed, not what happened to
           the money — that question belongs on the invoice, not here. */}
       {j.invoice && j.invoice.id !== moneyInfo?.invoice?.id && (
-        <div className="mb-4 rounded-md border border-line bg-wash px-4 py-3 text-[13px]">
+        <div className="mb-4 card bg-wash px-4 py-3 text-[13px]">
           <span className="font-semibold">Invoiced.</span>{' '}
           <span className="text-ink-2">
             This service was billed on{' '}
@@ -519,7 +519,7 @@ function ManagerDetail({ j, me, reload }: {
       )}
 
       {j.status === 'inprogress' && x && (
-        <div className="mb-4 rounded-md border border-line bg-wash px-4 py-3 text-[13px]">
+        <div className="mb-4 card bg-wash px-4 py-3 text-[13px]">
           <span className="font-semibold">{j.techs[0]?.name || 'The technician'} is on site right now.</span>{' '}
           <span className="text-muted">
             Checked in at {fmtTime(x.checkinAt)} · work started {fmtTime(x.startedAt)}
@@ -588,7 +588,7 @@ function ManagerDetail({ j, me, reload }: {
               ['Warranty', j.services.map((s) => s.warranty).filter(Boolean).join(', ') || '—'],
             ]} />
             {j.notes && (
-              <div className="mt-3.5 rounded-md border border-line bg-wash px-3.5 py-2.5 text-[12.5px]">
+              <div className="mt-3.5 card bg-wash px-3.5 py-2.5 text-[12.5px]">
                 <span className="font-semibold">Instructions for the technician.</span>{' '}
                 <span className="text-ink-2">{j.notes}</span>
               </div>
@@ -784,7 +784,7 @@ function ServiceScopeCard({ j, manager }: { j: JobDetail; manager: boolean }) {
   const ct = j.contract as unknown as { id?: string; quoteId?: string; scope?: string } | null;
   if (!info.length) return null;
   return (
-    <div className="rounded-md border border-line mb-4 overflow-hidden">
+    <div className="card mb-4 overflow-hidden">
       <div className="px-4 py-2.5 border-b border-line-soft flex items-center justify-between flex-wrap gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
           What this visit delivers
@@ -1078,7 +1078,7 @@ function TechDetail({ j, me, reload }: {
     return (
       <div className="p-5 max-w-[640px] mx-auto pb-16">
         <BackLink label="Today's work" />
-        <div className="mt-3 mb-4 rounded-md border border-line bg-wash px-4 py-3 text-[13px]">
+        <div className="mt-3 mb-4 card bg-wash px-4 py-3 text-[13px]">
           <span className="font-semibold">Service completed.</span>{' '}
           <span className="text-muted">
             Finished at {fmtTime(x.finishedAt)} · {durationText(x.durationMins)} on site.
@@ -1167,7 +1167,7 @@ function TechDetail({ j, me, reload }: {
       )}
 
       {!isHead && (
-        <div className="mt-4 rounded-md border border-line bg-wash p-4">
+        <div className="mt-4 card bg-wash p-4">
           <p className="text-[13.5px] font-semibold">
             {j.techs.find((t) => t.id === j.headTechId)?.name || 'The head'} is leading this service
           </p>
@@ -1720,7 +1720,7 @@ function NavigateButton({ j }: { j: JobDetail }) {
 function HeaderCard({ j }: { j: JobDetail }) {
   const cl = j.client;
   return (
-    <div className="rounded-md border border-line p-4">
+    <div className="card p-4">
       <div className="flex items-start justify-between gap-3 mb-2.5">
         <span className="flex items-center gap-1.5 flex-wrap">
           <TypePill type={j.type} />

@@ -142,7 +142,7 @@ export default function Contracts() {
           { label: 'Services scheduled', value: String(visitsScheduled),
             foot: 'Generated from the service plans' },
         ].map((s) => (
-          <div key={s.label} className="rounded-md border border-line px-4 py-3">
+          <div key={s.label} className="card px-4 py-3">
             <p className="text-[11px] font-semibold text-muted uppercase tracking-wide">{s.label}</p>
             <p className={'text-[20px] font-semibold mt-0.5 ' + (s.red ? 'text-accent' : 'text-navy')}>
               {s.value}
@@ -291,7 +291,7 @@ export default function Contracts() {
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button onClick={() => router.push('/contracts/new?mode=amc')}
-                className="text-left rounded-md border border-line p-4 hover:border-navy/40 hover:bg-wash">
+                className="text-left card p-4 hover:border-navy/40 hover:bg-wash">
                 <Icon name="contract" size={22} className="text-navy mb-3" />
                 <span className="block font-semibold text-[14px]">AMC contract</span>
                 <span className="block text-muted text-[12.5px] mt-1.5 leading-relaxed">
@@ -300,7 +300,7 @@ export default function Contracts() {
                 </span>
               </button>
               <button onClick={() => router.push('/contracts/new?mode=onetime')}
-                className="text-left rounded-md border border-line p-4 hover:border-navy/40 hover:bg-wash">
+                className="text-left card p-4 hover:border-navy/40 hover:bg-wash">
                 <Icon name="calendar" size={22} className="text-navy mb-3" />
                 <span className="block font-semibold text-[14px]">One-time service</span>
                 <span className="block text-muted text-[12.5px] mt-1.5 leading-relaxed">

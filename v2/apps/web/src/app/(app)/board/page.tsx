@@ -1193,7 +1193,7 @@ function BarPopover({ job, anchor, names, onClose, onNudge, onUnassign, onSugges
 
   return (
     <div ref={ref}
-      className="fixed z-[95] w-[268px] rounded-md border border-line bg-white p-3 shadow-pop"
+      className="fixed z-[95] w-[268px] card p-3 shadow-pop"
       style={pos ? { left: pos.left, top: pos.top } : { left: -9999, top: -9999, visibility: 'hidden' }}>
       <div className="flex items-center justify-between gap-2">
         <span className="font-mono text-[10.5px] font-bold">{job.id}</span>

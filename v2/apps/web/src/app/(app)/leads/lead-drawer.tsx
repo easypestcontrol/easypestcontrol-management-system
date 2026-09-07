@@ -291,7 +291,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
 
         {/* ------------------------------------------------- call outcome */}
         {live && (
-          <div className="mx-5 my-4 rounded-md border border-line bg-wash p-4">
+          <div className="mx-5 my-4 card bg-wash p-4">
             <p className="text-[12px] font-semibold text-ink-2 mb-2.5">What happened on the call?</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button onClick={onInterested}

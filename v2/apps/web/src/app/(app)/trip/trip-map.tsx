@@ -285,5 +285,5 @@ export default function TripMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return <div ref={boxRef} style={{ height }} className="w-full rounded-md border border-line overflow-hidden" />;
+  return <div ref={boxRef} style={{ height }} className="w-full card overflow-hidden" />;
 }

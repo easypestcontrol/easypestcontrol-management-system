@@ -428,6 +428,9 @@ export class TripsController {
         review: flagged ? 'pending' : 'auto',
       },
     });
+    // A clean, auto-approved trip becomes its expense straight away — if the
+    // branch+date report is open. Best-effort: never break ending a trip.
+    if (up.review === 'auto') await this.autoExpenseForTrip(up.id).catch(() => {});
     return this.shape(up);
   }
 
@@ -585,6 +588,7 @@ export class TripsController {
         flagged: approve ? false : t.flagged,
       },
     });
+    if (approve) await this.autoExpenseForTrip(id).catch(() => {});
     const km = (t.distanceM / 1000).toFixed(1);
     await this.notify(t.userId, approve
       ? `Trip approved: ${t.startPlace || 'trip'} \u2192 ${t.endPlace || t.dest} (${km} km). (${t.id})`
@@ -665,76 +669,84 @@ export class TripsController {
   }
 
   /**
-   * Push a day's un-rejected, un-claimed trips into each person's expense
-   * folder \u2014 one trip line each, locked to the GPS distance \u00d7 the ₹/km rate.
-   * From there it is the ordinary Expenses \u2192 approve \u2192 RazorpayX payout.
+   * Turn one trip into its expense — the money loop, done right.
+   *
+   * Idempotent: a trip yields at most ONE expense, ever (guarded on tripId).
+   * The expense lands in the branch+date report the admin already opened,
+   * carries source AUTO_TRIP and a reference back to the trip, and is locked
+   * to the GPS distance x the company rate. No open report for that day+branch
+   * yet means nothing is created — the sweep or a later open picks it up.
+   */
+  private async autoExpenseForTrip(tripId: string): Promise<'created' | 'exists' | 'no-report' | 'skip'> {
+    const t = await this.prisma.trip.findUnique({ where: { id: tripId } });
+    if (!t || t.status === 'active' || t.status === 'cancelled') return 'skip';
+    if (t.review === 'rejected' || t.distanceM <= 0) return 'skip';
+    const existing = await this.prisma.expense.findFirst({ where: { tripId } });
+    if (existing) return 'exists';
+    const rate = await this.kmRate();
+    if (!rate) return 'skip';
+    const d = new Date(t.startAt);
+    const date = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+    const report = await this.prisma.expenseReport.findUnique({ where: { date_branch: { date, branch: t.branch } } });
+    if (!report || report.status === 'closed') return 'no-report';
+
+    const km = +(t.distanceM / 1000).toFixed(1);
+    const eseq = await this.prisma.seq.upsert({
+      where: { key: 'expense' }, create: { key: 'expense', value: 1 }, update: { value: { increment: 1 } },
+    });
+    const expId = 'EXP-' + eseq.value;
+    await this.prisma.$transaction([
+      this.prisma.expense.create({
+        data: {
+          id: expId, reportId: report.id, userId: t.userId, branch: t.branch, date,
+          category: 'Trip / Travel', source: 'auto_trip', tripId: t.id, status: 'pending',
+          merchant: (t.startPlace || 'Trip') + ' \u2192 ' + (t.endPlace || t.dest || ''),
+          note: t.id, amount: Math.round(km * rate), km, rate,
+        },
+      }),
+      this.prisma.trip.update({ where: { id: t.id }, data: { claimId: report.id } }),
+    ]);
+    const hist = Array.isArray(report.history) ? (report.history as Array<unknown>) : [];
+    await this.prisma.expenseReport.update({
+      where: { id: report.id },
+      data: { history: [...hist, { at: nowStamp(), text: expId + ' auto-generated from trip ' + t.id + ' (' + km + ' km)' }] as never },
+    }).catch(() => {});
+    await this.notify(t.userId, 'Trip allowance added to your expenses: ' + km + ' km \u00d7 \u20b9' + rate +
+      ' = \u20b9' + Math.round(km * rate).toLocaleString('en-IN') + '. (' + expId + ')');
+    return 'created';
+  }
+
+  /**
+   * Sweep a day's eligible trips into their branch's open reports. Used by the
+   * daily-report screen and as a safety net; auto-approved and approved trips
+   * already flow on their own. Reports must be open first — branches without
+   * one are reported back, never auto-created.
    */
   @Post('report/push')
   @Roles('admin', 'ops')
   async pushToClaim(@Body() body: Record<string, unknown>, @Req() req: Request & Jwt) {
     const day = String(body.date || todayISO()).slice(0, 10);
     const ids = await this.scopedUserIds(req, String(body.branch || '') || undefined);
-    const rate = await this.kmRate();
-    if (!rate) throw new BadRequestException('Set the ₹-per-km rate first (Settings \u2192 Organisation)');
+    if (!(await this.kmRate())) throw new BadRequestException('Set the \u20b9-per-km rate first (Settings \u2192 Organisation)');
     const start = new Date(day + 'T00:00:00');
     const end = new Date(day + 'T23:59:59.999');
     const rows = await this.prisma.trip.findMany({
       where: {
         ...(ids ? { userId: { in: ids } } : {}),
-        status: { not: 'active' },
-        startAt: { gte: start, lte: end },
-        review: { not: 'rejected' },
-        claimId: '',
-        distanceM: { gt: 0 },
+        status: 'done', startAt: { gte: start, lte: end },
+        review: { not: 'rejected' }, claimId: '', distanceM: { gt: 0 },
       },
       orderBy: { startAt: 'asc' },
     });
-    if (!rows.length) return { pushed: 0, folders: 0 };
-
-    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const parts = day.split('-');
-    const title = 'Trips \u2014 ' + Number(parts[2]) + ' ' + MONTHS[Number(parts[1]) - 1] + ' ' + parts[0];
-
-    const byUser = new Map<string, typeof rows>();
+    let pushed = 0;
+    const missing = new Set<string>();
     for (const t of rows) {
-      if (!byUser.has(t.userId)) byUser.set(t.userId, [] as never);
-      byUser.get(t.userId)!.push(t);
+      const r = await this.autoExpenseForTrip(t.id);
+      if (r === 'created') pushed += 1;
+      else if (r === 'no-report') missing.add(t.branch);
     }
-    let folders = 0, pushed = 0;
-    for (const [uid, trips] of byUser) {
-      const seq = await this.prisma.seq.upsert({
-        where: { key: 'expense-report' }, create: { key: 'expense-report', value: 1 },
-        update: { value: { increment: 1 } },
-      });
-      const reportId = 'EXR-' + seq.value;
-      await this.prisma.expenseReport.create({
-        data: {
-          id: reportId, title, date: day, by: uid, branch: trips[0].branch,
-          note: 'Auto-built from the day\u2019s trips',
-          history: [{ at: nowStamp(), text: 'Created from ' + trips.length + ' trip(s) by the office' }] as never,
-        },
-      });
-      folders += 1;
-      for (const t of trips) {
-        const eseq = await this.prisma.seq.upsert({
-          where: { key: 'expense' }, create: { key: 'expense', value: 1 },
-          update: { value: { increment: 1 } },
-        });
-        const km = +(t.distanceM / 1000).toFixed(1);
-        await this.prisma.expense.create({
-          data: {
-            id: 'EXP-' + eseq.value, reportId, kind: 'trip', date: day,
-            category: 'Trip allowance',
-            merchant: (t.startPlace || 'Trip') + ' \u2192 ' + (t.endPlace || t.dest || ''),
-            note: t.id, amount: Math.round(km * rate), km, rate,
-          },
-        });
-        await this.prisma.trip.update({ where: { id: t.id }, data: { claimId: reportId } });
-        pushed += 1;
-      }
-      await this.notify(uid, 'Your trips for ' + title.replace('Trips \u2014 ', '') +
-        ' are ready to claim \u2014 ' + trips.length + ' trip(s). (' + reportId + ')');
-    }
-    return { pushed, folders };
+    const branches = await this.prisma.branch.findMany({ select: { id: true, name: true } });
+    const bn = new Map(branches.map((b) => [b.id, b.name]));
+    return { pushed, missingReports: Array.from(missing).map((b) => bn.get(b) || b) };
   }
 }

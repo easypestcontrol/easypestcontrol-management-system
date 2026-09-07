@@ -342,7 +342,7 @@ function QuickPayDialog({ onClose, onPick }: {
         <div className="flex flex-col gap-2">
           {open.map((i) => (
             <button key={i.id} onClick={() => onPick(i)}
-              className="flex items-center gap-3 rounded-md border border-line p-3 text-left hover:bg-wash">
+              className="flex items-center gap-3 card p-3 text-left hover:bg-wash">
               <span className={'w-9 h-9 rounded flex items-center justify-center shrink-0 ' +
                 (i.status === 'overdue' ? 'bg-red-wash text-accent' : 'bg-wash text-navy')}>
                 <Icon name="invoice" size={17} />
@@ -576,7 +576,7 @@ function CreateDialog({ onClose, onCreated }: {
             </div>
           )}
           {bill && (
-            <div className="rounded-md border border-line overflow-hidden mb-4">
+            <div className="card overflow-hidden mb-4">
               <div className="px-3.5 py-2.5 border-b border-line-soft bg-wash flex flex-wrap items-baseline justify-between gap-2">
                 <span className="text-[12.5px] font-semibold">
                   What this invoice covers

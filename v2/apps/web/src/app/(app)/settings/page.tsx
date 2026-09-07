@@ -196,7 +196,7 @@ export default function Settings() {
         <div className="flex-1 min-w-0">
           {section === 'org' && (
             <>
-              <section className="rounded-md border border-line p-5 mb-5 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
+              <section className="card p-5 mb-5 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
                 <h2 className="text-[14px] font-semibold mb-1">Company logo</h2>
                 <p className="text-muted text-[12.5px] mb-4">
                   Shown at the top of the sidebar and on printed documents.
@@ -225,7 +225,7 @@ export default function Settings() {
                 </div>
               </section>
 
-              <section className="rounded-md border border-line p-5 mb-5 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
+              <section className="card p-5 mb-5 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
                 <h2 className="text-[14px] font-semibold mb-1">Signature &amp; seal</h2>
                 <p className="text-muted text-[12.5px] mb-4">
                   Printed together on the &ldquo;Authorised signatory&rdquo; block of every
@@ -261,7 +261,7 @@ export default function Settings() {
                 </div>
               </section>
 
-              <section className="rounded-md border border-line p-5 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
+              <section className="card p-5 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
                 <h2 className="text-[14px] font-semibold mb-4">Profile</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {field('Company name', 'name')}
@@ -294,7 +294,7 @@ export default function Settings() {
                   set('roleAccess', next as never);
                 };
                 return (
-                  <section key={r.id} className="rounded-md border border-line p-5 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
+                  <section key={r.id} className="card p-5 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
                     <h2 className="text-[14px] font-semibold mb-1">{r.label}</h2>
                     <p className="text-muted text-[12px] mb-3.5">
                       {PAGES.filter((p) => isOn(p.href, p.def)).length} of {PAGES.length} pages visible
@@ -323,7 +323,7 @@ export default function Settings() {
               {DOCS.map((d) => {
                 const rows = listOf(d.key);
                 return (
-                  <section key={d.key} className="rounded-md border border-line p-5 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
+                  <section key={d.key} className="card p-5 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
                     <h2 className="text-[14px] font-semibold mb-1">{d.label} terms</h2>
                     <p className="text-muted text-[12.5px] mb-4">{d.sub}. One line per term.</p>
                     {rows.map((t, i) => (
