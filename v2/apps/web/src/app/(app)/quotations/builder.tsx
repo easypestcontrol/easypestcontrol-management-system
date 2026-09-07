@@ -20,7 +20,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, type Bootstrap, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
-import { FREQ_MONTHS, addDays, addMonths, cadenceLabel, daysBetween, docTotals, money } from 'shared';
+import {
+  FREQ_MONTHS, addDays, addMonths, cadenceLabel, daysBetween, docTotals, money,
+  type AddressBlock,
+} from 'shared';
 import { QUOTE_STATUS, STATES, fmtDate, lineVisits, todayISO, type QuoteFull } from './lib';
 
 /* ------------------------------------------------------------ local types */
@@ -29,11 +32,56 @@ interface ClientRec {
   id: string; name: string; type: string; contact: string; phone: string;
   email: string; addr: string; city: string; pin: string; gstin: string;
   since: string; area: string; branch: string;
+  /* The real addresses, as typed on the customer. The flat addr/city/pin
+     above are a summary of the first of them. */
+  billing?: AddressBlock;
+  shipping?: AddressBlock;
+  sites?: AddressBlock[];
 }
 interface LeadRec {
   id: string; name: string; phone: string; email: string; type: string;
   area: string; branch: string; notes: string;
+  /** Set when the enquiry came from somebody already on the books. */
+  clientId?: string;
+  city?: string;
 }
+/**
+ * An address as it should appear on a document.
+ *
+ * Blank lines are dropped rather than printed, so a customer with no second
+ * street does not get a gap in the middle of their address.
+ */
+function printable(a?: AddressBlock | null): string {
+  if (!a) return '';
+  return [
+    a.attention,
+    a.street1,
+    a.street2,
+    [a.city, a.pin].filter(Boolean).join(' '),
+    a.state,
+  ].map((x) => String(x || '').trim()).filter(Boolean).join('\n');
+}
+
+/** Every place this customer can be served, for the picker. */
+function sitesOf(c?: ClientRec | null): Array<{ label: string; text: string }> {
+  if (!c) return [];
+  const out: Array<{ label: string; text: string }> = [];
+  const list = (c.sites || []).filter((a) => a && a.street1);
+  if (list.length) {
+    list.forEach((a, i) => out.push({
+      label: a.label || 'Site ' + (i + 1),
+      text: printable(a),
+    }));
+  } else if (c.shipping && c.shipping.street1) {
+    out.push({ label: 'Site address', text: printable(c.shipping) });
+  }
+  const bill = printable(c.billing);
+  if (bill && !out.some((o) => o.text === bill)) {
+    out.push({ label: 'Billing address', text: bill });
+  }
+  return out.filter((o) => o.text);
+}
+
 interface PartyRow {
   key: string; kind: 'customer' | 'lead'; id: string; name: string;
   sub: string; hint: string; hay: string;
@@ -154,18 +202,46 @@ export default function Builder({ edit, presetClient, presetLead }: {
       if (partyKey[0] === 'C' && (rec as ClientRec).branch) {
         setBranch((v) => v || (rec as ClientRec).branch);
       }
-      // Prefill both printed addresses from the party on file; the user can
-      // then edit either before saving.
-      const lines = partyKey[0] === 'C'
-        ? [
-            (rec as ClientRec).addr,
-            [(rec as ClientRec).city, (rec as ClientRec).pin].filter(Boolean).join(' '),
-          ].filter(Boolean).join('\n')
-        : [(rec as LeadRec).area, 'Chennai'].filter(Boolean).join('\n');
-      setBillAddr(lines);
-      setShipAddr(lines);
+      /*
+       * Prefill both printed addresses from the party on file.
+       *
+       * The lead branch used to read `[lead.area, 'Chennai']` — with the city
+       * written into the code. A customer in Nagercoil had "Nagercoil" over
+       * "Chennai" printed on their quotation, which is not an address, is not
+       * their city, and would have gone out to them like that.
+       *
+       * And a lead raised for somebody already on the books ignored the
+       * customer entirely, so the detailed address they had just been asked
+       * for was thrown away in favour of a locality. The customer's own
+       * blocks win wherever there is one to read.
+       */
+      const asClient = partyKey[0] === 'C'
+        ? (rec as ClientRec)
+        : clients.find((c) => c.id === (rec as LeadRec).clientId) || null;
+
+      if (asClient) {
+        const bill = printable(asClient.billing)
+          || [asClient.addr, [asClient.city, asClient.pin].filter(Boolean).join(' ')]
+            .filter(Boolean).join('\n');
+        const places = sitesOf(asClient);
+        setBillAddr(bill);
+        setShipAddr(places[0]?.text || bill);
+      } else {
+        const l = rec as LeadRec;
+        const lines = [l.area, l.city].filter(Boolean).join('\n');
+        setBillAddr(lines);
+        setShipAddr(lines);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients, leads, partyKey]);
+
+  /** The places the chosen customer can be served at. */
+  const sitePicks = useMemo(() => {
+    const c = partyKey[0] === 'C'
+      ? clients.find((x) => 'C:' + x.id === partyKey)
+      : clients.find((x) => x.id === leads.find((l) => 'L:' + l.id === partyKey)?.clientId);
+    return sitesOf(c || null);
   }, [clients, leads, partyKey]);
 
   /* ---------------------------------------------------------- party search */
@@ -525,6 +601,41 @@ export default function Builder({ edit, presetClient, presetLead }: {
               placeholder="Street, area — City PIN" className={AREA} />
           </Field>
           <Field label="Shipping / site address" hint="Where the service happens — printed on the right of the document.">
+            {/* ------------------------------------------- pick, do not type
+
+                A customer's sites are on their record already. Retyping one
+                into a box is how a quotation ends up with an address that
+                does not match the customer it was raised for — and with ten
+                flats on one account, typing is not a realistic ask.
+
+                Ticking more than one is deliberate: a contract that covers
+                three blocks of the same property should print all three.   */}
+            {sitePicks.length > 0 && (
+              <div className="rounded-md border border-line divide-y divide-line-soft mb-2">
+                {sitePicks.map((sp) => {
+                  const on = shipAddr.split('\n\n').includes(sp.text);
+                  return (
+                    <label key={sp.label}
+                      className="flex items-start gap-2.5 px-3 py-2 cursor-pointer hover:bg-wash">
+                      <input type="checkbox" checked={on} className="mt-0.5 accent-[#FF0000]"
+                        onChange={() => {
+                          const parts = shipAddr.split('\n\n').filter(Boolean);
+                          const next = on
+                            ? parts.filter((x) => x !== sp.text)
+                            : [...parts, sp.text];
+                          setShipAddr(next.join('\n\n'));
+                        }} />
+                      <span className="min-w-0">
+                        <span className="block text-[12.5px] font-semibold">{sp.label}</span>
+                        <span className="block text-[11.5px] text-muted whitespace-pre-line leading-snug">
+                          {sp.text}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
             <textarea value={shipAddr} onChange={(e) => setShipAddr(e.target.value)} rows={3}
               placeholder="Street, area — City PIN" className={AREA} />
             <button type="button" onClick={() => setShipAddr(billAddr)}

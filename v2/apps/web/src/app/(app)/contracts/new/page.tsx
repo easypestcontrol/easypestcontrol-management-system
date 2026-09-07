@@ -18,7 +18,7 @@ import Link from 'next/link';
 import { billingPlan,
   addMonths, cadenceLabel, dayOfMonth, daysBetween, docTotals, money,
   lineVisitDates, peakCrew, planVisits, toMin,
-  type ContractInput, type PlanLineInput,
+  type ContractInput, type PlanLineInput, type AddressBlock,
 } from 'shared';
 import { api, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
@@ -96,6 +96,39 @@ function NewContractForm() {
   // them; picking a different customer refills both from that record.
   const addrForRef = useRef('');
 
+  /* An address as it should print: blank lines dropped, not left as gaps. */
+  const printable = (a?: AddressBlock | null): string => {
+    if (!a) return '';
+    return [
+      a.attention, a.street1, a.street2,
+      [a.city, a.pin].filter(Boolean).join(' '), a.state,
+    ].map((x) => String(x || '').trim()).filter(Boolean).join('\n');
+  };
+
+  /* Every place this customer can be served — the list if they have one, the
+     single site address if they are an older record, and billing last. */
+  const sitePicks = useMemo(() => {
+    const c = (clients || []).find((x) => x.id === draft?.clientId) as
+      (ClientLite & { billing?: AddressBlock; shipping?: AddressBlock; sites?: AddressBlock[] })
+      | undefined;
+    if (!c) return [] as Array<{ label: string; text: string }>;
+    const out: Array<{ label: string; text: string }> = [];
+    const list = (c.sites || []).filter((a: AddressBlock) => a && a.street1);
+    if (list.length) {
+      list.forEach((a: AddressBlock, i: number) => out.push({
+        label: a.label || 'Site ' + (i + 1), text: printable(a),
+      }));
+    } else if (c.shipping && c.shipping.street1) {
+      out.push({ label: 'Site address', text: printable(c.shipping) });
+    }
+    const bill = printable(c.billing);
+    if (bill && !out.some((o) => o.text === bill)) {
+      out.push({ label: 'Billing address', text: bill });
+    }
+    return out.filter((o) => o.text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients, draft?.clientId]);
+
   /* ----------------------------------------------------------- bootstrap */
   useEffect(() => {
     if (!draft || !draft.clientId || addrForRef.current === draft.clientId) return;
@@ -103,10 +136,15 @@ function NewContractForm() {
     addrForRef.current = draft.clientId;
     // A draft seeded from a quotation arrives with its own addresses — keep them.
     if (first && (draft.billAddr || draft.siteAddr)) return;
-    const c = (clients || []).find((x) => x.id === draft.clientId);
+    const c = (clients || []).find((x) => x.id === draft.clientId) as
+      (ClientLite & { billing?: AddressBlock }) | undefined;
     if (!c) return;
-    const lines = [c.addr, [c.city, c.pin].filter(Boolean).join(' ')].filter(Boolean).join('\n');
-    setDraft((d) => (d ? { ...d, billAddr: lines, siteAddr: lines } : d));
+    /* The address the customer was actually asked for, not the one-line
+       summary derived from it. */
+    const bill = printable(c.billing)
+      || [c.addr, [c.city, c.pin].filter(Boolean).join(' ')].filter(Boolean).join('\n');
+    const site = sitePicks[0]?.text || bill;
+    setDraft((d) => (d ? { ...d, billAddr: bill, siteAddr: site } : d));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft?.clientId, clients]);
 
@@ -468,6 +506,34 @@ function NewContractForm() {
           </div>
           <div>
             <span className={label}>Site address</span>
+            {/* The customer's own sites, ticked rather than retyped. A contract
+                covering three blocks of one property should print all three. */}
+            {sitePicks.length > 0 && (
+              <div className="rounded border border-line divide-y divide-line-soft mb-2
+                max-h-[132px] overflow-y-auto">
+                {sitePicks.map((sp) => {
+                  const on = (draft.siteAddr || '').split('\n\n').includes(sp.text);
+                  return (
+                    <label key={sp.label}
+                      className="flex items-start gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-wash">
+                      <input type="checkbox" checked={on} className="mt-0.5 accent-[#FF0000]"
+                        onChange={() => {
+                          const parts = (draft.siteAddr || '').split('\n\n').filter(Boolean);
+                          set({ siteAddr: (on
+                            ? parts.filter((x) => x !== sp.text)
+                            : [...parts, sp.text]).join('\n\n') });
+                        }} />
+                      <span className="min-w-0">
+                        <span className="block text-[12px] font-semibold">{sp.label}</span>
+                        <span className="block text-[11px] text-muted whitespace-pre-line leading-snug">
+                          {sp.text}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
             <textarea rows={4} className={input + ' h-auto py-2 leading-relaxed resize-none'}
               value={draft.siteAddr}
               onChange={(e) => set({ siteAddr: e.target.value })}

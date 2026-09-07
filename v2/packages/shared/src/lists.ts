@@ -43,6 +43,14 @@ export const COUNTRIES = [
 ];
 
 export interface AddressBlock {
+  /**
+   * What this place is called, when a customer has several.
+   *
+   * "Head office", "Block B", "Warehouse — Ambattur". A technician reads the
+   * label on the job card long before they read the street, and a quotation
+   * that says which site it is for settles an argument later.
+   */
+  label?: string;
   attention?: string;
   country?: string;
   street1?: string;

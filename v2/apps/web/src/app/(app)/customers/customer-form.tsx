@@ -37,6 +37,11 @@ const BLANK = {
   portal: true,
   billing: { ...BLANK_ADDR } as AddressBlock,
   shipping: { ...BLANK_ADDR } as AddressBlock,
+  /* Every place this customer is served. A hotel chain, a builder with four
+     sites, a landlord with ten flats: one customer, one bill, many gates a
+     technician drives to. The first of these IS `shipping`, kept in step on
+     save so nothing that already reads that field has to change. */
+  sites: [] as AddressBlock[],
   contacts: [] as ContactPerson[],
   docs: [] as ClientDoc[],
   remarks: '',
@@ -64,6 +69,13 @@ export default function CustomerForm({ initial, onDone, onClose }: {
     channels: (initial as F | null)?.channels || BLANK.channels,
     billing: { ...BLANK_ADDR, ...((initial as F | null)?.billing || {}) },
     shipping: { ...BLANK_ADDR, ...((initial as F | null)?.shipping || {}) },
+    sites: (() => {
+      const saved = ((initial as F | null)?.sites || []) as AddressBlock[];
+      if (saved.length) return saved.map((x) => ({ ...BLANK_ADDR, ...x }));
+      // An older customer has one site address in `shipping` and no list.
+      const ship = (initial as F | null)?.shipping as AddressBlock | undefined;
+      return ship && ship.street1 ? [{ ...BLANK_ADDR, ...ship }] : [];
+    })(),
     contacts: (initial as F | null)?.contacts || [],
     docs: (initial as F | null)?.docs || [],
   }));
@@ -126,11 +138,22 @@ export default function CustomerForm({ initial, onDone, onClose }: {
     }
     setErr(''); setBusy(true);
 
-    // The flat summary every screen reads, derived from the detailed blocks:
-    // the site address is where the technician goes; blank falls back to billing.
-    const site = f.shipping.street1 ? f.shipping : f.billing;
+    /*
+     * The flat summary every screen reads, derived from the detailed blocks:
+     * the site address is where the technician goes; blank falls back to
+     * billing.
+     *
+     * `shipping` is kept as the FIRST service address rather than as a field
+     * of its own. Dozens of screens, the job card and the printed documents
+     * all read it, and none of them should have to learn about a list to go
+     * on working.
+     */
+    const first = f.sites.find((a) => a.street1) || null;
+    const shipping = first || (f.shipping.street1 ? f.shipping : { ...BLANK_ADDR });
+    const site = shipping.street1 ? shipping : f.billing;
     const payload = {
       ...f,
+      shipping,
       contact: f.contact ||
         [f.salutation, f.firstName, f.lastName].filter(Boolean).join(' ').trim() || f.company,
       addr: [site.street1, site.street2].filter(Boolean).join(', ') || f.addr,
@@ -300,54 +323,121 @@ export default function CustomerForm({ initial, onDone, onClose }: {
     </div>
   );
 
-  const addrBlock = (which: 'billing' | 'shipping', title: string) => {
-    const a = f[which];
-    return (
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[12px] font-semibold uppercase tracking-wide text-muted">{title}</p>
-          {which === 'shipping' && (
-            <button type="button" onClick={() => set('shipping', { ...f.billing })}
-              className="text-[12px] font-medium text-navy hover:text-accent underline underline-offset-2">
-              Copy billing
-            </button>
-          )}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label className="block sm:col-span-2"><L>Attention</L>
-            <input value={a.attention || ''} onChange={(e) => setAddr(which, 'attention', e.target.value)} className={INPUT} />
-          </label>
-          <label className="block sm:col-span-2"><L>Country / region</L>
-            <select value={a.country || 'India'} onChange={(e) => setAddr(which, 'country', e.target.value)} className={SELECT}>
-              {COUNTRIES.map((c) => <option key={c}>{c}</option>)}
-            </select>
-          </label>
-          <label className="block sm:col-span-2"><L>Address</L>
-            <input value={a.street1 || ''} onChange={(e) => setAddr(which, 'street1', e.target.value)}
-              placeholder="Street 1" className={INPUT} />
-            <input value={a.street2 || ''} onChange={(e) => setAddr(which, 'street2', e.target.value)}
-              placeholder="Street 2" className={INPUT + ' mt-2'} />
-          </label>
-          <label className="block"><L>City</L>
-            <input value={a.city || ''} onChange={(e) => setAddr(which, 'city', e.target.value)} className={INPUT} />
-          </label>
-          <label className="block"><L>State</L>
-            <select value={a.state || 'Tamil Nadu'} onChange={(e) => setAddr(which, 'state', e.target.value)} className={SELECT}>
-              {STATES.map((s) => <option key={s}>{s}</option>)}
-            </select>
-          </label>
-          <label className="block"><L>PIN code</L>
-            <input value={a.pin || ''} onChange={(e) => setAddr(which, 'pin', e.target.value)}
-              maxLength={6} inputMode="numeric" className={INPUT} />
-          </label>
-          <label className="block"><L>Phone</L>
-            <input value={a.phone || ''} onChange={(e) => setAddr(which, 'phone', e.target.value)}
-              placeholder="+91 …" className={INPUT} />
-          </label>
-        </div>
+  /** Change one field of one service address. */
+  const setSite = (i: number, k: keyof AddressBlock, v: string) =>
+    setF((cur) => ({
+      ...cur,
+      sites: cur.sites.map((a, n) => (n === i ? { ...a, [k]: v } : a)),
+    }));
+
+  /** The eight fields of an address, wherever that address happens to live. */
+  const addrFields = (a: AddressBlock, on: (k: keyof AddressBlock, v: string) => void) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <label className="block sm:col-span-2"><L>Attention</L>
+        <input value={a.attention || ''} onChange={(e) => on('attention', e.target.value)} className={INPUT} />
+      </label>
+      <label className="block sm:col-span-2"><L>Country / region</L>
+        <select value={a.country || 'India'} onChange={(e) => on('country', e.target.value)} className={SELECT}>
+          {COUNTRIES.map((c) => <option key={c}>{c}</option>)}
+        </select>
+      </label>
+      <label className="block sm:col-span-2"><L>Address</L>
+        <input value={a.street1 || ''} onChange={(e) => on('street1', e.target.value)}
+          placeholder="Street 1" className={INPUT} />
+        <input value={a.street2 || ''} onChange={(e) => on('street2', e.target.value)}
+          placeholder="Street 2" className={INPUT + ' mt-2'} />
+      </label>
+      <label className="block"><L>City</L>
+        <input value={a.city || ''} onChange={(e) => on('city', e.target.value)} className={INPUT} />
+      </label>
+      <label className="block"><L>State</L>
+        <select value={a.state || 'Tamil Nadu'} onChange={(e) => on('state', e.target.value)} className={SELECT}>
+          {STATES.map((x) => <option key={x}>{x}</option>)}
+        </select>
+      </label>
+      <label className="block"><L>PIN code</L>
+        <input value={a.pin || ''} onChange={(e) => on('pin', e.target.value)}
+          maxLength={6} inputMode="numeric" className={INPUT} />
+      </label>
+      <label className="block"><L>Phone</L>
+        <input value={a.phone || ''} onChange={(e) => on('phone', e.target.value)}
+          placeholder="+91 …" className={INPUT} />
+      </label>
+    </div>
+  );
+
+  const billingBlock = (
+    <div>
+      <p className="text-[12px] font-semibold uppercase tracking-wide text-muted mb-3">
+        Billing address
+      </p>
+      {addrFields(f.billing, (k, v) => setAddr('billing', k, v))}
+    </div>
+  );
+
+  /* ------------------------------------------------- the places we serve
+
+     One bill, many gates. A hotel chain books once and is treated at four
+     properties; a landlord pays for ten flats. Until now a customer had
+     exactly one site address, so the second property had to become a second
+     customer — and then the billing, the history and the money were split
+     across two records that were really one.                              */
+  const sitesBlock = (
+    <div>
+      <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+        <p className="text-[12px] font-semibold uppercase tracking-wide text-muted">
+          Service addresses{f.sites.length > 1 ? ' (' + f.sites.length + ')' : ''}
+        </p>
+        <button type="button"
+          onClick={() => setF((cur) => ({
+            ...cur,
+            sites: [...cur.sites, { ...BLANK_ADDR, ...cur.billing }],
+          }))}
+          className="text-[12px] font-medium text-navy hover:text-accent underline underline-offset-2">
+          Copy billing
+        </button>
       </div>
-    );
-  };
+
+      {f.sites.length === 0 && (
+        <p className="text-[13px] text-muted mb-3 leading-relaxed">
+          None yet — the billing address is used as the site, and that is right
+          for most customers. Add one for each separate place a technician has
+          to go to.
+        </p>
+      )}
+
+      {f.sites.map((a, i) => (
+        <div key={i} className="rounded-md border border-line p-3.5 mb-3">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <input value={a.label || ''} onChange={(e) => setSite(i, 'label', e.target.value)}
+              placeholder={'Name this site — e.g. Head office, Block B'}
+              className="flex-1 min-w-0 h-8 px-2.5 rounded border border-line text-[13px]
+                font-semibold outline-none focus:border-navy" />
+            <button type="button" onClick={() => setF((cur) => ({
+              ...cur, sites: cur.sites.filter((_, n) => n !== i),
+            }))}
+              className="text-[12px] font-medium text-accent hover:underline shrink-0">
+              Remove
+            </button>
+          </div>
+          {addrFields(a, (k, v) => setSite(i, k, v))}
+        </div>
+      ))}
+
+      <button type="button"
+        onClick={() => setF((cur) => ({ ...cur, sites: [...cur.sites, { ...BLANK_ADDR }] }))}
+        className="h-9 px-3.5 rounded border border-line text-[13px] font-semibold
+          hover:bg-wash">
+        + Add another service address
+      </button>
+
+      <p className="text-[11.5px] text-muted-2 mt-3 leading-relaxed">
+        The first of these is where the technician goes by default, and it is
+        what a quotation or contract offers first. Leave the list empty and the
+        billing address is used.
+      </p>
+    </div>
+  );
 
   const contacts = (
     <div>
@@ -466,8 +556,8 @@ export default function CustomerForm({ initial, onDone, onClose }: {
           {tab === 'Tax & terms' && tax}
           {tab === 'Addresses' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {addrBlock('billing', 'Billing address')}
-              {addrBlock('shipping', 'Site / service address')}
+              {billingBlock}
+              {sitesBlock}
               <p className="sm:col-span-2 text-[11.5px] text-muted-2 -mt-2">
                 The site address is where the technician goes. Leave it blank and billing is used.
               </p>

@@ -17,7 +17,7 @@ const EDITABLE = [
   'gstTreatment', 'placeOfSupply', 'pan', 'taxPref', 'currency',
   'openingBalance', 'payTerms', 'propertySize', 'portal',
   // detail blocks
-  'billing', 'shipping', 'contacts', 'docs', 'remarks',
+  'billing', 'shipping', 'sites', 'contacts', 'docs', 'remarks',
 ] as const;
 
 function pick(body: Record<string, unknown>) {

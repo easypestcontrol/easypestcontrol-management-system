@@ -228,7 +228,13 @@ model Client {
 
   // ---- the detailed blocks, read whole
   billing  Json   @default("{}") // {attention, country, street1, street2, city, state, pin, phone}
-  shipping Json   @default("{}") // the site address; blank = billing is used
+  shipping Json   @default("{}") // the FIRST site address; blank = billing is used
+  /// Every place this customer is served. A hotel chain, a builder with four
+  /// sites, a landlord with ten flats — one customer, one bill, many gates a
+  /// technician drives to. `shipping` stays as the first of these so every
+  /// screen that already reads it carries on unchanged.
+  /// [{label, attention, country, street1, street2, city, state, pin, phone}]
+  sites    Json   @default("[]")
   contacts Json   @default("[]") // [{salutation, firstName, lastName, email, workPhone, mobile}]
   docs     Json   @default("[]") // [{name, size, type, data}] — agreements, site plans, POs
   remarks  String @default("") // internal only
