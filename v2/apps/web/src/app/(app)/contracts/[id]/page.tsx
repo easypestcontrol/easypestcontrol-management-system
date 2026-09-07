@@ -1046,25 +1046,47 @@ function PlanDialog({ c, boot, onClose, onSaved }: {
           </div>
         </div>
 
-        {/* Rates and visit counts are both on this screen, and both move the
-            contract value — so it is shown here rather than found out later
-            on an invoice. */}
-        <div className="flex items-baseline justify-between gap-4 mt-3 px-3 py-2 rounded border border-line bg-wash text-[12.5px] flex-wrap">
-          <span className="text-muted">
-            {lines.reduce((a, l) => a + l.rate * l.visits, 0) !== c.value + (c.discount || 0)
-              ? 'Contract value after this change' : 'Contract value'}
-          </span>
-          <span className="font-semibold tabular-nums">
-            ₹{Math.max(0, lines.reduce((a, l) => a + Math.max(0, l.rate) * Math.max(1, l.visits), 0)
-              - (c.discount || 0)).toLocaleString('en-IN')}
-            {c.discount ? (
-              <span className="font-normal text-muted-2">
-                {' '}· after ₹{(c.discount || 0).toLocaleString('en-IN')} discount
-              </span>
-            ) : null}
-            <span className="font-normal text-muted-2"> · before GST</span>
-          </span>
-        </div>
+        {/* Rates and visit counts both move the contract value, and applying
+            the plan writes it. Say so before it happens rather than leaving
+            it to turn up on an invoice — including the case where the stored
+            value and the plan beneath it already disagree, which is not
+            something anyone can see from the contract page. */}
+        {(() => {
+          const priced = lines.some((l) => l.rate > 0);
+          const next = Math.max(0, lines.reduce(
+            (a, l) => a + Math.max(0, l.rate) * Math.max(1, l.visits), 0) - (c.discount || 0));
+          const moves = priced && next !== c.value;
+          return (
+            <div className={'mt-3 px-3 py-2 rounded border text-[12.5px] '
+              + (moves ? 'border-red-line bg-red-wash' : 'border-line bg-wash')}>
+              <div className="flex items-baseline justify-between gap-4 flex-wrap">
+                <span className={moves ? 'text-accent font-semibold' : 'text-muted'}>
+                  {!priced ? 'Contract value'
+                    : moves ? 'Applying this changes the contract value'
+                      : 'Contract value'}
+                </span>
+                <span className="font-semibold tabular-nums">
+                  {moves && <span className="font-normal text-muted-2 line-through mr-1.5">
+                    {money(c.value)}
+                  </span>}
+                  {money(priced ? next : c.value)}
+                  {c.discount ? (
+                    <span className="font-normal text-muted-2">
+                      {' '}· after {money(c.discount)} discount
+                    </span>
+                  ) : null}
+                  <span className="font-normal text-muted-2"> · before GST</span>
+                </span>
+              </div>
+              {!priced && (
+                <p className="text-[11.5px] text-muted-2 mt-1 leading-relaxed">
+                  No prices on this plan, so the value stays as it is. Fill the rate
+                  column in if you want invoices priced service by service.
+                </p>
+              )}
+            </div>
+          );
+        })()}
 
         <div className="flex gap-6 mt-3.5 text-[13px]">
           <label className="flex items-center gap-2">
