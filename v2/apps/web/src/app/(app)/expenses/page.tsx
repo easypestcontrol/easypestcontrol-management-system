@@ -88,7 +88,7 @@ function ManagerView({ me }: { me: SessionUser }) {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               {g.rows.map((r) => (
                 <button key={r.id} onClick={() => router.push('/expenses/' + r.id)}
-                  className="text-left card p-4 hover:border-navy/50 transition-colors">
+                  className="text-left card card-hover p-450 transition-colors">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="text-[14px] font-bold flex items-center gap-2">

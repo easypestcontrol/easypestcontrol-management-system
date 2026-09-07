@@ -385,7 +385,7 @@ function KanCard({ jb, onOpen, unassigned }: {
   const tone = STATUS[jb.status] || STATUS.scheduled;
   return (
     <button onClick={() => onOpen(jb.id)}
-      className="rounded border border-line bg-white text-left px-2.5 py-2 hover:shadow-card hover:border-navy/30"
+      className="rounded border border-line bg-white text-left px-2.5 py-2 hover:shadow-card card-hover30"
       style={{ borderLeft: '3px solid ' + tone.bar }}>
       <span className="flex items-center justify-between gap-2 mb-1">
         <span className={'text-[12px] font-bold ' + (unassigned ? 'text-accent' : '')}>

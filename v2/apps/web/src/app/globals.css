@@ -174,6 +174,17 @@ html, body {
 .ztable tr.zrow { cursor: pointer; }
 .ztable tr.zrow:hover td { background: var(--color-wash); }
 
+/* The gutter every list page was missing.
+
+   Each page pads its own header, tabs and filters with px-4/lg:px-6 and then
+   dropped the table in unpadded, so it ran edge to edge. On a white page that
+   passed; against the grey ground the card's corners and shadow were sliced
+   off at both sides. No page wraps its table in a padded div, so the gutter
+   belongs here and every list gets it at once. */
+@media (min-width: 1024px) {
+  .ztable { margin: 0 24px 24px; width: calc(100% - 48px); }
+}
+
 /* ------------------------------------------------- a table on a phone
    Under lg every row becomes a card: the header row disappears and the cells
    stack. Six columns in a 390px window is 700px of table, and columns four to
@@ -325,12 +336,14 @@ html, body {
 /* status pill */
 .zpill {
   display: inline-flex; align-items: center; gap: 5px;
-  height: 20px; padding: 0 8px; border-radius: 3px;
+  /* Rounded fully and given a little more room. A 3px-cornered 20px chip is
+     a 2010 badge; the rest of the interface is on 8-18px corners now. */
+  height: 22px; padding: 0 10px; border-radius: 999px;
   font-size: 11px; font-weight: 600; white-space: nowrap;
   background: var(--color-wash-2); color: var(--color-ink-2);
 }
 .zpill.red { background: var(--color-red-wash); color: var(--color-accent); }
-.zpill.navy { background: var(--color-navy); color: #fff; }
+.zpill.navy { background: rgb(20 20 20 / 0.86); color: #fff; }
 .zpill.outline { background: #fff; box-shadow: inset 0 0 0 1px var(--color-line); }
 
 /* A strip that scrolls sideways on purpose (tab bars) should not also carry a

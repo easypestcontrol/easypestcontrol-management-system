@@ -93,7 +93,7 @@ export default function TrainingPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {rows.map((l) => (
             <button key={l.id} onClick={() => setOpen(l)}
-              className="text-left card p-4 hover:border-navy transition-colors">
+              className="text-left card card-hover p-4">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="zpill outline">{ROLE_LABEL[l.role] || l.role}</span>
                 {l.hasVideo && <span className="zpill navy">video</span>}

@@ -18,7 +18,7 @@ import { api, getToken, type Bootstrap, type SessionUser } from '@/lib/api';
 
 const KEY = 'pestops.branchFilter';
 
-export function useBranchFilter(): { branch: string; el: ReactNode } {
+export function useBranchFilter(): { branch: string; el: ReactNode; heroEl: ReactNode } {
   const [branch, setBranch] = useState<string>(() =>
     typeof window === 'undefined' ? '' : sessionStorage.getItem(KEY) || '');
   const [rows, setRows] = useState<Array<{ id: string; name: string }>>([]);
@@ -47,14 +47,34 @@ export function useBranchFilter(): { branch: string; el: ReactNode } {
     try { sessionStorage.setItem(KEY, v); } catch { /* private mode */ }
   };
 
+  const options = (
+    <>
+      <option value="">All branches</option>
+      {rows.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+    </>
+  );
+
   const el = rows.length > 1 ? (
     <select value={branch} onChange={(e) => pick(e.target.value)}
       title="See one branch, or the whole company"
       className="h-9 px-2.5 rounded border border-line bg-white text-[12.5px] font-medium outline-none focus:border-navy">
-      <option value="">All branches</option>
-      {rows.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+      {options}
     </select>
   ) : null;
 
-  return { branch, el };
+  /* The same control for the phone's coloured band. The desktop one is a
+     white box with a hairline, which on the brand red rendered as a blank
+     white slab beside the greeting — the one thing on that screen with no
+     apparent purpose. Translucent white on white text belongs there. */
+  const heroEl = rows.length > 1 ? (
+    <select value={branch} onChange={(e) => pick(e.target.value)}
+      title="See one branch, or the whole company"
+      className="h-10 max-w-[132px] pl-3 pr-2 rounded-full border-0 text-white text-[13px] font-semibold
+        outline-none appearance-none truncate"
+      style={{ background: 'var(--color-hero-soft)' }}>
+      {options}
+    </select>
+  ) : null;
+
+  return { branch, el, heroEl };
 }

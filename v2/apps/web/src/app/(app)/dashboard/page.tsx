@@ -23,10 +23,35 @@ const fmtDate = (iso: string) => {
 };
 
 /* The brand's chart palette: ink for what was billed, red for the money side. */
-const INK = '#141414';
-const RED = '#FF0000';
+/* ---------------------------------------------------------- chart colours
+
+   Money is drawn in greyscale and red is kept for trouble.
+
+   The charts used to be solid #141414 against solid #FF0000 — the two most
+   saturated things the brand owns, side by side, six bars wide. It made the
+   home screen shout, and it made red meaningless: red was "collected" on one
+   chart and "outstanding" on the next, so the eye could not learn what the
+   colour was for.
+
+   Now a series is separated by WEIGHT, not hue — the whole in a pale ink, the
+   part achieved in a dark one — and red appears only where something is
+   actually wrong: overdue, and money still owed. Red goes back to being a
+   signal, which is the only way it can carry the buttons as well. */
+const INK = 'rgb(20 20 20 / 0.80)';   // the achieved part of a figure
+const INK_SOFT = 'rgb(20 20 20 / 0.20)'; // the whole it is measured against
+const BAD = '#C81E1E';                 // a problem, in the brand's deeper red
+
+/** The four tints a figure can wear, each as a background and a matching ink. */
+const TINT: Record<string, { bg: string; fg: string }> = {
+  sky: { bg: 'bg-sky', fg: 'text-sky-ink' },
+  mint: { bg: 'bg-mint', fg: 'text-mint-ink' },
+  amber: { bg: 'bg-amber', fg: 'text-amber-ink' },
+  rose: { bg: 'bg-rose', fg: 'text-rose-ink' },
+};
+
 const MIX_COLOR: Record<string, string> = {
-  overdue: RED, partial: '#8a8a8a', sent: '#c9c9c9', draft: '#e8e8e8', paid: INK,
+  overdue: BAD, partial: 'rgb(20 20 20 / 0.34)', sent: 'rgb(20 20 20 / 0.18)',
+  draft: 'rgb(20 20 20 / 0.09)', paid: INK,
 };
 const MIX_LABEL: Record<string, string> = {
   overdue: 'Overdue', partial: 'Partially paid', sent: 'Awaiting payment',
@@ -65,13 +90,18 @@ export default function Dashboard() {
 
   if (isFieldTech(me?.role)) return <TechDashboard />;
 
+  /* Each figure gets a tinted icon square. It is what tells six identical
+     white rectangles apart at a glance, and it lets a card carry a colour
+     without being coloured — the alternative, tinting the whole card, is
+     how a dashboard ends up looking like a warning. Only the two that can
+     actually go wrong wear the red one. */
   const cards = s ? [
-    { label: 'Open leads', value: s.leads, href: '/leads', foot: 'in the pipeline' },
-    { label: 'Quotes awaiting', value: s.quotes, href: '/quotations', foot: 'draft or with the customer' },
-    { label: 'Live contracts', value: s.contracts, href: '/contracts', foot: 'AMC + one-time' },
-    { label: "Today's services", value: s.jobsToday, href: '/schedule', foot: `${s.doneToday} completed` },
-    { label: 'Waiting for a technician', value: s.waiting, href: '/board', foot: 'drag them on the board', alert: s.waiting > 0 },
-    { label: 'Outstanding', value: money(s.outstanding), href: '/invoices', foot: `${money(s.collected)} collected`, alert: s.outstanding > 0 },
+    { label: 'Open leads', value: s.leads, href: '/leads', foot: 'in the pipeline', icon: 'leads' as IconName, tint: 'sky' },
+    { label: 'Quotes awaiting', value: s.quotes, href: '/quotations', foot: 'draft or with the customer', icon: 'quote' as IconName, tint: 'sky' },
+    { label: 'Live contracts', value: s.contracts, href: '/contracts', foot: 'AMC + one-time', icon: 'contract' as IconName, tint: 'mint' },
+    { label: "Today's services", value: s.jobsToday, href: '/schedule', foot: `${s.doneToday} completed`, icon: 'calendar' as IconName, tint: 'sky' },
+    { label: 'Waiting for a technician', value: s.waiting, href: '/board', foot: 'drag them on the board', alert: s.waiting > 0, icon: 'board' as IconName, tint: s.waiting > 0 ? 'amber' : 'mint' },
+    { label: 'Outstanding', value: money(s.outstanding), href: '/invoices', foot: `${money(s.collected)} collected`, alert: s.outstanding > 0, icon: 'invoice' as IconName, tint: s.outstanding > 0 ? 'rose' : 'mint' },
   ] : [];
 
   const actions = ACTIONS.filter((a) => !me || a.roles.includes(me.role));
@@ -81,7 +111,7 @@ export default function Dashboard() {
       {/* The phone gets its own screen, not this one at a narrower width.
           Two designs, because the two devices are used differently: a desk
           is where the business is examined, a phone is where it is checked. */}
-      <AdminMobile s={s} me={me} actions={actions} branchEl={bf.el} />
+      <AdminMobile s={s} me={me} actions={actions} branchEl={bf.heroEl} />
 
     <div className="max-lg:hidden p-4 lg:p-6 max-w-[1200px]">
       <div className="mb-5 flex items-start justify-between gap-3">
@@ -96,7 +126,7 @@ export default function Dashboard() {
       <div className="mb-5 flex flex-wrap gap-2">
         {actions.map((a) => (
           <Link key={a.href} href={a.href}
-            className="flex items-center gap-2 h-9 px-3.5 card text-[12.5px] font-semibold shadow-card hover:border-navy/50 hover:bg-wash transition-colors">
+            className="flex items-center gap-2 h-9 px-3.5 card card-hover text-[12.5px] font-semibold shadow-card50 hover:bg-wash transition-colors">
             <Icon name={a.icon} size={15} className="text-accent" /> {a.label}
           </Link>
         ))}
@@ -114,12 +144,18 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             {cards.map((c) => (
               <Link key={c.label} href={c.href}
-                className="card p-4 shadow-card hover:border-navy/40 transition-colors">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{c.label}</p>
-                <p className={'mt-1.5 text-[26px] font-semibold leading-none ' + (c.alert ? 'text-accent' : 'text-ink')}>
-                  {c.value}
-                </p>
-                <p className="mt-2 text-[12px] text-muted-2">{c.foot}</p>
+                className="card card-hover p-5 flex items-start gap-3.5">
+                <span className={'chipbox ' + TINT[c.tint].bg}>
+                  <Icon name={c.icon} size={18} className={TINT[c.tint].fg} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[12px] font-medium text-muted leading-tight">{c.label}</span>
+                  <span className={'block mt-1.5 text-[27px] font-bold tracking-[-0.02em] leading-none tabular-nums '
+                    + (c.alert ? 'text-hero' : 'text-ink')}>
+                    {c.value}
+                  </span>
+                  <span className="block mt-2 text-[12px] text-muted-2 truncate">{c.foot}</span>
+                </span>
               </Link>
             ))}
           </div>
@@ -254,17 +290,17 @@ function MonthBars({ months }: { months: DashboardStats['months'] }) {
           return (
             <g key={m.label}>
               <rect x={cx - bar - 2} y={y(m.invoiced)} width={bar} height={Math.max(1, H - AXIS - y(m.invoiced))}
-                rx="2" fill={INK}><title>{m.label}: billed {money(m.invoiced)}</title></rect>
+                rx="3" fill={INK_SOFT}><title>{m.label}: billed {money(m.invoiced)}</title></rect>
               <rect x={cx + 2} y={y(m.collected)} width={bar} height={Math.max(1, H - AXIS - y(m.collected))}
-                rx="2" fill={RED}><title>{m.label}: collected {money(m.collected)}</title></rect>
+                rx="3" fill={INK}><title>{m.label}: collected {money(m.collected)}</title></rect>
               <text x={cx} y={H - 5} textAnchor="middle" fontSize="10" fill="#666">{m.label}</text>
             </g>
           );
         })}
       </svg>
       <div className="mt-1 flex gap-4 text-[11.5px] text-muted">
-        <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: INK }} /> Billed</span>
-        <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: RED }} /> Collected</span>
+        <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: INK_SOFT }} /> Billed</span>
+        <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: INK }} /> Collected</span>
       </div>
     </div>
   );
@@ -324,7 +360,7 @@ function HBars({ rows, fmt }: { rows: Array<{ label: string; v: number }>; fmt: 
             <span className="text-muted shrink-0">{fmt(r.v)}</span>
           </div>
           <div className="h-2 rounded bg-wash overflow-hidden">
-            <div className="h-full rounded bg-accent" style={{ width: (r.v / max) * 100 + '%' }} />
+            <div className="h-full rounded" style={{ width: (r.v / max) * 100 + '%', background: INK }} />
           </div>
         </div>
       ))}
@@ -347,13 +383,13 @@ function BranchBars({ rows }: { rows: DashboardStats['branchSplit'] }) {
           </div>
           <div className="h-3 rounded bg-wash overflow-hidden flex">
             <div className="h-full" style={{ width: (r.collected / max) * 100 + '%', background: INK }} />
-            <div className="h-full" style={{ width: (r.outstanding / max) * 100 + '%', background: RED }} />
+            <div className="h-full" style={{ width: (r.outstanding / max) * 100 + '%', background: BAD }} />
           </div>
         </div>
       ))}
       <div className="flex gap-4 text-[11.5px] text-muted">
         <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: INK }} /> Collected</span>
-        <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: RED }} /> Outstanding</span>
+        <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: BAD }} /> Outstanding</span>
       </div>
     </div>
   );

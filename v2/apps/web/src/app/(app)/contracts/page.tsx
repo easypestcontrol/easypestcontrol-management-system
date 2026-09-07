@@ -291,7 +291,7 @@ export default function Contracts() {
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button onClick={() => router.push('/contracts/new?mode=amc')}
-                className="text-left card p-4 hover:border-navy/40 hover:bg-wash">
+                className="text-left card card-hover p-4 hover:bg-wash">
                 <Icon name="contract" size={22} className="text-navy mb-3" />
                 <span className="block font-semibold text-[14px]">AMC contract</span>
                 <span className="block text-muted text-[12.5px] mt-1.5 leading-relaxed">
@@ -300,7 +300,7 @@ export default function Contracts() {
                 </span>
               </button>
               <button onClick={() => router.push('/contracts/new?mode=onetime')}
-                className="text-left card p-4 hover:border-navy/40 hover:bg-wash">
+                className="text-left card card-hover p-4 hover:bg-wash">
                 <Icon name="calendar" size={22} className="text-navy mb-3" />
                 <span className="block font-semibold text-[14px]">One-time service</span>
                 <span className="block text-muted text-[12.5px] mt-1.5 leading-relaxed">

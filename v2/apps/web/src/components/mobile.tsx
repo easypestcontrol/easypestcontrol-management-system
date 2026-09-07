@@ -94,9 +94,16 @@ export function Hero({ eyebrow, title, right, status, children }: {
   /** HeroStats, usually. */
   children?: React.ReactNode;
 }) {
+  /* An inset card, not a full-bleed band.
+     Bled to the edges and squared off at the top, the brand colour owned the
+     first third of every screen — which is a lot of saturated red to hand
+     somebody before they have read a word. Held in from the sides with all
+     four corners round, the same colour reads as one element on the page
+     instead of as the page's background, and the grey ground gets to do the
+     job it is there for. */
   return (
-    <div className="rounded-b-[30px] px-4 pt-3 pb-4 text-white"
-      style={{ background: 'linear-gradient(160deg, var(--color-hero), var(--color-hero-2))' }}>
+    <div className="mx-4 mt-3 rounded-[26px] px-4 pt-4 pb-4 text-white shadow-card"
+      style={{ background: 'linear-gradient(145deg, var(--color-hero), var(--color-hero-2))' }}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           {eyebrow && (
@@ -126,7 +133,7 @@ export function HeroStats({ items }: {
   items: Array<{ label: string; value: string | number; icon?: IconName; href?: string }>;
 }) {
   return (
-    <div className={'mt-3 grid gap-2 '
+    <div className={'mt-3.5 grid gap-2 '
       + (items.length >= 4 ? 'grid-cols-4' : items.length === 3 ? 'grid-cols-3' : 'grid-cols-2')}>
       {items.map((it) => {
         const body = (
@@ -273,11 +280,14 @@ export function Stat({ href, label, value, foot, tone = 'info' }: {
   foot?: string;
   tone?: 'info' | 'bad';
 }) {
-  const bad = tone === 'bad';
+  /* A "bad" tile showing nought is good news and stops looking like an
+     alarm. "0 services with no technician / All covered" was printed in
+     red, which is the app telling somebody off for having nothing wrong. */
+  const bad = tone === 'bad' && Number(value) !== 0 && value !== '0';
   return (
     <Link href={href}
-      className={'rounded-2xl p-3.5 min-h-[92px] flex flex-col active:brightness-95 '
-        + (bad ? 'bg-rose' : 'bg-sky')}>
+      className={'rounded-[18px] p-3.5 min-h-[96px] flex flex-col active:brightness-95 '
+        + (bad ? 'bg-rose' : tone === 'bad' ? 'bg-mint' : 'bg-white shadow-card')}>
       {bad ? (
         <>
           <span className="text-[27px] font-bold leading-none tabular-nums text-rose-ink">{value}</span>
@@ -290,7 +300,8 @@ export function Stat({ href, label, value, foot, tone = 'info' }: {
         </>
       )}
       <span className="mt-auto pt-2 flex items-center justify-between">
-        <span className={'text-[12.5px] ' + (bad ? 'text-rose-ink font-semibold' : 'text-muted')}>
+        <span className={'text-[12.5px] truncate ' + (bad ? 'text-rose-ink font-semibold'
+          : tone === 'bad' ? 'text-mint-ink font-semibold' : 'text-muted')}>
           {foot || ''}
         </span>
         <Icon name="chevRight" size={14} className={bad ? 'text-rose-ink' : 'text-muted-2'} />
@@ -301,8 +312,16 @@ export function Stat({ href, label, value, foot, tone = 'info' }: {
 
 /* ------------------------------------------------------------ quick create */
 
+/** The four tints a tile can wear, as a background and a matching ink. */
+const TILE_TINT: Record<string, { bg: string; fg: string }> = {
+  rose: { bg: 'bg-rose', fg: 'text-rose-ink' },
+  sky: { bg: 'bg-sky', fg: 'text-sky-ink' },
+  mint: { bg: 'bg-mint', fg: 'text-mint-ink' },
+  amber: { bg: 'bg-amber', fg: 'text-amber-ink' },
+};
+
 export function QuickTiles({ items }: {
-  items: Array<{ href: string; label: string; icon: IconName }>;
+  items: Array<{ href: string; label: string; icon: IconName; tint?: string }>;
 }) {
   /* Three across, each a white card with the icon in a tinted square. The
      square is what makes a row of these read as buttons rather than as a
@@ -313,8 +332,13 @@ export function QuickTiles({ items }: {
         <Link key={it.href} href={it.href}
           className="bg-white rounded-[18px] py-3.5 flex flex-col items-center gap-2
             active:brightness-95">
-          <span className="w-11 h-11 rounded-[14px] bg-rose flex items-center justify-center">
-            <Icon name={it.icon} size={19} className="text-accent" />
+          {/* The square carries the colour so the tile does not have to.
+              Six identical red squares was the same shout as one red block,
+              only spread out. */}
+          <span className={'w-11 h-11 rounded-[14px] flex items-center justify-center '
+            + (TILE_TINT[it.tint || 'sky'] || TILE_TINT.sky).bg}>
+            <Icon name={it.icon} size={19}
+              className={(TILE_TINT[it.tint || 'sky'] || TILE_TINT.sky).fg} />
           </span>
           <span className="text-[12.5px] font-semibold text-center leading-tight px-1">
             {it.label}

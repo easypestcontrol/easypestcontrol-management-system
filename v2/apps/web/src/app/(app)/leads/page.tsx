@@ -134,7 +134,7 @@ export default function Leads() {
       <div key={l.id} draggable
         onDragStart={(e) => e.dataTransfer.setData('text/plain', l.id)}
         onClick={() => setOpenId(l.id)}
-        className="rounded border border-line bg-white shadow-card p-2.5 cursor-pointer hover:border-navy/40 transition-colors">
+        className="rounded border border-line bg-white shadow-card card-hover p-2.5 cursor-pointer transition-colors">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[13px] font-semibold truncate">{l.name}</span>
           <span className="zpill outline shrink-0">{l.source}</span>

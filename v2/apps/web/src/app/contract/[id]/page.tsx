@@ -134,10 +134,10 @@ export default function PublicContract() {
             <table className="w-full text-[12.5px] border-collapse min-w-[380px]">
               <thead>
                 <tr>
-                  {['Service', 'Visits', 'Frequency', 'Rate', 'Amount'].map((h, i) => (
+                  {['Service', 'Visits', 'Rate', 'Amount'].map((h, i) => (
                     <th key={h}
                       className={'bg-[#141414] text-white text-[10.5px] uppercase tracking-wider font-semibold px-3 py-2 '
-                        + (i === 0 ? 'text-left' : i > 2 ? 'text-right' : 'text-center')}>
+                        + (i === 0 ? 'text-left' : i >= 2 ? 'text-right' : 'text-center')}>
                       {h}
                     </th>
                   ))}
@@ -148,7 +148,6 @@ export default function PublicContract() {
                   <tr key={i} className="border-b border-[#eef0f5]">
                     <td className="px-3 py-2.5 font-semibold">{l.service}</td>
                     <td className="px-3 py-2.5 text-center">{l.visits}</td>
-                    <td className="px-3 py-2.5 text-center">{l.freq || '—'}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums">{money(l.rate)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums font-semibold">{money(l.amount)}</td>
                   </tr>

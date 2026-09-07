@@ -86,12 +86,14 @@ export default function AdminMobile({ s, me, actions, branchEl }: {
   // number it has just sent would be a second round trip for nothing.
   const overdue = s?.invoiceMix.find((m) => m.status === 'overdue');
 
-  // Four to start. Whatever the role is allowed, in the order it gets used.
-  const quick = actions.slice(0, 4).map((a, i) => ({
+  /* Six, so the grid fills two clean rows of three. Four left an orphan tile
+     sitting alone on the second row, which reads as something failed to load
+     rather than as a deliberate stop. */
+  const quick = actions.slice(0, 6).map((a, i) => ({
     href: a.href,
     label: a.label.replace(/^(New|Add|Raise) /, ''),
     icon: a.icon,
-    tint: (['rose', 'sky', 'mint', 'wash'] as const)[i],
+    tint: (['rose', 'sky', 'mint', 'amber', 'sky', 'mint'] as const)[i],
   }));
 
   return (
