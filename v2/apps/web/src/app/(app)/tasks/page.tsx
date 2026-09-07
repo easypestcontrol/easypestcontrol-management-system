@@ -30,12 +30,15 @@ interface Payload { rows: Row[]; canManage: boolean }
 
 interface Draft {
   title: string; notes: string; branch: string; assignee: string;
+  /* Everyone this is being raised for. One task is written per person, so
+     each of them can finish their own — see the note at save(). */
+  assignees?: string[];
   due: string; dueTime: string; priority: string;
   images: string[]; voice: string;
 }
 
 const blank = (): Draft => ({
-  title: '', notes: '', branch: '', assignee: '',
+  title: '', notes: '', branch: '', assignee: '', assignees: [],
   due: '', dueTime: '', priority: 'normal', images: [], voice: '',
 });
 
@@ -136,6 +139,7 @@ export default function TasksPage() {
     setEditing(t.id);
     setDraft({
       title: t.title, notes: t.notes, branch: t.branch, assignee: t.assignee,
+      assignees: t.assignee ? [t.assignee] : [],
       due: t.due, dueTime: t.dueTime, priority: t.priority,
       images: t.images || [], voice: t.voice || '',
     });
@@ -527,8 +531,26 @@ function TaskForm({ draft, setDraft, boot, editing, onClose, onSaved }: {
   async function save() {
     setBusy(true); setErr('');
     try {
-      if (editing) await api.patch('/tasks/' + editing, d);
-      else await api.post('/tasks', d);
+      if (editing) {
+        await api.patch('/tasks/' + editing, d);
+      } else {
+        /*
+         * One task per person, not one task with several names on it.
+         *
+         * A shared row cannot be half finished. If three people are asked to
+         * collect three cheques, one row goes green the moment the quickest
+         * of them is done and the other two disappear from the list they are
+         * supposed to be working from. Separate rows keep each person's own
+         * count honest, and every screen that shows one name — the list, the
+         * phone, the avatar on a row — carries on unchanged.
+         */
+        const who = (d.assignees || []).filter(Boolean);
+        const targets = who.length ? who : [d.assignee].filter(Boolean);
+        if (!targets.length) { setErr('Pick who it is for'); setBusy(false); return; }
+        for (const id of targets) {
+          await api.post('/tasks', { ...d, assignee: id });
+        }
+      }
       onSaved();
     } catch (e) { setErr(e instanceof Error ? e.message : 'Could not save'); }
     setBusy(false);
@@ -632,19 +654,61 @@ function TaskForm({ draft, setDraft, boot, editing, onClose, onSaved }: {
                 ))}
               </select>
             </label>
-            <label className="block">
-              <span className={labelCls}>For *</span>
-              <select value={d.assignee} disabled={!d.branch}
-                onChange={(e) => set({ assignee: e.target.value })}
-                className={inputCls + (d.branch ? '' : ' opacity-50')}>
-                <option value="">
-                  {d.branch ? (people.length ? 'Pick a person…' : 'Nobody in this branch') : 'Pick the branch first'}
-                </option>
-                {people.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name} — {u.title || u.role}</option>
-                ))}
-              </select>
-            </label>
+            <div className="block">
+              <span className={labelCls}>
+                For *{(d.assignees || []).length > 1
+                  ? ' — ' + (d.assignees || []).length + ' people' : ''}
+              </span>
+              {/* ------------------------------------------- more than one
+
+                  A dropdown that takes one person cannot say "both of you
+                  collect a cheque today". Ticking several writes one task per
+                  person, which is what makes the counts mean anything: each
+                  of them can finish their own, and "1 open" stays true for
+                  the person still holding it rather than going green because
+                  somebody else was quicker.
+
+                  Editing an existing task still edits that one task — this
+                  list is how work is handed out, not a way to merge rows.  */}
+              {!d.branch ? (
+                <div className={inputCls + ' opacity-50 flex items-center'}>Pick the branch first</div>
+              ) : people.length === 0 ? (
+                <div className={inputCls + ' opacity-50 flex items-center'}>Nobody in this branch</div>
+              ) : (
+                <div className="rounded border border-line divide-y divide-line-soft
+                  max-h-[168px] overflow-y-auto">
+                  {people.map((u) => {
+                    const on = (d.assignees || []).includes(u.id);
+                    return (
+                      <label key={u.id}
+                        className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-wash">
+                        <input type="checkbox" checked={on} className="accent-[#FF0000]"
+                          onChange={() => {
+                            const cur = d.assignees || [];
+                            const next = on ? cur.filter((x) => x !== u.id) : [...cur, u.id];
+                            // `assignee` stays the first of them, so an edit of
+                            // a single task and every screen reading one name
+                            // carry on working.
+                            set({ assignees: next, assignee: next[0] || '' });
+                          }} />
+                        <span className="min-w-0">
+                          <span className="block text-[13px] font-medium truncate">{u.name}</span>
+                          <span className="block text-[11.5px] text-muted truncate">
+                            {u.title || u.role}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              {(d.assignees || []).length > 1 && !editing && (
+                <span className="block text-[11.5px] text-muted-2 mt-1.5 leading-relaxed">
+                  {(d.assignees || []).length} separate tasks are created, one each, so
+                  every person can tick off their own.
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
