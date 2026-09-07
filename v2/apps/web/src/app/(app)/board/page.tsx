@@ -506,6 +506,11 @@ export default function Board() {
     const html =
       `<div style="font-weight:600">${esc(fmtTime(toHHMM(d.start)))} – ${esc(fmtTime(stop))}</div>` +
       `<div style="opacity:.75">${esc(techName(d.tech))}</div>` +
+      // Say it, so the bar not following the pointer reads as deliberate
+      // rather than broken.
+      (d.mode === 'queue'
+        ? '<div style="opacity:.75">keeps its booked time</div>'
+        : '') +
       d.warns.map((w) =>
         `<div style="margin-top:3px;${w.level === 'block' ? 'font-weight:600' : 'opacity:.9'}">` +
         `${w.level === 'block' ? '× ' : '· '}${esc(w.text)}</div>`).join('');
@@ -577,7 +582,22 @@ export default function Board() {
     if (!lane) { d.start = null; d.tech = null; tipHide(); return; }
 
     const techId = lane.getAttribute('data-lane') || '';
-    const start = minuteAt(lane, e.clientX, d.mode === 'move' ? d.grab : 0);
+    /*
+     * Dropping from the queue chooses WHO, not when.
+     *
+     * The visit already has an hour on it — the customer was told 8:00 AM,
+     * and the card in the queue says so. Reading the time off the cursor
+     * meant the job landed wherever the pointer happened to be, so a visit
+     * booked for eight in the morning was quietly moved to six because that
+     * is where somebody let go of the mouse. Nobody asked for that, and
+     * nothing on screen said it had happened.
+     *
+     * Dragging a bar that is already on the board is different: that gesture
+     * IS how a job is retimed, so it still follows the cursor.
+     */
+    const start = d.mode === 'move'
+      ? minuteAt(lane, e.clientX, d.grab)
+      : toMin(d.job.slot);
     d.start = start;
     d.tech = techId;
 
@@ -631,11 +651,32 @@ export default function Board() {
     if (crew > 1) ids = [d.tech, ...d.job.techIds.filter((x) => x !== d.tech)].slice(0, crew);
 
     const block = d.warns.find((w) => w.level === 'block');
+
+    /*
+     * Moving a bar sideways changes the hour the customer was given, so it
+     * asks first.
+     *
+     * Sliding it to a different technician is an office decision and needs no
+     * ceremony. Changing when somebody is expected is a phone call — and it
+     * was happening on a stray horizontal pixel during that same drag,
+     * silently. Answering no keeps the hour and still makes the move.
+     */
+    let startMin = d.start;
+    const wasAt = toMin(d.job.slot);
+    if (d.mode === 'move' && startMin !== wasAt && d.job.techIds.length > 0) {
+      const ok = window.confirm(
+        d.job.id + ' is booked for ' + fmtTime(d.job.slot) + '.\n\n'
+        + 'Move it to ' + fmtTime(toHHMM(startMin)) + '?\n\n'
+        + 'OK changes the time. Cancel keeps ' + fmtTime(d.job.slot) + '.',
+      );
+      if (!ok) startMin = wasAt;
+    }
+
     setSel(d.job.id);
-    doPlace(d.job.id, ids, d.start, {
+    doPlace(d.job.id, ids, startMin, {
       label: d.job.id + ' to ' + techName(d.tech),
       toastMsg: d.job.id + ' → ' + techName(d.tech),
-      sub: (block ? block.text + ' · ' : '') + fmtTime(toHHMM(d.start)),
+      sub: (block ? block.text + ' · ' : '') + fmtTime(toHHMM(startMin)),
       tone: block ? 'warn' : undefined,
     });
   }
