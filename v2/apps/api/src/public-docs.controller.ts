@@ -279,13 +279,39 @@ export class PublicDocsController {
       this.companyBlock(),
     ]);
     const nameOf = new Map(services.map((s) => [s.id, s.name]));
+    /*
+     * The money, worked out the same way every other document works it out.
+     *
+     * The agreement showed a single "Value" and nothing else — no rates, no
+     * discount, no tax split — while the quotation it came from showed all of
+     * it. A customer who signs the contract should be able to check the
+     * figure the way they checked the quote, and the one tax engine is what
+     * makes the two agree.
+     */
+    const items = c.plan.map((l) => ({
+      desc: nameOf.get(l.svId) || l.svId,
+      qty: Math.max(1, l.visits || 1),
+      rate: Math.max(0, (l as { rate?: number }).rate || 0),
+    }));
+    const t = docTotals(
+      items as never, c.discount || 0, c.placeOfSupply || '',
+      co.state || 'Tamil Nadu', co.gstRate ?? 18,
+    );
+
     return {
       id: c.id, mode: c.mode, billing: c.billing, value: c.value,
       start: c.start, end: c.end, months: c.months,
       site: c.site || '', billAddr: c.billAddr || '',
+      scope: c.scope || '', notes: c.notes || '',
+      place: t.tax.place,
+      totals: {
+        sub: t.sub, disc: t.disc, rows: t.tax.rows, total: t.total,
+      },
       plan: c.plan.map((l) => ({
         service: nameOf.get(l.svId) || l.svId,
         visits: l.visits, freq: l.freq, crew: l.crew,
+        rate: Math.max(0, (l as { rate?: number }).rate || 0),
+        amount: Math.max(0, (l as { rate?: number }).rate || 0) * Math.max(1, l.visits || 1),
       })),
       schedule: jobs.map((j) => ({
         id: j.id, date: j.date, slot: j.slot, status: j.status,

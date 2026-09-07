@@ -206,6 +206,18 @@ export default function ContractPage() {
             <ShareLink path={'/contract/' + c.id} title={'Contract ' + c.id}
               phone={c.client?.phone}
               text={`Your service contract ${c.id} — services, schedule and status, always up to date:`} />
+            {/* ------------------------------------------ see the agreement
+
+                The quotation has always had a document to look at; the
+                contract it turns into had only panels of data. The same
+                agreement has existed at /contract/<id> all along — printable,
+                shareable, with the schedule on it — and nothing on this page
+                pointed at it except the Share sheet, where nobody looks for
+                "let me read what we signed". */}
+            <a href={'/contract/' + c.id} target="_blank" rel="noreferrer"
+              className={btnGhost + ' flex items-center gap-1.5'}>
+              <Icon name="quote" size={14} /> View contract
+            </a>
             <button className={btnGhost} onClick={() => router.push('/contracts/' + c.id + '/edit')}>
               Edit
             </button>

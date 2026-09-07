@@ -14,7 +14,14 @@ import { money } from 'shared';
 interface Doc {
   id: string; mode: string; billing: string; value: number;
   start: string; end: string; months: number; site: string; billAddr: string;
-  plan: Array<{ service: string; visits: number; freq: string; crew: number }>;
+  plan: Array<{
+    service: string; visits: number; freq: string; crew: number;
+    rate: number; amount: number;
+  }>;
+  scope?: string;
+  notes?: string;
+  place?: string;
+  totals?: { sub: number; disc: number; rows: Array<[string, number]>; total: number };
   schedule: Array<{ id: string; date: string; slot: string; status: string; services: string }>;
   client: { name: string; contact: string; phone: string; addr: string; city: string } | null;
   company: {
@@ -97,9 +104,20 @@ export default function PublicContract() {
                 {doc.client?.phone}
               </div>
             </div>
+            {/* Both addresses, the way the quotation prints them — where the
+                bill goes and where the work happens are not always the same
+                place, and the agreement is the document that has to say so. */}
+            <div className="max-w-[300px]">
+              <div className="text-[10.5px] uppercase tracking-wider text-gray-400 font-semibold mb-1">
+                Billing address
+              </div>
+              <div className="text-[12px] text-gray-700 leading-relaxed whitespace-pre-line">
+                {doc.billAddr || [doc.client?.addr, doc.client?.city].filter(Boolean).join(', ') || '—'}
+              </div>
+            </div>
             <div className="max-w-[300px]">
               <div className="text-[10.5px] uppercase tracking-wider text-gray-400 font-semibold mb-1">Service site</div>
-              <div className="text-[12px] text-gray-700 leading-relaxed">
+              <div className="text-[12px] text-gray-700 leading-relaxed whitespace-pre-line">
                 {doc.site || [doc.client?.addr, doc.client?.city].filter(Boolean).join(', ') || '—'}
               </div>
             </div>
@@ -110,10 +128,10 @@ export default function PublicContract() {
             <table className="w-full text-[12.5px] border-collapse min-w-[380px]">
               <thead>
                 <tr>
-                  {['Service', 'Visits', 'Frequency'].map((h, i) => (
+                  {['Service', 'Visits', 'Frequency', 'Rate', 'Amount'].map((h, i) => (
                     <th key={h}
                       className={'bg-[#141414] text-white text-[10.5px] uppercase tracking-wider font-semibold px-3 py-2 '
-                        + (i > 0 ? 'text-center' : 'text-left')}>
+                        + (i === 0 ? 'text-left' : i > 2 ? 'text-right' : 'text-center')}>
                       {h}
                     </th>
                   ))}
@@ -125,11 +143,65 @@ export default function PublicContract() {
                     <td className="px-3 py-2.5 font-semibold">{l.service}</td>
                     <td className="px-3 py-2.5 text-center">{l.visits}</td>
                     <td className="px-3 py-2.5 text-center">{l.freq || '—'}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{money(l.rate)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums font-semibold">{money(l.amount)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {/* ------------------------------------------------- what it costs
+
+              The agreement used to print a single "Value" in its header and
+              nothing else, while the quotation it came from broke the same
+              figure into a subtotal, a discount and the tax split. A customer
+              could not check the contract the way they had checked the quote.
+              Same numbers, same engine, same layout. */}
+          {doc.totals && (
+            <div className="flex justify-end mt-5">
+              <div className="w-full sm:w-[300px] text-[12.5px]">
+                <div className="flex justify-between py-1">
+                  <span className="text-gray-500">Subtotal</span>
+                  <span className="tabular-nums">{money(doc.totals.sub)}</span>
+                </div>
+                {doc.totals.disc > 0 && (
+                  <div className="flex justify-between py-1">
+                    <span className="text-gray-500">Discount</span>
+                    <span className="tabular-nums text-[#FF0000]">− {money(doc.totals.disc)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between py-1">
+                  <span className="text-gray-500">Taxable value</span>
+                  <span className="tabular-nums">{money(doc.totals.sub - doc.totals.disc)}</span>
+                </div>
+                {doc.totals.rows.map(([l, v]) => (
+                  <div key={l} className="flex justify-between py-1">
+                    <span className="text-gray-500">{l}</span>
+                    <span className="tabular-nums">{money(v)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between py-1.5 mt-1 border-t-2 border-[#141414] font-bold text-[13.5px]">
+                  <span>Total</span>
+                  <span className="tabular-nums">{money(doc.totals.total)}</span>
+                </div>
+                <p className="text-[10.5px] text-gray-400 mt-1 leading-relaxed">
+                  {doc.billing} billing{doc.place ? ' · place of supply ' + doc.place : ''}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {(doc.scope || doc.notes) && (
+            <div className="mt-6">
+              <div className="text-[10.5px] uppercase tracking-wider text-gray-400 font-semibold mb-1">
+                Scope of work
+              </div>
+              <p className="text-[12px] text-gray-700 leading-relaxed whitespace-pre-line">
+                {doc.scope || doc.notes}
+              </p>
+            </div>
+          )}
 
           {/* schedule */}
           <div className="mt-6">
