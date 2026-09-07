@@ -30,6 +30,8 @@ export interface PlanLineInput {
   techIds?: string[];
   /** Hand-picked visit dates by index; an empty slot falls back to the spread. */
   dates?: string[];
+  /** Hand-picked times by visit index; an empty entry falls back to `slot`. */
+  times?: string[];
 }
 
 export interface ContractInput {
@@ -113,15 +115,29 @@ export function lineVisitDates(
 
 export function planVisits(c: ContractInput): VisitPlan[] {
   const merge = c.mergeSameDay !== false;
-  const groups: Record<string, { date: string; movedFrom: string; lines: PlanLineInput[] }> = {};
+  const groups: Record<string,
+    { date: string; movedFrom: string; lines: PlanLineInput[]; at: string }> = {};
+
+  /* The hand-picked time for one visit of one line, if there is one. */
+  const at = (line: PlanLineInput, n: number) =>
+    ((line.times || [])[n] || '').trim();
 
   for (const line of c.plan || []) {
-    for (const { date, movedFrom } of lineVisitDates(line, c)) {
-      if (c.end && date > c.end) continue; // never schedule past the term
-      const key = merge ? date : date + '|' + line.svId;
-      if (!groups[key]) groups[key] = { date, movedFrom, lines: [] };
+    lineVisitDates(line, c).forEach(({ date, movedFrom }, n) => {
+      if (c.end && date > c.end) return; // never schedule past the term
+      const when = at(line, n);
+      /*
+       * A visit with its own time is its own trip.
+       *
+       * Merging is about not driving to the same site twice in one day, and
+       * two services on the same date at different hours are two journeys.
+       * Keying on the time as well keeps a seven-o'clock visit from being
+       * quietly folded into the ten-o'clock one and losing its hour.
+       */
+      const key = merge ? date + '|' + when : date + '|' + line.svId + '|' + when;
+      if (!groups[key]) groups[key] = { date, movedFrom, lines: [], at: when };
       groups[key].lines.push(line);
-    }
+    });
   }
 
   return Object.keys(groups).map((k) => {
@@ -146,7 +162,9 @@ export function planVisits(c: ContractInput): VisitPlan[] {
       date: g.date, movedFrom: g.movedFrom, serviceIds,
       techIds: techIds.slice(0, crew), // a trip never carries more than its peak
       planRef, mins, crew,
-      slot: slot || c.slot || '10:00',
+      // The hand-picked hour wins over the line's, which wins over the
+      // contract's.
+      slot: g.at || slot || c.slot || '10:00',
       lines: g.lines.length,
     };
   }).sort((a, b) => (a.date === b.date ? (a.slot < b.slot ? -1 : 1) : (a.date < b.date ? -1 : 1)));

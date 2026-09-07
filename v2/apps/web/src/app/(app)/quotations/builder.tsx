@@ -43,7 +43,6 @@ interface LeadRec {
   area: string; branch: string; notes: string;
   /** Set when the enquiry came from somebody already on the books. */
   clientId?: string;
-  city?: string;
 }
 /**
  * An address as it should appear on a document.
@@ -228,7 +227,10 @@ export default function Builder({ edit, presetClient, presetLead }: {
         setShipAddr(places[0]?.text || bill);
       } else {
         const l = rec as LeadRec;
-        const lines = [l.area, l.city].filter(Boolean).join('\n');
+        /* Only what we actually know. The old code padded a lead's locality
+           out with a guessed city, and that guess was printed on the
+           customer's document as though it were their address. */
+        const lines = l.area || '';
         setBillAddr(lines);
         setShipAddr(lines);
       }

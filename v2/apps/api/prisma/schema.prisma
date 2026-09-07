@@ -366,6 +366,11 @@ model PlanLine {
   rate       Int      @default(0) // per-visit price ex-GST — drives per-visit invoices
   techIds    String[] @default([]) // the standing crew — INVARIANT: length <= crew at every writer
   dates      String[] @default([]) // hand-picked visit dates by index; empty slot = automatic
+  /// Hand-picked visit TIMES by the same index. Empty entry = this line's slot.
+  /// A quarterly contract is usually serviced at the same hour every time, but
+  /// the one visit the customer can only do at seven in the morning should not
+  /// force a second contract to say so.
+  times      String[] @default([])
   order      Int      @default(0)
 }
 

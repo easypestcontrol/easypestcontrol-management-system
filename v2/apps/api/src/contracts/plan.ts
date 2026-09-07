@@ -27,6 +27,7 @@ export interface DbPlanLine {
   crew: number;
   techIds: string[];
   dates?: string[]; // hand-picked visit dates by index
+  times?: string[]; // hand-picked visit times by the same index
   slotEnd?: string; // booked window end
   order?: number;
 }
@@ -95,6 +96,7 @@ export function lineToInput(l: DbPlanLine): PlanLineInput {
     crew: l.crew,
     techIds: l.techIds,
     dates: l.dates || [],
+    times: l.times || [],
   };
 }
 

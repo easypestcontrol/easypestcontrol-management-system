@@ -255,6 +255,9 @@ function NewContractForm() {
         crew: l.crew || 1,
         techIds: [],
         dates: l.dates || [],
+        // So the schedule preview below reflects a hand-picked hour the
+        // moment it is set, rather than only after saving.
+        times: l.times || [],
       })),
     };
   }
@@ -288,6 +291,19 @@ function NewContractForm() {
     const fi = draft.lines.slice(0, i).filter((x) => x.svId).length;
     if (!c.plan[fi]) return [];
     return lineVisitDates(c.plan[fi], c).map((x) => x.date);
+  }
+
+  /** Pin one visit of one line to a hand-picked TIME ('' = the line's slot). */
+  function setLineTime(i: number, v: number, time: string) {
+    setDraft((d) => {
+      if (!d) return d;
+      const lines = d.lines.slice();
+      const ts = ((lines[i] as { times?: string[] }).times || []).slice();
+      ts[v] = time;
+      while (ts.length && !ts[ts.length - 1]) ts.pop();
+      lines[i] = { ...lines[i], times: ts };
+      return { ...d, lines };
+    });
   }
 
   /** Pin one visit of one line to a hand-picked date ('' = back to automatic). */
@@ -495,10 +511,21 @@ function NewContractForm() {
           </label>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+        {/* ------------------------------------------------ addresses
+
+            Four equal columns put two addresses and two date pairs in a
+            quarter of the width each. An address is five lines tall and a
+            date pair is two controls wide, so both were squeezed: the site
+            box scrolled after four lines, and the second date was clipped by
+            its own spinner.
+
+            Addresses get a row of their own and half the width each; the
+            dates and times get the row below. Nothing is narrower than the
+            thing inside it.                                                */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
           <div>
             <span className={label}>Billing address</span>
-            <textarea rows={4} className={input + ' h-auto py-2 leading-relaxed resize-none'}
+            <textarea rows={6} className={input + ' h-auto py-2 leading-relaxed resize-y min-h-[132px]'}
               value={draft.billAddr}
               onChange={(e) => set({ billAddr: e.target.value })}
               placeholder="Street, area — City PIN" />
@@ -510,7 +537,7 @@ function NewContractForm() {
                 covering three blocks of one property should print all three. */}
             {sitePicks.length > 0 && (
               <div className="rounded border border-line divide-y divide-line-soft mb-2
-                max-h-[132px] overflow-y-auto">
+                max-h-[200px] overflow-y-auto">
                 {sitePicks.map((sp) => {
                   const on = (draft.siteAddr || '').split('\n\n').includes(sp.text);
                   return (
@@ -534,7 +561,7 @@ function NewContractForm() {
                 })}
               </div>
             )}
-            <textarea rows={4} className={input + ' h-auto py-2 leading-relaxed resize-none'}
+            <textarea rows={6} className={input + ' h-auto py-2 leading-relaxed resize-y min-h-[132px]'}
               value={draft.siteAddr}
               onChange={(e) => set({ siteAddr: e.target.value })}
               placeholder="Street, area — City PIN" />
@@ -543,15 +570,25 @@ function NewContractForm() {
               Same as billing address
             </button>
           </div>
+        </div>
+
+        {/* ----------------------------------------------- when it happens */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
           {isOne ? (
             <>
               <div>
                 <span className={label}>Service period *</span>
-                <div className="flex gap-2">
-                  <input className={input} type="date" value={draft.start} title="Start date — the service goes on this day"
-                    onChange={(e) => moveStart(e.target.value)} />
-                  <input className={input} type="date" value={draft.end} min={draft.start} title="End date — how long the agreement covers"
-                    onChange={(e) => set({ end: e.target.value })} />
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block">
+                    <span className="block text-[11px] text-muted-2 mb-1">Service date</span>
+                    <input className={input + ' w-full'} type="date" value={draft.start}
+                      onChange={(e) => moveStart(e.target.value)} />
+                  </label>
+                  <label className="block">
+                    <span className="block text-[11px] text-muted-2 mb-1">Covered until</span>
+                    <input className={input + ' w-full'} type="date" value={draft.end} min={draft.start}
+                      onChange={(e) => set({ end: e.target.value })} />
+                  </label>
                 </div>
                 <span className="block text-[11px] text-muted-2 mt-1">
                   The service happens on the start date; from a quotation this window is its date → valid till.
@@ -559,10 +596,17 @@ function NewContractForm() {
               </div>
               <div>
                 <span className={label}>Time window *</span>
-                <div className="flex items-center gap-2">
-                  <TimePicker value={draft.slot} onChange={(__t) => set({ slot: __t })} className={input} />
-                  <span className="text-muted text-[12px]">to</span>
-                  <TimePicker value={draft.slotEnd} onChange={(__t) => set({ slotEnd: __t })} className={input} />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="block text-[11px] text-muted-2 mb-1">From</span>
+                    <TimePicker value={draft.slot} onChange={(__t) => set({ slot: __t })}
+                      className={input + ' w-full'} />
+                  </div>
+                  <div>
+                    <span className="block text-[11px] text-muted-2 mb-1">Until</span>
+                    <TimePicker value={draft.slotEnd} onChange={(__t) => set({ slotEnd: __t })}
+                      className={input + ' w-full'} />
+                  </div>
                 </div>
                 <span className="block text-[11px] text-muted-2 mt-1">
                   {fmtTime(draft.slot)} – {fmtTime(draft.slotEnd || addMinsHHMM(draft.slot, 120))} ·{' '}
@@ -572,13 +616,19 @@ function NewContractForm() {
               </div>
             </>
           ) : (
-            <div className="col-span-2">
+            <div className="lg:col-span-2">
               <span className={label}>Service period *</span>
-              <div className="flex gap-2">
-                <input className={input} type="date" value={draft.start} title="Start date"
-                  onChange={(e) => moveStart(e.target.value)} />
-                <input className={input} type="date" value={draft.end} title="End date"
-                  onChange={(e) => set({ end: e.target.value })} />
+              <div className="grid grid-cols-2 gap-2 max-w-[420px]">
+                <label className="block">
+                  <span className="block text-[11px] text-muted-2 mb-1">Starts</span>
+                  <input className={input + ' w-full'} type="date" value={draft.start}
+                    onChange={(e) => moveStart(e.target.value)} />
+                </label>
+                <label className="block">
+                  <span className="block text-[11px] text-muted-2 mb-1">Ends</span>
+                  <input className={input + ' w-full'} type="date" value={draft.end}
+                    onChange={(e) => set({ end: e.target.value })} />
+                </label>
               </div>
               <span className="block text-[11px] text-muted-2 mt-1">
                 {monthsOf} months — every quantity below is spread across it.
@@ -894,9 +944,29 @@ function NewContractForm() {
                                 <input type="date" value={d} min={draft.start} max={draft.end}
                                   onChange={(e) => setLineDate(i, n, e.target.value)}
                                   className="bg-transparent outline-none w-[108px] cursor-pointer text-inherit" />
-                                {pinned && (
-                                  <button type="button" onClick={() => setLineDate(i, n, '')}
-                                    title="Back to the automatic date"
+                                {/* ------------------------------ and the hour
+
+                                    A date on its own is half an appointment.
+                                    The schedule showed the day for each visit
+                                    and the contract's single time window
+                                    beside the whole line, so a customer who
+                                    can only do the third visit at seven in the
+                                    morning had nowhere to say so.
+
+                                    Blank means "whatever this line's window
+                                    says", which is the usual case and stays
+                                    one glance to read.                       */}
+                                <TimePicker
+                                  value={(l as { times?: string[] }).times?.[n] || ''}
+                                  onChange={(t) => setLineTime(i, n, t)}
+                                  className={'bg-transparent outline-none cursor-pointer '
+                                    + 'text-inherit text-[11px] '
+                                    + ((l as { times?: string[] }).times?.[n]
+                                      ? 'font-semibold' : 'text-muted-2')} />
+                                {(pinned || (l as { times?: string[] }).times?.[n]) && (
+                                  <button type="button"
+                                    onClick={() => { setLineDate(i, n, ''); setLineTime(i, n, ''); }}
+                                    title="Back to the automatic date and the line's time"
                                     className="text-muted-2 hover:text-accent font-semibold px-0.5">×</button>
                                 )}
                               </span>

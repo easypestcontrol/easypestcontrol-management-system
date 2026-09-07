@@ -42,6 +42,7 @@ interface DraftLine {
   slotEnd?: string; // booked window end for every service this line makes
   crew?: number;
   dates?: string[]; // hand-picked visit dates by index; '' = automatic
+  times?: string[]; // hand-picked visit times by the same index; '' = the line's slot
 }
 
 interface ContractDraft {
@@ -598,6 +599,11 @@ export class ContractsController {
         dates: isOne ? [] : (Array.isArray(l.dates) ? l.dates : [])
           .slice(0, qty)
           .map((x) => /^\d{4}-\d{2}-\d{2}$/.test(String(x || '')) ? String(x) : ''),
+        // Same shape as dates, same index. Anything that is not a HH:MM is
+        // dropped to blank, which means "use this line's slot".
+        times: (Array.isArray(l.times) ? l.times : [])
+          .slice(0, Math.max(1, qty))
+          .map((x) => /^\d{2}:\d{2}$/.test(String(x || '')) ? String(x) : ''),
         techIds: [] as string[],
         order: i,
       };
@@ -847,6 +853,7 @@ export class ContractsController {
         crew: Math.min(9, Math.max(1, Math.round(e.crew ?? prev?.crew ?? 1))),
         techIds: (e.techIds ?? prev?.techIds ?? []).filter(Boolean),
         dates: prev?.dates || [], // pins survive a plan edit
+        times: (prev as { times?: string[] } | undefined)?.times || [],
         slotEnd: (prev as { slotEnd?: string } | undefined)?.slotEnd || '',
         order: i,
       };
