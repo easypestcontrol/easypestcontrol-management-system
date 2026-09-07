@@ -253,6 +253,7 @@ export interface DraftLine {
   crew: number;
   dates?: string[]; // hand-picked visit dates by index; '' = automatic
   times?: string[]; // hand-picked visit times by the same index; '' = this line's slot
+  timeEnds?: string[]; // the end of each of those windows
 }
 
 export interface Draft {

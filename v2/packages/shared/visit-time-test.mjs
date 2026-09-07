@@ -75,5 +75,29 @@ const base = {
   ok('the earlier visit comes first', day[0].slot === '08:00', day.map((x) => x.slot).join(','));
 }
 
+/* --------------------------- the window END travels with its visit too */
+{
+  const v = planVisits({ ...base, plan: [
+    { svId: 'S1', visits: 3, mins: 60, crew: 1, slot: '10:00', slotEnd: '12:00',
+      freq: '', dayRule: '', techIds: [],
+      times: ['07:00', '', ''], timeEnds: ['09:30', '', ''] },
+  ] });
+  const early = v.find((x) => x.slot === '07:00');
+  ok('the hand-picked window keeps its end', early && early.slotEnd === '09:30',
+    early && early.slotEnd);
+  ok('the others fall back to the line window',
+    v.filter((x) => x.slotEnd === '12:00').length === 2,
+    v.map((x) => x.slot + '-' + x.slotEnd).join(' '));
+}
+
+/* -------------- no window anywhere leaves the end blank, not invented */
+{
+  const v = planVisits({ ...base, plan: [
+    { svId: 'S1', visits: 1, mins: 60, crew: 1, slot: '10:00', freq: '', dayRule: '', techIds: [] },
+  ] });
+  ok('an unset end stays empty rather than guessed', v[0].slotEnd === '',
+    JSON.stringify(v[0].slotEnd));
+}
+
 console.log('\n  ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

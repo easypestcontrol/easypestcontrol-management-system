@@ -371,6 +371,9 @@ model PlanLine {
   /// the one visit the customer can only do at seven in the morning should not
   /// force a second contract to say so.
   times      String[] @default([])
+  /// The end of each visit's window, by the same index. Empty = this line's
+  /// slotEnd. Set together with `times` — a window is a pair.
+  timeEnds   String[] @default([])
   order      Int      @default(0)
 }
 

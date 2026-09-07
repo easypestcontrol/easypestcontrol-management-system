@@ -32,6 +32,10 @@ export interface PlanLineInput {
   dates?: string[];
   /** Hand-picked times by visit index; an empty entry falls back to `slot`. */
   times?: string[];
+  /** The end of each of those windows; an empty entry falls back to `slotEnd`. */
+  timeEnds?: string[];
+  /** The line's own window end, used when a visit does not set its own. */
+  slotEnd?: string;
 }
 
 export interface ContractInput {
@@ -55,6 +59,8 @@ export interface VisitPlan {
   mins: number; // SUM — elapsed time on site
   crew: number; // MAX — peak-simultaneous people
   slot: string;
+  /** The end of the booked window, when one is known. */
+  slotEnd: string;
   lines: number;
 }
 
@@ -116,11 +122,15 @@ export function lineVisitDates(
 export function planVisits(c: ContractInput): VisitPlan[] {
   const merge = c.mergeSameDay !== false;
   const groups: Record<string,
-    { date: string; movedFrom: string; lines: PlanLineInput[]; at: string }> = {};
+    { date: string; movedFrom: string; lines: PlanLineInput[]; at: string; until: string }> = {};
 
   /* The hand-picked time for one visit of one line, if there is one. */
   const at = (line: PlanLineInput, n: number) =>
     ((line.times || [])[n] || '').trim();
+  /* The end of that visit's window. A window is a pair, so this follows the
+     same index and the same fallback as its start. */
+  const until = (line: PlanLineInput, n: number) =>
+    ((line.timeEnds || [])[n] || '').trim();
 
   for (const line of c.plan || []) {
     lineVisitDates(line, c).forEach(({ date, movedFrom }, n) => {
@@ -134,8 +144,9 @@ export function planVisits(c: ContractInput): VisitPlan[] {
        * Keying on the time as well keeps a seven-o'clock visit from being
        * quietly folded into the ten-o'clock one and losing its hour.
        */
+      const ends = until(line, n);
       const key = merge ? date + '|' + when : date + '|' + line.svId + '|' + when;
-      if (!groups[key]) groups[key] = { date, movedFrom, lines: [], at: when };
+      if (!groups[key]) groups[key] = { date, movedFrom, lines: [], at: when, until: ends };
       groups[key].lines.push(line);
     });
   }
@@ -148,12 +159,14 @@ export function planVisits(c: ContractInput): VisitPlan[] {
     let mins = 0;
     let crew = 1;
     let slot = '';
+    let slotEnd = '';
 
     for (const l of g.lines) {
       if (serviceIds.indexOf(l.svId) < 0) serviceIds.push(l.svId);
       mins += l.mins || 60;
       crew = Math.max(crew, Math.max(1, l.crew || 1));
       if (!slot) slot = l.slot || '';
+      if (!slotEnd) slotEnd = l.slotEnd || '';
       for (const id of lineCrew(l)) if (techIds.indexOf(id) < 0) techIds.push(id);
       planRef.push((c.id || 'NEW') + '#' + l.svId);
     }
@@ -163,8 +176,9 @@ export function planVisits(c: ContractInput): VisitPlan[] {
       techIds: techIds.slice(0, crew), // a trip never carries more than its peak
       planRef, mins, crew,
       // The hand-picked hour wins over the line's, which wins over the
-      // contract's.
+      // contract's. The end follows the same order.
       slot: g.at || slot || c.slot || '10:00',
+      slotEnd: g.until || slotEnd || '',
       lines: g.lines.length,
     };
   }).sort((a, b) => (a.date === b.date ? (a.slot < b.slot ? -1 : 1) : (a.date < b.date ? -1 : 1)));

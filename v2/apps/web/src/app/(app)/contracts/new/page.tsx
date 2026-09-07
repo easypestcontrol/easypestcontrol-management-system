@@ -255,9 +255,11 @@ function NewContractForm() {
         crew: l.crew || 1,
         techIds: [],
         dates: l.dates || [],
-        // So the schedule preview below reflects a hand-picked hour the
+        // So the schedule preview below reflects a hand-picked window the
         // moment it is set, rather than only after saving.
         times: l.times || [],
+        timeEnds: l.timeEnds || [],
+        slotEnd: l.slotEnd || '',
       })),
     };
   }
@@ -291,6 +293,19 @@ function NewContractForm() {
     const fi = draft.lines.slice(0, i).filter((x) => x.svId).length;
     if (!c.plan[fi]) return [];
     return lineVisitDates(c.plan[fi], c).map((x) => x.date);
+  }
+
+  /** The end of one visit's window ('' = two hours after it starts). */
+  function setLineTimeEnd(i: number, v: number, time: string) {
+    setDraft((d) => {
+      if (!d) return d;
+      const lines = d.lines.slice();
+      const ts = ((lines[i] as { timeEnds?: string[] }).timeEnds || []).slice();
+      ts[v] = time;
+      while (ts.length && !ts[ts.length - 1]) ts.pop();
+      lines[i] = { ...lines[i], timeEnds: ts };
+      return { ...d, lines };
+    });
   }
 
   /** Pin one visit of one line to a hand-picked TIME ('' = the line's slot). */
@@ -377,9 +392,14 @@ function NewContractForm() {
     if (!draft.lines.length) { setErr('Add at least one service'); return; }
     if (isOne) {
       if (!draft.start) { setErr('Pick a service date'); return; }
-      if (!draft.slot) { setErr('Pick a service time — it is what puts it on the calendar'); return; }
-      if (draft.slotEnd && toMin(draft.slotEnd) <= toMin(draft.slot)) {
-        setErr('The time window ends before it starts — set an end time later than ' + fmtTime(draft.slot));
+      /* The window is on the appointment now, so that is what is checked —
+         the old test read a field the form no longer shows, which meant a
+         backwards window could be saved without a word. */
+      const l0 = draft.lines[0] as { times?: string[]; timeEnds?: string[] } | undefined;
+      const from = l0?.times?.[0] || draft.slot || '10:00';
+      const to = l0?.timeEnds?.[0] || draft.slotEnd || '';
+      if (to && toMin(to) <= toMin(from)) {
+        setErr('The appointment ends before it starts — set a finish later than ' + fmtTime(from));
         return;
       }
       if (draft.end && daysBetween(draft.start, draft.end) < 0) {
@@ -428,7 +448,6 @@ function NewContractForm() {
   const appointments = draft.lines.reduce((a, l) => a + (l.svId ? l.qty || 0 : 0), 0);
   const peak = peakCrew(asContract().plan, visits);
   const mergedCount = visits.filter((v) => v.lines > 1).length;
-  const winMins = (() => { const d = toMin(draft.slotEnd) - toMin(draft.slot); return d > 0 ? d : 120; })();
 
   const label = 'block text-[12px] font-semibold text-ink-2 mb-1.5';
   /* Split so a field that sets its own width does not have to fight w-full.
@@ -594,26 +613,11 @@ function NewContractForm() {
                   The service happens on the start date; from a quotation this window is its date → valid till.
                 </span>
               </div>
-              <div>
-                <span className={label}>Time window *</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <span className="block text-[11px] text-muted-2 mb-1">From</span>
-                    <TimePicker value={draft.slot} onChange={(__t) => set({ slot: __t })}
-                      className={input + ' w-full'} />
-                  </div>
-                  <div>
-                    <span className="block text-[11px] text-muted-2 mb-1">Until</span>
-                    <TimePicker value={draft.slotEnd} onChange={(__t) => set({ slotEnd: __t })}
-                      className={input + ' w-full'} />
-                  </div>
-                </div>
-                <span className="block text-[11px] text-muted-2 mt-1">
-                  {fmtTime(draft.slot)} – {fmtTime(draft.slotEnd || addMinsHHMM(draft.slot, 120))} ·{' '}
-                  {winMins >= 60 ? Math.round(winMins / 6) / 10 + ' hr' : winMins + ' min'} —
-                  the technician is booked for exactly this long.
-                </span>
-              </div>
+              {/* The "Time window" pair that sat here has gone. One visit had two
+                  places to say when it happened — this box and the appointment
+                  in the schedule below — and two places can disagree. The
+                  appointment is the one that ends up on a technician's day, so
+                  the appointment is where the hours are set. */}
             </>
           ) : (
             <div className="lg:col-span-2">
@@ -890,9 +894,18 @@ function NewContractForm() {
                       )}
                       <td>
                         {isOne ? (
-                          <span className="text-[12.5px]">
-                            {fmtTime(draft.slot)} – {fmtTime(draft.slotEnd || addMinsHHMM(draft.slot, 120))}
-                          </span>
+                          /* Whatever the appointment below says — that is the
+                             only place the hours are set now. */
+                          (() => {
+                            const from = (l as { times?: string[] }).times?.[0] || draft.slot || '10:00';
+                            const to = (l as { timeEnds?: string[] }).timeEnds?.[0]
+                              || draft.slotEnd || addMinsHHMM(from, 120);
+                            return (
+                              <span className="text-[12.5px]">
+                                {fmtTime(from)} – {fmtTime(to)}
+                              </span>
+                            );
+                          })()
                         ) : (
                           <span className="inline-flex items-center gap-1 whitespace-nowrap">
                             <TimePicker value={l.slot} onChange={(__t) => setLine(i, { slot: __t })} className={field + ' h-8 w-[92px] text-[12px]'} />
@@ -956,6 +969,10 @@ function NewContractForm() {
                                     Blank means "whatever this line's window
                                     says", which is the usual case and stays
                                     one glance to read.                       */}
+                                {/* The whole window, on the appointment: this
+                                    is what a technician's day is booked
+                                    against. Blank falls back to ten o'clock
+                                    for two hours. */}
                                 <TimePicker
                                   value={(l as { times?: string[] }).times?.[n] || ''}
                                   onChange={(t) => setLineTime(i, n, t)}
@@ -963,9 +980,23 @@ function NewContractForm() {
                                     + 'text-inherit text-[11px] '
                                     + ((l as { times?: string[] }).times?.[n]
                                       ? 'font-semibold' : 'text-muted-2')} />
-                                {(pinned || (l as { times?: string[] }).times?.[n]) && (
+                                <span className="text-muted-2 text-[10px]">to</span>
+                                <TimePicker
+                                  value={(l as { timeEnds?: string[] }).timeEnds?.[n] || ''}
+                                  onChange={(t) => setLineTimeEnd(i, n, t)}
+                                  className={'bg-transparent outline-none cursor-pointer '
+                                    + 'text-inherit text-[11px] '
+                                    + ((l as { timeEnds?: string[] }).timeEnds?.[n]
+                                      ? 'font-semibold' : 'text-muted-2')} />
+                                {(pinned
+                                  || (l as { times?: string[] }).times?.[n]
+                                  || (l as { timeEnds?: string[] }).timeEnds?.[n]) && (
                                   <button type="button"
-                                    onClick={() => { setLineDate(i, n, ''); setLineTime(i, n, ''); }}
+                                    onClick={() => {
+                                      setLineDate(i, n, '');
+                                      setLineTime(i, n, '');
+                                      setLineTimeEnd(i, n, '');
+                                    }}
                                     title="Back to the automatic date and the line's time"
                                     className="text-muted-2 hover:text-accent font-semibold px-0.5">×</button>
                                 )}

@@ -43,6 +43,7 @@ interface DraftLine {
   crew?: number;
   dates?: string[]; // hand-picked visit dates by index; '' = automatic
   times?: string[]; // hand-picked visit times by the same index; '' = the line's slot
+  timeEnds?: string[]; // the end of each of those windows
 }
 
 interface ContractDraft {
@@ -542,18 +543,33 @@ export class ContractsController {
 
     const start = draft.start || todayISO();
     let end: string;
-    let slot = draft.slot || '10:00';
+    /*
+     * The window a one-time service is booked for.
+     *
+     * It is set on the appointment in the schedule now, not in a separate
+     * "time window" pair at the top of the form — one visit had two places to
+     * say when it happened, and they could disagree. The line's own entry
+     * wins; `draft.slot` is only the fallback for an older payload that still
+     * sends it.
+     */
+    const firstLine = (draft.lines || [])[0] as
+      { times?: string[]; timeEnds?: string[] } | undefined;
+    const pickedAt = String(firstLine?.times?.[0] || '').trim();
+    const pickedTo = String(firstLine?.timeEnds?.[0] || '').trim();
+
+    let slot = pickedAt || draft.slot || '10:00';
     let slotEnd = '';
     if (isOne) {
       if (!draft.start) throw new BadRequestException('Pick a service date');
-      if (!draft.slot) throw new BadRequestException('Pick a service time — it is what puts it on the calendar');
-      if (draft.slotEnd && toMin(draft.slotEnd) <= toMin(draft.slot)) {
+      if (!slot) throw new BadRequestException('Pick a service time — it is what puts it on the calendar');
+      const wantEnd = pickedTo || draft.slotEnd || '';
+      if (wantEnd && toMin(wantEnd) <= toMin(slot)) {
         throw new BadRequestException('The time window ends before it starts');
       }
       // The visit lands on the start date; the agreement can cover a longer
       // window (fetched from the quotation's validity when converted).
       end = draft.end && draft.end >= start ? draft.end : start;
-      slotEnd = draft.slotEnd || addMinsHHMM(slot, 120);
+      slotEnd = wantEnd || addMinsHHMM(slot, 120);
     } else {
       end = draft.end || addMonths(start, 12);
       if (daysBetween(start, end) < 28) {
@@ -602,6 +618,9 @@ export class ContractsController {
         // Same shape as dates, same index. Anything that is not a HH:MM is
         // dropped to blank, which means "use this line's slot".
         times: (Array.isArray(l.times) ? l.times : [])
+          .slice(0, Math.max(1, qty))
+          .map((x) => /^\d{2}:\d{2}$/.test(String(x || '')) ? String(x) : ''),
+        timeEnds: (Array.isArray(l.timeEnds) ? l.timeEnds : [])
           .slice(0, Math.max(1, qty))
           .map((x) => /^\d{2}:\d{2}$/.test(String(x || '')) ? String(x) : ''),
         techIds: [] as string[],
@@ -781,7 +800,9 @@ export class ContractsController {
     const last = await this.takeSeq('job', visits.length);
     await this.prisma.job.createMany({
       data: visits.map((pv, i) => {
-        const se = endOf[pv.serviceIds[0]] || '';
+        // The visit's own window end when it has one, the line's otherwise —
+        // the engine has already worked out which applies.
+        const se = pv.slotEnd || endOf[pv.serviceIds[0]] || '';
         const win = se ? toMin(se) - toMin(pv.slot) : 0;
         return {
         id: 'SER-' + String(last - visits.length + 1 + i).padStart(4, '0'),
@@ -854,6 +875,7 @@ export class ContractsController {
         techIds: (e.techIds ?? prev?.techIds ?? []).filter(Boolean),
         dates: prev?.dates || [], // pins survive a plan edit
         times: (prev as { times?: string[] } | undefined)?.times || [],
+        timeEnds: (prev as { timeEnds?: string[] } | undefined)?.timeEnds || [],
         slotEnd: (prev as { slotEnd?: string } | undefined)?.slotEnd || '',
         order: i,
       };
