@@ -20,6 +20,7 @@
    ========================================================================== */
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 /** "14:30" → { h: 14, m: 30 }. Anything unreadable comes back null. */
 function parse(v: string): { h: number; m: number } | null {
@@ -52,6 +53,9 @@ export default function TimePicker({ value, onChange, className = '', disabled, 
 }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<'hour' | 'minute'>('hour');
+  /* Portals need a document, which the server render does not have. */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const current = parse(value) || { h: 9, m: 0 };
   const [h24, setH24] = useState(current.h);
@@ -113,8 +117,19 @@ export default function TimePicker({ value, onChange, className = '', disabled, 
         {timeLabel(value) || <span className="text-muted-2">Pick a time</span>}
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-navy/45"
+      {open && mounted && createPortal((
+        /*
+         * Rendered on the body, not where the field sits.
+         *
+         * This picker is opened from inside drawers and dialogs, and those are
+         * `fixed … z-40` — which creates a stacking context. A child of one
+         * cannot paint above anything outside it however high its own z-index
+         * goes, so the dim overlay covered the page but left the sidebar and
+         * the drawer itself bright and clickable behind a modal. It looked
+         * like a colour problem and was a nesting one; no z-index would have
+         * fixed it.
+         */
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-navy/45"
           onClick={() => setOpen(false)}>
           <div ref={box} onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-[22px] w-full max-w-[320px] p-5 shadow-pop">
@@ -194,7 +209,7 @@ export default function TimePicker({ value, onChange, className = '', disabled, 
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
     </>
   );
 }

@@ -232,7 +232,12 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           Desktop only. On a phone the app chrome takes over: an app bar on
           top and the bottom navigation — no sidebar at all. */}
       <aside onClick={(e) => e.stopPropagation()}
-        className="w-[224px] shrink-0 bg-white border-r border-line hidden lg:flex flex-col z-50">
+        /* z-20, not z-50. The sidebar is furniture, not an overlay — it only needs
+           to sit above the page, and at z-50 it sat above every drawer's dim
+           backdrop instead. That is why a modal could darken the board and
+           leave the sidebar glaring beside it: the overlay was underneath the
+           furniture. Nothing here ever needs to cover a dialog. */
+        className="w-[224px] shrink-0 bg-white border-r border-line hidden lg:flex flex-col z-20">
         <Link href={homeFor(me?.role)}
           className="flex items-center gap-3 px-4 h-[58px] border-b border-side-line">
           {co?.logo ? (

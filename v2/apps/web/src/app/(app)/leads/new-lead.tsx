@@ -166,11 +166,21 @@ export default function NewLead({ boot, me, leads, presetClient, onClose, onSave
     } else clearMatch();
   }
 
-  /* Opened from a customer: choose them as though somebody had picked them
-     off the list, once the directory has loaded. */
+  /* Opened from a customer's "Move to lead": choose them as though somebody
+     had picked them off the list.
+
+     It waits for THAT CUSTOMER to appear, not merely for the directory to
+     have something in it. The directory is leads plus customers, and the
+     leads are handed in as a prop while the customers arrive on their own
+     fetch a moment later — so "the directory is not empty" was true on the
+     very first render, when the customer list was still empty. The latch
+     tripped, the lookup found nobody, and the form sat there blank with the
+     id sitting in the address bar. */
   const preset = useRef(false);
   useEffect(() => {
-    if (preset.current || !presetClient || !dir.length) return;
+    if (preset.current || !presetClient) return;
+    const known = dir.find((x) => x.kind === 'client' && x.clientId === presetClient);
+    if (!known) return;          // not loaded yet — this runs again when it is
     preset.current = true;
     onPick(presetClient);
     // eslint-disable-next-line react-hooks/exhaustive-deps
