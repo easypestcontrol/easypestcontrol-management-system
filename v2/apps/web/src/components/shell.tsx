@@ -44,8 +44,16 @@ const GROUPS: Array<{ id: string; label: string; items: NavItem[] }> = [
       { href: '/board', label: 'Dispatch', icon: 'board', roles: ['admin', 'ops', 'sales'] },
       { href: '/schedule', label: 'Schedule', icon: 'calendar', roles: ['admin', 'ops', 'sales'] },
       { href: '/jobs', label: 'Services', icon: 'check', roles: ['admin', 'ops', 'sales'] },
-      { href: '/trip', label: 'Trips', icon: 'branch', roles: ['admin', 'ops', 'sales', 'accounts'] },
       { href: '/audits', label: 'Audits', icon: 'service', roles: ['admin', 'ops'] },
+    ],
+  },
+  {
+    // Trips is its own module now: the office monitors and reimburses every
+    // work drive; the field keeps its own "My trips" screen.
+    id: 'trips', label: 'Trips', items: [
+      { href: '/trips', label: 'Dashboard', icon: 'board', roles: ['admin', 'ops'] },
+      { href: '/trips/report', label: 'Daily report', icon: 'report', roles: ['admin', 'ops'] },
+      { href: '/trip', label: 'My trips', icon: 'branch', roles: ['admin', 'ops', 'sales', 'accounts'] },
     ],
   },
   {
@@ -264,7 +272,14 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           {(() => {
             const visible = (n: NavItem) => allowed(n.href)
               ?? (!n.roles || !me || n.roles.includes(me.role));
-            const isActive = (n: NavItem) => path === n.href || path.startsWith(n.href + '/');
+            // Longest matching href wins, so /trips/report lights only itself,
+            // not /trips too, while /trips/<id> still lights the dashboard.
+            const navHrefs = [HOME.href, TASKS.href, SETTINGS.href, CREDENTIALS.href,
+              ...GROUPS.flatMap((g) => g.items.map((i) => i.href))];
+            const activeHref = navHrefs
+              .filter((h) => path === h || path.startsWith(h + '/'))
+              .sort((a, b) => b.length - a.length)[0];
+            const isActive = (n: NavItem) => n.href === activeHref;
             const item = (n: NavItem, indent = false) => {
               const active = isActive(n);
               return (

@@ -22,6 +22,7 @@ import { billingPlan,
 } from 'shared';
 import { api, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import { FormSteps, Step, StepNav, useStepScroll } from '@/components/form-steps';
 import TimePicker from '@/components/time-picker';
 import TimeRangePicker from '@/components/time-range';
 import SigPad from '@/components/sig-pad';
@@ -31,15 +32,17 @@ import {
   type Boot, type ClientLite, type Draft, type DraftLine,
 } from '../lib';
 
+/* The phone walks the form a stage at a time; from `lg` up every stage is on
+   screen at once and these are unused. */
+const STEPS = ['Details', 'Services', 'Schedule', 'Terms'];
+
 const COPY = {
   amc: {
     title: 'Create new AMC contract',
-    sub: 'The services being sold, what they cost, and every service appointment they produce',
     cta: 'Create contract',
   },
   onetime: {
     title: 'Create one-time service',
-    sub: 'The services being sold, what they cost, and the single service they produce',
     cta: 'Create service',
   },
 };
@@ -61,6 +64,7 @@ function NewContractForm() {
   const [fatal, setFatal] = useState('');
   const [busy, setBusy] = useState(false);
   const [sigKey, setSigKey] = useState(0); // remounts the pads on clear
+  const [step, setStep] = useState(0);
   const isOne = mode === 'onetime';
   // Which customer's addresses are currently in the two boxes. Editing keeps
   // them; picking a different customer refills both from that record.
@@ -351,34 +355,54 @@ function NewContractForm() {
   }
 
   /* -------------------------------------------------------------- create */
+  /* What each stage has to satisfy before the next one opens. `create` runs
+     the whole list, so the phone and the desktop enforce exactly the same
+     rules — the stepping only decides where a complaint is shown. */
+  function checkStep(n: number): string {
+    if (!draft) return '';
+    if (n === 0) {
+      if (!draft.clientId) return 'Pick a customer';
+      if (!draft.subject.trim()) {
+        return 'A subject is required — it is what the customer sees on the contract';
+      }
+    }
+    if (n === 1 && !draft.lines.length) return 'Add at least one service';
+    if (n === 2) {
+      if (isOne) {
+        if (!draft.start) return 'Pick a service date';
+        const l0 = draft.lines[0] as { times?: string[]; timeEnds?: string[] } | undefined;
+        const from = l0?.times?.[0] || draft.slot || '10:00';
+        const to = l0?.timeEnds?.[0] || draft.slotEnd || '';
+        if (to && toMin(to) <= toMin(from)) {
+          return 'The appointment ends before it starts — set a finish later than ' + fmtTime(from);
+        }
+        if (draft.end && daysBetween(draft.start, draft.end) < 0) {
+          return 'The end date is before the start date';
+        }
+      } else if (daysBetween(draft.start, draft.end) < 28) {
+        return 'The service period is too short — give it at least a month';
+      }
+    }
+    return '';
+  }
+
+  useStepScroll(step);
+
+  function next() {
+    const bad = checkStep(step);
+    if (bad) { setErr(bad); return; }
+    setErr('');
+    setStep((n) => Math.min(STEPS.length - 1, n + 1));
+  }
+
   async function create() {
     if (!draft) return;
     setErr('');
-    if (!draft.clientId) { setErr('Pick a customer first'); return; }
-    if (!draft.clientId) { setErr('Pick a customer'); return; }
-    if (!draft.subject.trim()) {
-      setErr('A subject is required — it is what the customer sees on the contract'); return;
+    for (let n = 0; n < STEPS.length; n++) {
+      const bad = checkStep(n);
+      // Send the person to the stage that is wrong, not just the message.
+      if (bad) { setErr(bad); setStep(n); return; }
     }
-    if (!draft.lines.length) { setErr('Add at least one service'); return; }
-    if (isOne) {
-      if (!draft.start) { setErr('Pick a service date'); return; }
-      /* The window is on the appointment now, so that is what is checked —
-         the old test read a field the form no longer shows, which meant a
-         backwards window could be saved without a word. */
-      const l0 = draft.lines[0] as { times?: string[]; timeEnds?: string[] } | undefined;
-      const from = l0?.times?.[0] || draft.slot || '10:00';
-      const to = l0?.timeEnds?.[0] || draft.slotEnd || '';
-      if (to && toMin(to) <= toMin(from)) {
-        setErr('The appointment ends before it starts — set a finish later than ' + fmtTime(from));
-        return;
-      }
-      if (draft.end && daysBetween(draft.start, draft.end) < 0) {
-        setErr('The end date is before the start date'); return;
-      }
-    } else if (daysBetween(draft.start, draft.end) < 28) {
-      setErr('The service period is too short — give it at least a month'); return;
-    }
-
     setBusy(true);
     try {
       const made = await api.post<{ id: string; totalVisits: number }>('/contracts', {
@@ -420,30 +444,48 @@ function NewContractForm() {
   const mergedCount = visits.filter((v) => v.lines > 1).length;
 
   const label = 'block text-[12px] font-semibold text-ink-2 mb-1.5';
+/* One size for every field in the app's long forms.
+
+   Two sizes, really: a phone and a desk are not the same hand. On the phone
+   a control is 44px so it can actually be hit — the app's own rule is that
+   anything pressed is at least 48px including its label — and its text is
+   16px, which is not a style choice: below 16px Safari zooms the whole page
+   in when the field takes focus, and the person is then panning sideways
+   through a form they were halfway down. From `lg` up it goes back to the
+   compact 36px row a mouse deserves. */
   /* Split so a field that sets its own width does not have to fight w-full.
      Appending `w-[90px]` to a class that already says w-full is a coin toss
      decided by stylesheet order — which is how a description box ended up
      narrower than the quantity beside it. */
-  const field = 'h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy bg-white';
+  const field = 'h-11 lg:h-9 px-3 rounded border border-line text-[16px] lg:text-[13.5px] outline-none focus:border-navy bg-white';
   const input = 'w-full ' + field;
   const card = 'rounded-md border border-line';
 
   return (
-    <div className="p-4 lg:p-6 max-w-[1180px]">
+    <div className="p-4 lg:p-6 max-w-[1180px] max-lg:pb-[calc(env(safe-area-inset-bottom)+92px)]">
       <Link href="/contracts" className="text-[12.5px] text-muted hover:text-navy">← All contracts</Link>
-      <div className="mt-2 mb-5">
-        <h1 className="text-[20px] font-semibold">{COPY[mode].title}</h1>
-        <p className="text-muted text-[13px] mt-0.5">{COPY[mode].sub}</p>
+      <div className="mt-2 mb-4 lg:mb-5">
+        <h1 className="text-[17px] lg:text-[20px] font-semibold">{COPY[mode].title}</h1>
       </div>
 
-      {/* ------------------------------------------------------ header card */}
-      <section className={card + ' p-5'}>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* The page has its own padding, so the tracker is pulled back out to
+          the screen edges — a progress rail inset from the sides reads as a
+          widget sitting on the form rather than the frame around it. The
+          margins go on the sticky element itself; a wrapper its own height
+          would leave it nothing to travel inside. */}
+      <FormSteps steps={STEPS} at={step} onGo={setStep} className="-mx-4 -mt-1 mb-4" />
+
+      {/* --------------------------------------- stage 1 · the header card */}
+      <Step n={0} at={step}>
+      <section className={card + ' p-5 max-lg:p-4'}>
+        {/* One field to a row on a phone. Two columns at 390px turned every
+            control into an ellipsis — "Pick a custor⌄", "Rajesh Kuma⌄" —
+            and a select you cannot read is a select you cannot use. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <label className="block">
             <span className={label}>Contract number</span>
             <input className={input + ' font-mono bg-wash text-muted cursor-default'}
               value={draft.no || '…'} readOnly tabIndex={-1} />
-            <span className="block text-[11px] text-muted-2 mt-1">Assigned by the system.</span>
           </label>
           <label className="block">
             <span className={label}>Reference no.</span>
@@ -467,7 +509,7 @@ function NewContractForm() {
           </label>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
           <label className="block">
             <span className={label}>Sales executive *</span>
             <select className={input} value={draft.owner}
@@ -481,15 +523,11 @@ function NewContractForm() {
               onChange={(e) => set({ placeOfSupply: e.target.value })}>
               {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
-            <span className="block text-[11px] text-muted-2 mt-1">
-              Decides whether GST splits into CGST + SGST or is charged as IGST.
-            </span>
           </label>
           <label className="block">
             <span className={label}>Discount (₹)</span>
             <input className={input} type="number" min={0} step={500} value={draft.discount}
               onChange={(e) => set({ discount: parseFloat(e.target.value) || 0 })} />
-            <span className="block text-[11px] text-muted-2 mt-1">Taken off before tax.</span>
           </label>
           <label className="block">
             <span className={label}>Subject / description *</span>
@@ -518,7 +556,6 @@ function NewContractForm() {
               value={draft.billAddr}
               onChange={(e) => set({ billAddr: e.target.value })}
               placeholder="Street, area — City PIN" />
-            <span className="block text-[11px] text-muted-2 mt-1">Editable — printed on the agreement.</span>
           </div>
           <div>
             <span className={label}>Site address</span>
@@ -579,9 +616,6 @@ function NewContractForm() {
                       onChange={(e) => set({ end: e.target.value })} />
                   </label>
                 </div>
-                <span className="block text-[11px] text-muted-2 mt-1">
-                  The service happens on the start date; from a quotation this window is its date → valid till.
-                </span>
               </div>
               {/* The "Time window" pair that sat here has gone. One visit had two
                   places to say when it happened — this box and the appointment
@@ -591,7 +625,10 @@ function NewContractForm() {
             </>
           ) : (
             <div className="lg:col-span-2">
-              <span className={label}>Service period *</span>
+              <span className={label}>
+                Service period *
+                <span className="font-normal text-muted-2"> · {monthsOf} months</span>
+              </span>
               <div className="grid grid-cols-2 gap-2 max-w-[420px]">
                 <label className="block">
                   <span className="block text-[11px] text-muted-2 mb-1">Starts</span>
@@ -604,16 +641,16 @@ function NewContractForm() {
                     onChange={(e) => set({ end: e.target.value })} />
                 </label>
               </div>
-              <span className="block text-[11px] text-muted-2 mt-1">
-                {monthsOf} months — every quantity below is spread across it.
-              </span>
             </div>
           )}
         </div>
       </section>
 
-      {/* -------------------------------------------------- services + money */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 mt-5 items-start">
+      </Step>
+
+      {/* ------------------------------------- stage 2 · services + money */}
+      <Step n={1} at={step}>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 mt-5 max-lg:mt-0 items-start">
         <section className={card}>
           <h2 className="text-[13px] font-semibold px-4 py-3 border-b border-line-soft">
             Pest control services
@@ -728,12 +765,7 @@ function NewContractForm() {
             <span className="font-semibold text-[14px]">Total amount</span>
             <span className="font-semibold text-[19px] tracking-tight">{money(totals.total)}</span>
           </div>
-          {isOne ? (
-            <p className="text-[11.5px] text-muted-2 mt-2.5">
-              Invoiced automatically once the service is completed — the technician
-              collects on site.
-            </p>
-          ) : (
+          {isOne ? null : (
             <div className="mt-3 pt-3 border-t border-line-soft">
               <p className="text-[12px] font-semibold text-ink-2 mb-2">How is this billed?</p>
               <div className="flex flex-col gap-1.5">
@@ -790,8 +822,11 @@ function NewContractForm() {
         </section>
       </div>
 
-      {/* ------------------------------------------------------- schedule */}
-      <div className="mt-5">
+      </Step>
+
+      {/* -------------------------------------------- stage 3 · schedule */}
+      <Step n={2} at={step}>
+      <div className="mt-5 max-lg:mt-0">
         <section className={card}>
           <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-b border-line-soft">
             <h2 className="text-[13px] font-semibold">Service appointment schedule</h2>
@@ -989,15 +1024,14 @@ function NewContractForm() {
               })}
             </tbody>
           </table>
-          <p className="px-4 py-2.5 text-[11.5px] text-muted-2 border-t border-line-soft">
-            Crew counts say how many technicians each service takes; who they are is chosen on the
-            contract page once it exists, where each technician&rsquo;s workload is visible.
-          </p>
         </section>
       </div>
 
-      {/* --------------------------------------- terms, signatures, notes */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-5 items-start">
+      </Step>
+
+      {/* ------------------------ stage 4 · terms, signatures, notes */}
+      <Step n={3} at={step}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-5 max-lg:mt-0 items-start">
         <section className={card + ' p-4'}>
           <h2 className="text-[13px] font-semibold mb-3">Terms &amp; conditions</h2>
           <ol className="list-decimal pl-5 text-[12.5px] leading-relaxed text-ink-2">
@@ -1027,18 +1061,10 @@ function NewContractForm() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={ownerSign} alt="Signature on file"
                 className="h-[72px] rounded border border-line bg-white object-contain" />
-              <p className="text-[11.5px] text-muted-2 mt-2">
-                {ownerName}&rsquo;s signature is taken from their team profile. The customer can
-                sign here, or leave it and sign the printed copy.
-              </p>
             </>
           ) : (
             <>
               <SigPad key={'e' + sigKey} onInk={(d) => set({ signExec: d })} />
-              <p className="text-[11.5px] text-muted-2 mt-2">
-                Optional — sign with a mouse or a finger. {ownerName} has no signature on
-                file; upload one on their team profile and it will be placed here automatically.
-              </p>
             </>
           )}
         </section>
@@ -1048,36 +1074,35 @@ function NewContractForm() {
           <textarea className={input + ' min-h-[96px] py-2'} value={draft.notes}
             placeholder="Timing restrictions, chemical preferences, access instructions…"
             onChange={(e) => set({ notes: e.target.value })} />
-          <p className="text-[11.5px] text-muted-2 mt-2">
-            Printed on the contract and visible to the technician on every visit.
-          </p>
         </section>
       </div>
 
-      {/* --------------------------------------------------------- footer */}
+      </Step>
+
+      {/* ----------------------------------------------------- the footer
+
+          Two of them: the desktop keeps Cancel and Create at the end of the
+          whole form, and the phone gets Back/Next instead, pinned where the
+          thumb already is. */}
       {err && (
-        <p className="mt-5 rounded border border-red-line bg-red-wash px-4 py-2.5 text-[13px] text-accent font-medium">
+        <p className="max-lg:hidden mt-5 rounded border border-red-line bg-red-wash px-4 py-2.5 text-[13px] text-accent font-medium">
           {err}
         </p>
       )}
-      {/* On a phone this is pinned: after a long form the buttons must be
-          where the thumb already is, not at the end of a scroll. */}
-      <div className="flex justify-end gap-3 mt-5 pb-10
-        max-lg:fixed max-lg:left-0 max-lg:right-0 max-lg:bottom-[calc(max(12px,env(safe-area-inset-bottom))+70px)] max-lg:z-30
-        max-lg:bg-white max-lg:border-t max-lg:border-line
-        max-lg:px-4 max-lg:pt-2.5 max-lg:pb-2.5
-        max-lg:mt-0">
+      <div className="max-lg:hidden flex justify-end gap-3 mt-5 pb-10">
         <button onClick={() => router.push('/contracts')}
-          className="h-9 px-4 rounded border border-line text-[13px] font-medium hover:bg-wash
-            max-lg:h-[52px] max-lg:px-5 max-lg:rounded-xl max-lg:text-[15px] max-lg:font-semibold">
+          className="h-9 px-4 rounded border border-line text-[13px] font-medium hover:bg-wash">
           Cancel
         </button>
         <button onClick={create} disabled={busy}
-          className="h-9 px-5 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-60
-            max-lg:flex-1 max-lg:h-[52px] max-lg:rounded-xl max-lg:text-[16px] max-lg:font-bold">
+          className="h-9 px-5 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-60">
           {busy ? 'Creating…' : COPY[mode].cta}
         </button>
       </div>
+
+      <StepNav steps={STEPS.length} at={step} err={err} saving={busy}
+        onBack={() => { setErr(''); setStep((n) => Math.max(0, n - 1)); }}
+        onNext={next} onSave={create} saveLabel={COPY[mode].cta} />
     </div>
   );
 }

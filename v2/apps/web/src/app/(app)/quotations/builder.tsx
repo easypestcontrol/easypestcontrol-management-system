@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, type Bootstrap, type SessionUser } from '@/lib/api';
+import { FormSteps, Step, StepNav, useStepScroll } from '@/components/form-steps';
 import { Icon } from '@/components/icons';
 import {
   FREQ_MONTHS, addDays, addMonths, cadenceLabel, daysBetween, docTotals, money,
@@ -90,11 +91,25 @@ interface RowItem {
   visits: number; months: number; touched: boolean;
 }
 
-const INP = 'w-full h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy bg-white';
-const AREA = 'w-full min-h-[88px] p-3 rounded border border-line text-[13px] leading-relaxed outline-none focus:border-navy bg-white';
+/* One size for every field in the app's long forms.
 
-function Field({ label, hint, req, children }: {
-  label: string; hint?: string; req?: boolean; children: React.ReactNode;
+   Two sizes, really: a phone and a desk are not the same hand. On the phone
+   a control is 44px so it can actually be hit — the app's own rule is that
+   anything pressed is at least 48px including its label — and its text is
+   16px, which is not a style choice: below 16px Safari zooms the whole page
+   in when the field takes focus, and the person is then panning sideways
+   through a form they were halfway down. From `lg` up it goes back to the
+   compact 36px row a mouse deserves. */
+const INP = 'w-full h-11 lg:h-9 px-3 rounded border border-line text-[16px] lg:text-[13.5px] outline-none focus:border-navy bg-white';
+const AREA = 'w-full min-h-[88px] p-3 rounded border border-line text-[16px] lg:text-[13px] leading-relaxed outline-none focus:border-navy bg-white';
+
+/* A label and its input, and nothing else.
+   The explanatory line under every field is gone on purpose: a form of
+   twenty inputs with twenty sentences under them reads as twice the work it
+   is, and on a phone those sentences were most of the scrolling. What a
+   field is for belongs in its label. */
+function Field({ label, req, children }: {
+  label: string; req?: boolean; children: React.ReactNode;
 }) {
   return (
     <label className="block">
@@ -102,15 +117,19 @@ function Field({ label, hint, req, children }: {
         {label}{req && <span className="text-accent"> *</span>}
       </span>
       {children}
-      {hint && <span className="block text-[11.5px] text-muted-2 mt-1">{hint}</span>}
     </label>
   );
 }
+
+/* On the phone the form is walked through a stage at a time; from `lg` up
+   every stage is on screen at once and these are unused. */
+const STEPS = ['Customer', 'Services', 'Terms'];
 
 export default function Builder({ edit, presetClient, presetLead }: {
   edit?: QuoteFull | null; presetClient?: string; presetLead?: string;
 }) {
   const router = useRouter();
+  const [step, setStep] = useState(0);
   const [boot, setBoot] = useState<Bootstrap | null>(null);
   const [me, setMe] = useState<SessionUser | null>(null);
   const [clients, setClients] = useState<ClientRec[]>([]);
@@ -347,6 +366,27 @@ export default function Builder({ edit, presetClient, presetLead }: {
   const t = docTotals(items || [], Number(discount) || 0, pos, home, gstRate);
 
   /* ------------------------------------------------------------------ save */
+  useStepScroll(step);
+
+  /* Each stage has to be finished before the next opens — that is the point
+     of stepping the form. The checks are the save's own, applied where the
+     field actually is, so nothing can be wrong by the time Save is reached. */
+  function next() {
+    if (step === 0) {
+      if (!partyKey) {
+        setErr('Pick who this is for — type a name in “Raise for” and choose from the list');
+        return;
+      }
+      if (!title.trim()) { setErr('Give the quotation a title'); return; }
+    }
+    if (step === 1 && (items || []).filter((i) => i.svId !== '__unset').length === 0) {
+      setErr('Add at least one service');
+      return;
+    }
+    setErr('');
+    setStep((n) => Math.min(STEPS.length - 1, n + 1));
+  }
+
   async function save() {
     if (!partyKey) {
       setErr('Pick who this is for — type a name in “Raise for” and choose from the list');
@@ -399,14 +439,10 @@ export default function Builder({ edit, presetClient, presetLead }: {
 
   /* ------------------------------------------------------------ party panel */
   function panel() {
-    if (!partyKey) {
-      return (
-        <div className="rounded border border-line bg-wash p-4 flex items-start gap-2.5 text-[12.5px] text-muted">
-          <Icon name="search" size={15} className="mt-0.5 shrink-0" />
-          Start typing a customer or lead name above — billing, site and GST details fill in here.
-        </div>
-      );
-    }
+    // Nothing until somebody is picked. The box that used to sit here
+    // explained that picking a customer fills it in, which is a paragraph
+    // saying what the empty box already says.
+    if (!partyKey) return null;
     const id = partyKey.slice(2);
     if (partyKey[0] === 'L') {
       const l = leads.find((x) => x.id === id);
@@ -479,11 +515,11 @@ export default function Builder({ edit, presetClient, presetLead }: {
             <Icon name="x" size={16} />
           </Link>
           <h1 className="text-[17px] font-semibold">{edit ? 'Edit quotation' : 'New quotation'}</h1>
-          <span className="text-muted-2 text-[12.5px] truncate">
-            {edit
-              ? edit.id + ' · ' + (QUOTE_STATUS[edit.status]?.label || '')
-              : 'Generates a GST-compliant document you can send immediately'}
-          </span>
+          {edit && (
+            <span className="text-muted-2 text-[12.5px] truncate">
+              {edit.id + ' · ' + (QUOTE_STATUS[edit.status]?.label || '')}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {err && <span className="text-accent text-[12.5px] max-w-[380px] truncate">{err}</span>}
@@ -497,24 +533,17 @@ export default function Builder({ edit, presetClient, presetLead }: {
         </div>
       </div>
 
-      {/* The phone's save bar. Errors sit above the button rather than beside
-          it, because a message truncated to fit next to a button is a
-          message nobody reads. */}
-      <div className="lg:hidden fixed left-0 right-0 z-30 bottom-[calc(max(12px,env(safe-area-inset-bottom))+70px)] bg-white border-t border-line
-        px-4 pt-2.5 pb-2.5">
-        {err && <p className="text-accent text-[13px] mb-2 leading-snug">{err}</p>}
-        <button onClick={save} disabled={saving}
-          className="w-full h-[52px] rounded-xl bg-accent text-white font-bold text-[16px]
-            active:brightness-90 disabled:opacity-60">
-          {saving ? 'Saving…' : edit ? 'Save changes' : 'Save quotation'}
-        </button>
-      </div>
+      <FormSteps steps={STEPS} at={step} onGo={setStep} />
+      <StepNav steps={STEPS.length} at={step} err={err} saving={saving}
+        onBack={() => { setErr(''); setStep((n) => Math.max(0, n - 1)); }}
+        onNext={next} onSave={save}
+        saveLabel={edit ? 'Save changes' : 'Save quotation'} />
 
       <div className="p-4 lg:p-6 max-w-[960px] max-lg:pb-[calc(env(safe-area-inset-bottom)+92px)]">
-        {/* -------------------------------------------------- who and what */}
+        {/* ------------------------------------- stage 1 · who and what */}
+        <Step n={0} at={step}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Field label="Raise for" req
-            hint="Customers and open leads — matches on name, contact, phone, city or GSTIN.">
+          <Field label="Raise for" req>
             <div className="relative">
               <input value={partyQ} autoComplete="off"
                 placeholder="Type a name, phone or GSTIN…" className={INP}
@@ -574,14 +603,14 @@ export default function Builder({ edit, presetClient, presetLead }: {
         <div className="mt-4">{panel()}</div>
 
         <div className="mt-4">
-          <Field label="Title / subject" req hint="What the customer sees at the top of the document.">
+          <Field label="Title / subject" req>
             <input value={title} onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Annual Pest Management — Fresh Basket, Anna Nagar" className={INP} />
           </Field>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-          <Field label="Quotation no." hint="Assigned automatically by the system.">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+          <Field label="Quotation no.">
             <input value={qNo || '…'} readOnly tabIndex={-1}
               className={INP + ' font-mono bg-wash text-muted cursor-default'} />
           </Field>
@@ -592,17 +621,17 @@ export default function Builder({ edit, presetClient, presetLead }: {
           <Field label="Quotation date">
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={INP} />
           </Field>
-          <Field label="Valid till" hint="Quotations stay valid for 15 days from the date.">
+          <Field label="Valid till">
             <input value={fmtDate(addDays(date || todayISO(), 15))} readOnly className={INP + ' bg-wash'} />
           </Field>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-          <Field label="Billing address" hint="Printed under 'Quotation for' on the document.">
+          <Field label="Billing address">
             <textarea value={billAddr} onChange={(e) => setBillAddr(e.target.value)} rows={3}
               placeholder="Street, area — City PIN" className={AREA} />
           </Field>
-          <Field label="Shipping / site address" hint="Where the service happens — printed on the right of the document.">
+          <Field label="Shipping / site address">
             {/* ------------------------------------------- pick, do not type
 
                 A customer's sites are on their record already. Retyping one
@@ -648,8 +677,7 @@ export default function Builder({ edit, presetClient, presetLead }: {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
-          <Field label="Place of supply"
-            hint="Within the home state this splits into CGST + SGST; any other state is charged as a single IGST line.">
+          <Field label="Place of supply">
             <select value={pos} onChange={(e) => setPos(e.target.value)} className={INP}>
               {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -666,8 +694,11 @@ export default function Builder({ edit, presetClient, presetLead }: {
           </Field>
         </div>
 
-        {/* -------------------------------------------------------- items */}
-        <div className="border-t border-line mt-6 pt-5">
+        </Step>
+
+        {/* ------------------------------- stage 2 · what is being sold */}
+        <Step n={1} at={step}>
+        <div className="border-t border-line mt-6 pt-5 max-lg:border-0 max-lg:mt-0 max-lg:pt-0">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[13.5px] font-semibold">Line items</span>
             <button onClick={addItem}
@@ -774,14 +805,17 @@ export default function Builder({ edit, presetClient, presetLead }: {
           </div>
         </div>
 
-        {/* -------------------------------------------- notes, terms, sign */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-          <Field label="Customer notes" hint="Printed on the quotation.">
+        </Step>
+
+        {/* ------------------------- stage 3 · notes, terms, signatures */}
+        <Step n={2} at={step}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4 max-lg:mt-0">
+          <Field label="Customer notes">
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
               placeholder="Timing restrictions, chemical preferences, access instructions…"
               className={AREA} />
           </Field>
-          <Field label="Terms & conditions" hint="Pre-filled from Settings — edit for this quotation only.">
+          <Field label="Terms & conditions">
             <textarea value={terms} onChange={(e) => setTerms(e.target.value)} className={AREA} />
           </Field>
         </div>
@@ -789,7 +823,7 @@ export default function Builder({ edit, presetClient, presetLead }: {
         <div className="border-t border-line mt-6 pt-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[13.5px] font-semibold">Digital signatures</span>
-            <span className="text-[11.5px] text-muted-2">Optional here, required before a contract</span>
+            <span className="text-[11.5px] text-muted-2">Optional</span>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="rounded border border-line p-4">
@@ -818,12 +852,8 @@ export default function Builder({ edit, presetClient, presetLead }: {
               )}
             </div>
           </div>
-          <p className="text-[11.5px] text-muted-2 mt-2">
-            {ownerUser?.sign
-              ? ownerName + '’s signature is taken from their team profile and goes on every document they raise.'
-              : 'Optional. ' + ownerName + ' has no signature on file — upload one on their team profile and it will appear here on its own.'}
-          </p>
         </div>
+        </Step>
       </div>
     </div>
   );

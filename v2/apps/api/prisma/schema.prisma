@@ -724,14 +724,28 @@ model Training {
 model Trip {
   id        String    @id // TRIP-1
   userId    String
+  branch    String    @default("") // stamped from the driver at start — the branch wall
   purpose   String    @default("")
   jobId     String    @default("")
   dest      String    @default("") // where they said they were going
-  status    String    @default("active") // active | done
+  startPlace String   @default("") // human label of where the trip began
+  endPlace  String    @default("") // human label of where it ended
+  status    String    @default("active") // active | done | cancelled
   startAt   DateTime  @default(now())
   endAt     DateTime?
   distanceM Int       @default(0) // metres along the actual GPS breadcrumb path
+  plannedM  Int       @default(0) // shortest-route metres, for the deviation check
   points    Json      @default("[]") // [{lat,lng,t}]
+  // The office's verdict on a finished trip. 'auto' = inside the limits, no
+  // one had to look; 'pending' = flagged, waiting on the admin; then the
+  // admin's approved / rejected. Only 'rejected' drops out of the claim.
+  review     String   @default("pending") // pending | auto | approved | rejected
+  flagged    Boolean  @default(false)
+  flagReason String   @default("")
+  reviewNote String   @default("")
+  reviewedBy String   @default("")
+  reviewedAt DateTime?
+  claimId    String   @default("") // the ExpenseReport this trip was pushed into
 }
 
 // ---------------------------------------------------------------- purchasing
