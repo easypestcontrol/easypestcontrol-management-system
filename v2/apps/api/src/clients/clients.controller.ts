@@ -1,5 +1,6 @@
 import {
-  Body, Controller, Get, NotFoundException, Param, Patch, Post, Query, Req, UseGuards,
+  BadRequestException, Body, Controller, Delete, Get, NotFoundException,
+  Param, Patch, Post, Query, Req, UseGuards,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
@@ -101,5 +102,48 @@ export class ClientsController {
   @Roles('admin', 'ops', 'sales')
   update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
     return this.prisma.client.update({ where: { id }, data: pick(body) });
+  }
+
+  /**
+   * Remove a customer — but only one with nothing hanging off them.
+   *
+   * A customer is the anchor for contracts, visits and money. Deleting one
+   * that still has any of those does not tidy anything up; it orphans an
+   * invoice somebody is owed and a visit somebody is expecting, and the
+   * money reports go quietly wrong. So this refuses and says what is in the
+   * way, which is a thing the person can act on.
+   *
+   * Admins only. Anyone else can edit a customer, not erase one.
+   */
+  @Delete(':id')
+  @Roles('admin')
+  async remove(@Param('id') id: string, @Req() req: AuthedReq) {
+    const c = await this.prisma.client.findUnique({ where: { id } });
+    if (!c || !inScope(await branchScope(this.prisma, req.user), c.branch)) {
+      throw new NotFoundException('No such customer');
+    }
+
+    const [contracts, jobs, invoices, quotes] = await Promise.all([
+      this.prisma.contract.count({ where: { clientId: id } }),
+      this.prisma.job.count({ where: { clientId: id } }),
+      this.prisma.invoice.count({ where: { clientId: id } }),
+      this.prisma.quotation.count({ where: { clientId: id } }),
+    ]);
+    const blocking = [
+      contracts && contracts + ' contract' + (contracts > 1 ? 's' : ''),
+      invoices && invoices + ' invoice' + (invoices > 1 ? 's' : ''),
+      jobs && jobs + ' service' + (jobs > 1 ? 's' : ''),
+      quotes && quotes + ' quotation' + (quotes > 1 ? 's' : ''),
+    ].filter(Boolean) as string[];
+
+    if (blocking.length) {
+      throw new BadRequestException(
+        c.name + ' still has ' + blocking.join(', ')
+        + '. Delete or move those first — removing the customer now would leave them orphaned.',
+      );
+    }
+
+    await this.prisma.client.delete({ where: { id } });
+    return { ok: true, id };
   }
 }

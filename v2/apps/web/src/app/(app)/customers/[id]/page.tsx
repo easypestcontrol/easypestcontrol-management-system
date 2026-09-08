@@ -14,6 +14,7 @@ import { Icon } from '@/components/icons';
 import CustomerForm from '../customer-form';
 import { isOpen, phoneKey } from '../../leads/lib';
 import CustomerMobile from './mobile';
+import ActionMenu from '@/components/action-menu';
 
 interface PlanLine { svId: string; crew: number; techIds: string[]; visits: number }
 interface Contract {
@@ -96,6 +97,31 @@ export default function CustomerDetail() {
    *
    * The form fills itself in from the customer, so nothing is retyped.
    */
+  /* Removing a customer is an admin's call and the server refuses when
+     anything still hangs off them, so the confirm here only has to be sure
+     the person meant it. */
+  async function removeCustomer() {
+    if (!c) return;
+    if (!window.confirm('Delete ' + c.name + '? This cannot be undone.')) return;
+    try {
+      await api.del('/clients/' + c.id);
+      router.replace('/customers');
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : 'Could not delete this customer');
+    }
+  }
+
+  function actions() {
+    if (!c) return [];
+    return [
+      { label: 'Edit', onClick: () => setEditing(true) },
+      { label: 'Move to lead', onClick: moveToLead },
+      { label: 'Create quotation', onClick: () => router.push('/quotations/new?client=' + c.id) },
+      { label: 'Create contract', onClick: () => router.push('/contracts/new?client=' + c.id) },
+      { label: 'Delete customer', onClick: removeCustomer, danger: true },
+    ];
+  }
+
   async function moveToLead() {
     if (!c) return;
     if (!c.phone) {
@@ -149,7 +175,7 @@ export default function CustomerDetail() {
   return (
     <>
       {/* Opened to ring them, or to answer what they owe. Both are one tap. */}
-      <CustomerMobile c={c} />
+      <CustomerMobile c={c} actions={actions()} note={note} />
 
     <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
@@ -169,23 +195,12 @@ export default function CustomerDetail() {
             <span className="text-muted-2 text-[12px]">{c.id}</span>
           </div>
         </div>
-        <button onClick={() => setEditing(true)}
-          className="h-8 px-3.5 rounded border border-line text-[12.5px] font-medium hover:bg-wash">
-          Edit
-        </button>
-        <button onClick={moveToLead} title="Put them back in the pipeline as a fresh enquiry"
-          className="h-8 px-3.5 rounded border border-line text-[12.5px] font-medium hover:bg-wash">
-          Move to lead
-        </button>
-        <button onClick={() => router.push('/quotations/new?client=' + c.id)}
-          title="Open the quotation builder with this customer already in it"
-          className="h-8 px-3.5 rounded border border-line text-[12.5px] font-medium hover:bg-wash">
-          Create quotation
-        </button>
         <button onClick={() => router.push('/contracts/new?client=' + c.id)}
           className="flex items-center gap-1.5 h-8 px-3.5 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90">
           <Icon name="plus" size={14} /> New contract
         </button>
+        {/* The rest live behind the three dots, the same five the phone gets. */}
+        <ActionMenu actions={actions()} />
       </div>
 
       {note && (

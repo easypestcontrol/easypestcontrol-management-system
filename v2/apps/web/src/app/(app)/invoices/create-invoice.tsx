@@ -261,7 +261,10 @@ export function CreateDialog({ onClose, onCreated, page }: {
                   Every service on this contract has been billed. Nothing left to raise.
                 </p>
               ) : (
-                <div className="max-h-[280px] overflow-y-auto divide-y divide-line-soft">
+                // No scroller inside a scroller: the visit list had its own
+                // 280px window, so the page scrolled, then the list scrolled,
+                // and the page below it sat empty. The page scrolls now.
+                <div className="divide-y divide-line-soft">
                   {bill.services.map((x, i) => {
                     const on = ticked.has(x.jobId);
                     const firstOverdue = x.overdue

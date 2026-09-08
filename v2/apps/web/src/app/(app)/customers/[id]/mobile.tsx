@@ -14,6 +14,7 @@
 import Link from 'next/link';
 import { Icon } from '@/components/icons';
 import { BackBar, Card, Chip, Row, Screen, money, niceDate, type Tone } from '@/components/mobile';
+import ActionMenu, { type Action } from '@/components/action-menu';
 
 interface Job { id: string; date: string; slot: string; status: string; type: string }
 interface Invoice {
@@ -39,12 +40,14 @@ function jobState(s: string): { tone: Tone; label: string } {
   return { tone: 'info', label: 'Scheduled' };
 }
 
-export default function CustomerMobile({ c }: {
+export default function CustomerMobile({ c, actions, note }: {
   c: {
     id: string; name: string; contact: string; phone: string; email: string;
     addr: string; city: string; area: string; type: string; color: string;
     contracts: Contract[]; jobs: Job[]; invoices: Invoice[];
   };
+  actions?: Action[];
+  note?: string;
 }) {
   // What they owe, from the invoices we already have — no second request for
   // a number that is sitting in the payload.
@@ -59,7 +62,9 @@ export default function CustomerMobile({ c }: {
 
   return (
     <Screen>
-      <BackBar title={c.name} fallback={'/customers'} />
+      <BackBar title={c.name} fallback={'/customers'}
+        right={actions && actions.length ? <ActionMenu actions={actions} /> : undefined} />
+      {note && <p className="px-4 pt-2 text-[13px] text-accent font-medium">{note}</p>}
       {/* ------------------------------------------------------ who it is */}
       <div className="bg-white px-4 pt-4 pb-5 text-center">
         <span className="w-16 h-16 rounded-full text-white text-[22px] font-bold

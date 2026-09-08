@@ -102,7 +102,7 @@ export function Hero({ eyebrow, title, right, status, children }: {
      instead of as the page's background, and the grey ground gets to do the
      job it is there for. */
   return (
-    <div className="mx-4 mt-5 rounded-[26px] px-4 pt-5 pb-5 text-white shadow-card"
+    <div className="mx-4 mt-5 rounded-[28px] px-4 pt-6 pb-6 text-white shadow-card"
       style={{ background: 'linear-gradient(145deg, var(--color-hero), var(--color-hero-2))' }}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -133,7 +133,7 @@ export function HeroStats({ items }: {
   items: Array<{ label: string; value: string | number; icon?: IconName; href?: string }>;
 }) {
   return (
-    <div className={'mt-3.5 grid gap-2 '
+    <div className={'mt-4 grid gap-2 '
       + (items.length >= 4 ? 'grid-cols-4' : items.length === 3 ? 'grid-cols-3' : 'grid-cols-2')}>
       {items.map((it) => {
         const body = (
@@ -148,7 +148,10 @@ export function HeroStats({ items }: {
             </span>
           </>
         );
-        const cls = 'rounded-2xl px-2.5 py-2.5 text-center';
+        /* Taller tiles inside a taller band — at 2.5 the figures sat on top
+           of their labels and the whole panel read as a strip rather than a
+           panel. */
+        const cls = 'rounded-2xl px-2.5 py-4 text-center';
         return it.href
           ? <Link key={it.label} href={it.href} className={cls + ' active:brightness-95'}
               style={{ background: 'var(--color-hero-soft)' }}>{body}</Link>
