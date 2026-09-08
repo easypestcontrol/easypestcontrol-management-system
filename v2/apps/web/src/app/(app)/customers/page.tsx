@@ -48,11 +48,20 @@ export default function Customers() {
         rows={(rows || []).map((c) => ({
           id: c.id,
           href: '/customers/' + c.id,
+          /* The name and where they are, and nothing else. A contact, a phone
+             number and a Residential/Commercial tag on every row turned a
+             list of twelve customers into a wall of text you had to read
+             rather than scan. All of it is on the customer's own page, one
+             tap away. */
           title: c.name,
-          meta: [c.contact, c.phone].filter(Boolean).join(' · ') || c.id,
+          /* The person to ask for, under the name. Just the name — the phone
+             number and the Residential/Commercial tag are on their own page
+             and were what made this list unreadable. */
+          meta: c.contact || '',
+          /* Initials from the contact where there is one, otherwise from the
+             business, so every row has a mark. */
+          avatar: c.contact || c.name,
           right: c.area || c.city || '',
-          tone: 'info' as const,
-          state: c.type || 'Customer',
         }))}
         empty={q ? 'Nothing matches that' : 'No customers yet'}
         emptyHint={q

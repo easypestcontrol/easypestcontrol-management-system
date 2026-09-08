@@ -69,8 +69,11 @@ export function useBranchFilter(): { branch: string; el: ReactNode; heroEl: Reac
   const heroEl = rows.length > 1 ? (
     <select value={branch} onChange={(e) => pick(e.target.value)}
       title="See one branch, or the whole company"
+      /* The options need their own colour. They inherit the select's, which
+         on the red band is white — so the open list was white text on a
+         white popup and every branch but the highlighted one was invisible. */
       className="h-10 max-w-[132px] pl-3 pr-2 rounded-full border-0 text-white text-[13px] font-semibold
-        outline-none appearance-none truncate"
+        outline-none appearance-none truncate [&>option]:text-ink [&>option]:bg-white"
       style={{ background: 'var(--color-hero-soft)' }}>
       {options}
     </select>

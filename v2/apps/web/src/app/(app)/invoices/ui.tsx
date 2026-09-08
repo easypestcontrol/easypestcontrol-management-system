@@ -160,26 +160,40 @@ export function amountInWords(n: number): string {
 
 /* --------------------------------------------------------------- dialog */
 
-export function Dialog({ title, sub, wide, onClose, children, footer }: {
+export function Dialog({ title, sub, wide, onClose, children, footer, page }: {
   title: string; sub?: string; wide?: boolean; onClose: () => void;
   children: React.ReactNode; footer?: React.ReactNode;
+  /** A whole screen with a back arrow, the way a phone expects, instead of a
+      floating panel over the list. */
+  page?: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
-      <div className="absolute inset-0 bg-navy/40" onClick={onClose} />
+    <div className={page
+      ? 'fixed inset-0 z-50 flex bg-white'
+      : 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6'}>
+      {!page && <div className="absolute inset-0 bg-navy/40" onClick={onClose} />}
       {/* Wider and a little shorter. A form squeezed into 680px wraps onto
           more rows, and the extra rows are what made this thing tower over
           the screen — width costs nothing and buys back height. */}
-      <div className={'relative bg-white rounded-md shadow-pop w-full flex flex-col max-h-[86vh] max-lg:max-h-[calc(100vh-24px)] ' +
-        (wide ? 'max-w-[780px]' : 'max-w-[480px]')}>
-        <div className="flex items-start justify-between px-5 pt-4 pb-3 border-b border-line-soft">
-          <div>
-            <h2 className="text-[15px] font-semibold">{title}</h2>
-            {sub && <p className="text-muted text-[12.5px] mt-0.5">{sub}</p>}
+      <div className={page
+        ? 'relative bg-white w-full h-full flex flex-col'
+        : 'relative bg-white rounded-md shadow-pop w-full flex flex-col max-h-[86vh] max-lg:max-h-[calc(100vh-24px)] '
+          + (wide ? 'max-w-[780px]' : 'max-w-[480px]')}>
+        <div className="flex items-center gap-2 px-4 sm:px-5 h-[56px] border-b border-line shrink-0">
+          {page && (
+            <button onClick={onClose} aria-label="Back" className="-ml-2 p-2 text-ink-2">
+              <Icon name="chevRight" size={18} className="rotate-180" />
+            </button>
+          )}
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[16px] font-semibold truncate">{title}</h2>
+            {sub && <p className="text-muted text-[12.5px] truncate">{sub}</p>}
           </div>
-          <button onClick={onClose} className="text-muted-2 hover:text-ink mt-0.5" aria-label="Close">
-            <Icon name="x" size={16} />
-          </button>
+          {!page && (
+            <button onClick={onClose} className="text-muted-2 hover:text-ink" aria-label="Close">
+              <Icon name="x" size={16} />
+            </button>
+          )}
         </div>
         <div className="px-5 py-4 overflow-y-auto flex-1 min-h-0">{children}</div>
         {/* Three actions do not fit one 390px row, so they wrap as whole

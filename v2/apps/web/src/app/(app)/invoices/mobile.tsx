@@ -52,13 +52,13 @@ const TABS = [
 
 /* ----------------------------------------------------------------- screen */
 
-export default function InvoicesMobile({ data, tab, onTab, q, onQ, onNew }: {
+export default function InvoicesMobile({ data, tab, onTab, q, onQ, newHref }: {
   data: ListResponse | null;
   tab: string;
   onTab: (t: string) => void;
   q: string;
   onQ: (v: string) => void;
-  onNew: () => void;
+  newHref: string;
 }) {
   const [searching, setSearching] = useState(false);
 
@@ -136,7 +136,7 @@ export default function InvoicesMobile({ data, tab, onTab, q, onQ, onNew }: {
         </div>
       )}
 
-      <Fab onClick={onNew} label="New invoice" />
+      <Fab href={newHref} label="New invoice" />
     </Screen>
   );
 }

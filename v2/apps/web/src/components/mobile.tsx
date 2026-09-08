@@ -102,7 +102,7 @@ export function Hero({ eyebrow, title, right, status, children }: {
      instead of as the page's background, and the grey ground gets to do the
      job it is there for. */
   return (
-    <div className="mx-4 mt-3 rounded-[26px] px-4 pt-4 pb-4 text-white shadow-card"
+    <div className="mx-4 mt-5 rounded-[26px] px-4 pt-5 pb-5 text-white shadow-card"
       style={{ background: 'linear-gradient(145deg, var(--color-hero), var(--color-hero-2))' }}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -198,7 +198,30 @@ export function Chip({ tone = 'plain', children }: { tone?: Tone; children: Reac
  * where it stands. 84px so a thumb — about 45px wide, and never precise —
  * cannot land between two of them.
  */
-export function Row({ href, title, amount, meta, chip, right, onMore }: {
+/* A phone address book puts a face beside every name; ours had a wall of
+   black text. The initials come from whoever the row is about and the colour
+   is derived from their name, so the same customer always wears the same one
+   and the list becomes something you can find your place in. */
+const AVATAR = [
+  { bg: 'bg-sky', fg: 'text-sky-ink' },
+  { bg: 'bg-mint', fg: 'text-mint-ink' },
+  { bg: 'bg-amber', fg: 'text-amber-ink' },
+  { bg: 'bg-rose', fg: 'text-rose-ink' },
+];
+export function initialsOf(name: string): string {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  const a = parts[0][0] || '';
+  const b = parts.length > 1 ? parts[parts.length - 1][0] : (parts[0][1] || '');
+  return (a + b).toUpperCase();
+}
+function avatarTone(name: string) {
+  let n = 0;
+  for (const ch of String(name || '')) n = (n + ch.charCodeAt(0)) % 997;
+  return AVATAR[n % AVATAR.length];
+}
+
+export function Row({ href, title, amount, meta, chip, right, onMore, avatar }: {
   href?: string;
   title: string;
   amount?: string;
@@ -206,13 +229,21 @@ export function Row({ href, title, amount, meta, chip, right, onMore }: {
   chip?: React.ReactNode;
   right?: string;
   onMore?: () => void;
+  /** Initials beside the row, taken from this name. */
+  avatar?: string;
 }) {
-  const body = (
+  const tone = avatar ? avatarTone(avatar) : null;
+  const inner = (
     <>
       <span className="flex items-baseline justify-between gap-3">
         <span className="text-[15.5px] font-bold tracking-[-0.01em] truncate">{title}</span>
-        {(amount || right) && (
-          <span className="text-[15.5px] font-bold tabular-nums shrink-0">{amount || right}</span>
+        {amount && <span className="text-[15.5px] font-bold tabular-nums shrink-0">{amount}</span>}
+        {!amount && right && (
+          /* A place, not a number: it reads as a label rather than competing
+             with the name for the same weight of black. */
+          <span className="text-[12.5px] font-semibold text-sky-ink shrink-0 whitespace-nowrap">
+            {right}
+          </span>
         )}
       </span>
       {/* The chip rides on the meta line instead of taking a third row of
@@ -220,9 +251,9 @@ export function Row({ href, title, amount, meta, chip, right, onMore }: {
           customers into a wall — the tag is one word and belongs beside the
           detail it qualifies, not underneath it. */}
       {(meta || chip) && (
-        <span className="flex items-center gap-2 mt-1.5 min-w-0">
+        <span className="flex items-center gap-2 mt-2 min-w-0">
           {chip}
-          {meta && <span className="text-[13px] text-muted truncate min-w-0">{meta}</span>}
+          {meta && <span className="text-[13.5px] text-muted truncate min-w-0">{meta}</span>}
           {onMore && (
             <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMore(); }}
@@ -236,9 +267,22 @@ export function Row({ href, title, amount, meta, chip, right, onMore }: {
     </>
   );
 
+  const body = tone ? (
+    <span className="flex items-start gap-3">
+      <span className={'w-10 h-10 rounded-full shrink-0 flex items-center justify-center '
+        + 'text-[13px] font-bold ' + tone.bg + ' ' + tone.fg}>
+        {initialsOf(avatar || '')}
+      </span>
+      <span className="flex-1 min-w-0">{inner}</span>
+    </span>
+  ) : inner;
+
   /* Roomier and shorter at the same time: the third line is gone, so the
      space it used to take becomes breathing room around two. */
-  const cls = 'block px-4 py-4 border-b border-line-soft last:border-b-0 active:bg-wash';
+  /* A one-line row needs air around it more than a three-line one did: the
+     space that used to be filled with a contact and a phone number becomes
+     the gap between one customer and the next. */
+  const cls = 'block px-4 py-5 border-b border-line-soft last:border-b-0 active:bg-wash';
   return href
     ? <Link href={href} className={cls}>{body}</Link>
     : <div className={cls}>{body}</div>;
@@ -259,20 +303,27 @@ export function Card({ title, action, actionHref, icon, flush, children, classNa
 }) {
   return (
     <section className={'bg-white rounded-[20px] overflow-hidden ' + className}>
+      {/* The header wears a rule and a tint so it reads as a header.
+          Without them it was the same weight as the first row under it and
+          the same hairline separated them, so "Today's services" looked like
+          another customer in the list rather than the title above it. The
+          rule is `border-line`; the ones between rows are `line-soft`, which
+          is what makes one a heading and the others a list. */}
       {title && (
-        <header className="flex items-center justify-between px-4 pt-3.5 pb-2.5">
-          <h2 className="flex items-center gap-2 text-[16.5px] font-bold tracking-[-0.01em]">
-            {icon && <Icon name={icon} size={17} className="text-accent" />}
-            {title}
+        <header className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-line">
+          <h2 className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-[0.06em] text-ink min-w-0">
+            {icon && <Icon name={icon} size={16} className="text-accent shrink-0" />}
+            <span className="truncate">{title}</span>
           </h2>
           {action && actionHref && (
-            <Link href={actionHref} className="text-accent text-[14px] font-semibold -m-2 p-2">
+            <Link href={actionHref}
+              className="text-accent text-[13px] font-bold whitespace-nowrap shrink-0 -m-2 p-2">
               {action}
             </Link>
           )}
         </header>
       )}
-      <div className={flush ? '' : 'px-4 pb-4'}>{children}</div>
+      <div className={flush ? '' : 'px-4 py-4'}>{children}</div>
     </section>
   );
 }
@@ -410,10 +461,15 @@ export function Filters({ value, onChange, options }: {
 
 /** The screen's title bar for a top-level tab. */
 export function ScreenTitle({ title, children }: { title: string; children?: React.ReactNode }) {
+  /* The same bar the New customer screen wears: 16px semibold, 56px tall,
+     with a rule under it. A 25px display heading is a magazine cover, not an
+     app bar — it ate the top of every list and made the page title shout
+     louder than anything on the page. */
   return (
-    <div className="relative bg-white px-4 pt-2 pb-1 flex items-center justify-between gap-2">
-      <h1 className="text-[25px] font-bold tracking-[-0.025em]">{title}</h1>
-      <span className="flex items-center gap-2">{children}</span>
+    <div className="relative bg-white px-4 h-[56px] border-b border-line
+      flex items-center justify-between gap-2">
+      <h1 className="text-[16px] font-semibold truncate min-w-0">{title}</h1>
+      <span className="flex items-center gap-2 shrink-0">{children}</span>
     </div>
   );
 }
@@ -467,6 +523,8 @@ export interface ListRow {
   meta?: string;
   tone?: Tone;
   state?: string;
+  /** Show initials beside the row, taken from this name. */
+  avatar?: string;
 }
 
 /**
@@ -503,6 +561,7 @@ export function ListScreen({
   /** Anything to sit above the list — a banner, a total. */
   children?: React.ReactNode;
 }) {
+  const [sOpen, setSOpen] = useState(false);
   return (
     <Screen>
       {/* A tab gets the big title; anything reached from More gets the back bar
@@ -511,15 +570,17 @@ export function ListScreen({
         <BackBar title={title} fallback={back} right={
           <>
             {headerRight}
-            {onSearch && <SearchToggle value={search || ''} onChange={onSearch} />}
+            {onSearch && <SearchToggle open={sOpen} onToggle={() => setSOpen((v) => !v)} />}
           </>
         } />
       ) : (
         <ScreenTitle title={title}>
           {headerRight}
-          {onSearch && <SearchToggle value={search || ''} onChange={onSearch} />}
+          {onSearch && <SearchToggle open={sOpen} onToggle={() => setSOpen((v) => !v)} />}
         </ScreenTitle>
       )}
+
+      {onSearch && sOpen && <SearchField value={search || ''} onChange={onSearch} />}
 
       {filters && filter !== undefined && onFilter && (
         <Filters value={filter} onChange={onFilter} options={filters} />
@@ -542,7 +603,7 @@ export function ListScreen({
         ) : (
           <Card flush className="mb-4">
             {rows.map((r) => (
-              <Row key={r.id} href={r.href}
+              <Row key={r.id} href={r.href} avatar={r.avatar}
                 title={r.title} amount={r.amount} right={r.right} meta={r.meta}
                 chip={r.state ? <Chip tone={r.tone || 'plain'}>{r.state}</Chip> : undefined} />
             ))}
@@ -558,20 +619,22 @@ export function ListScreen({
 }
 
 /** The magnifier that opens a field, rather than a field always taking room. */
-function SearchToggle({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [open, setOpen] = useState(false);
+/* The magnifier only. The field itself is rendered by the screen, in normal
+   flow under the title bar — as an absolutely positioned panel it floated on
+   top of the list and hid the first result, which on a search of one match
+   meant hiding the only thing you were looking for. */
+function SearchToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return <IconButton name="search" label={open ? 'Close search' : 'Search'} onClick={onToggle} />;
+}
+
+function SearchField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <>
-      <IconButton name="search" label="Search" onClick={() => setOpen((v) => !v)} />
-      {open && (
-        <div className="absolute left-0 right-0 top-full bg-white px-4 pb-3 z-10">
-          <input value={value} onChange={(e) => onChange(e.target.value)} autoFocus
-            placeholder="Search…"
-            className="w-full h-11 px-3.5 rounded-xl bg-ground text-[15px] outline-none
-              focus:ring-2 focus:ring-accent/30" />
-        </div>
-      )}
-    </>
+    <div className="bg-white px-4 pb-3 border-b border-line">
+      <input value={value} onChange={(e) => onChange(e.target.value)} autoFocus
+        placeholder="Search…"
+        className="w-full h-11 px-3.5 rounded-xl bg-ground text-[15px] outline-none
+          focus:ring-2 focus:ring-accent/30" />
+    </div>
   );
 }
 
@@ -641,7 +704,7 @@ export function BackBar({ title, sub, fallback = '/dashboard', right }: {
         <Icon name="chevRight" size={22} className="rotate-180" />
       </button>
       <span className="min-w-0 flex-1">
-        <span className="block text-[16.5px] font-bold truncate leading-tight">{title}</span>
+        <span className="block text-[16px] font-semibold truncate leading-tight">{title}</span>
         {sub && <span className="block text-[12.5px] text-muted truncate">{sub}</span>}
       </span>
       {right}

@@ -15,7 +15,7 @@
 import Link from 'next/link';
 import { Icon, type IconName } from '@/components/icons';
 import {
-  Card, Chip, Row, Screen, Stack, Stat, QuickTiles, Hero, HeroStats,
+  Card, Chip, Row, Screen, Stack, Stat, QuickTiles, Hero, HeroStats, HeroButton,
   money, compact, niceDate,
 } from '@/components/mobile';
 import type { DashboardStats, SessionUser } from '@/lib/api';
@@ -117,7 +117,12 @@ export default function AdminMobile({ s, me, actions, branchEl }: {
       <Hero
         eyebrow="Welcome back"
         title={me?.name?.split(' ')[0] || 'Easy Pest Control'}
-        right={branchEl}>
+        right={
+          <>
+            {branchEl}
+            <HeroButton name="bell" href="/notifications" label="Notifications" />
+          </>
+        }>
         {s && (
           <HeroStats items={[
             { label: 'Receivable', value: compact(s.outstanding), icon: 'invoice', href: '/invoices' },

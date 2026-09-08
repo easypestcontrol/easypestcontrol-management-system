@@ -488,18 +488,6 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         {/* The content sits on the grey ground; every card on it is white. That
             single swap is what stops the desktop reading as a document with
             hairlines drawn on it. */}
-        {/* The phone's only piece of top chrome. */}
-        <Link href="/notifications" aria-label="Notifications"
-          className="lg:hidden fixed top-3 right-3 z-30 w-10 h-10 rounded-full bg-white shadow-card
-            flex items-center justify-center text-ink-2 active:bg-wash">
-          <Icon name="bell" size={18} />
-          {notes.unread > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full
-              bg-accent text-white text-[11px] font-bold flex items-center justify-center">
-              {notes.unread}
-            </span>
-          )}
-        </Link>
         <main className="flex-1 overflow-y-auto bg-ground max-lg:pb-20">{children}</main>
 
         {/* ---------------------------------------------- bottom navigation
