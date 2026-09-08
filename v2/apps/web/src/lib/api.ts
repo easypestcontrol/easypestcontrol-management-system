@@ -81,6 +81,9 @@ export interface Client {
   id: string; name: string; type: string; contact: string; phone: string;
   email: string; addr: string; city: string; pin: string; gstin: string;
   since: string; color: string; area: string; branch: string;
+  /* Sent by the list endpoint so a row can say who is live and what they
+     are worth without a request per customer. */
+  contracts?: number; services?: number; billed?: number;
   // the full v1 record — optional so older rows stay valid
   custKind?: string; salutation?: string; firstName?: string; lastName?: string;
   company?: string; language?: string; workPhone?: string; channels?: string[];

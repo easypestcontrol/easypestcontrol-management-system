@@ -69,8 +69,8 @@ export default function ActionMenu({ actions, label = 'More actions' }: {
       <button type="button" onClick={() => setOpen((v) => !v)} aria-label={label}
         aria-expanded={open}
         className="w-9 h-9 rounded-full flex items-center justify-center text-ink-2
-          active:bg-wash lg:hover:bg-wash text-[18px] font-bold tracking-[2px]">
-        ⋯
+          active:bg-wash lg:hover:bg-wash">
+        <Icon name="more" size={18} />
       </button>
 
       {open && (

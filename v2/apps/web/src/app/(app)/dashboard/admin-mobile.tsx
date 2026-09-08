@@ -219,7 +219,7 @@ export default function AdminMobile({ s, me, actions, branchEl }: {
           {s.recentPayments.length > 0 && (
             <Card title="Money in" action="View all" actionHref="/invoices" flush>
               {s.recentPayments.slice(0, 4).map((p) => (
-                <Row key={p.id} href={'/invoices/' + p.invoiceId}
+                <Row key={p.id} href={'/invoice/' + p.invoiceId}
                   title={p.client}
                   amount={money(p.amount)}
                   meta={[p.mode, niceDate(p.date)].filter(Boolean).join(' · ')} />

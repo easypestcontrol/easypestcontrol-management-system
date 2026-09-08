@@ -226,7 +226,7 @@ function avatarTone(name: string) {
   return AVATAR[n % AVATAR.length];
 }
 
-export function Row({ href, title, amount, meta, chip, right, onMore, avatar }: {
+export function Row({ href, title, amount, meta, chip, right, onMore, avatar, stats, pill }: {
   href?: string;
   title: string;
   amount?: string;
@@ -236,6 +236,10 @@ export function Row({ href, title, amount, meta, chip, right, onMore, avatar }: 
   onMore?: () => void;
   /** Initials beside the row, taken from this name. */
   avatar?: string;
+  /** A third line of figures — what this record is worth at a glance. */
+  stats?: string;
+  /** A state word on the right, under the place. */
+  pill?: React.ReactNode;
 }) {
   const tone = avatar ? avatarTone(avatar) : null;
   const inner = (
@@ -243,11 +247,16 @@ export function Row({ href, title, amount, meta, chip, right, onMore, avatar }: 
       <span className="flex items-baseline justify-between gap-3">
         <span className="text-[15.5px] font-bold tracking-[-0.01em] truncate">{title}</span>
         {amount && <span className="text-[15.5px] font-bold tabular-nums shrink-0">{amount}</span>}
-        {!amount && right && (
-          /* A place, not a number: it reads as a label rather than competing
-             with the name for the same weight of black. */
-          <span className="text-[12.5px] font-semibold text-sky-ink shrink-0 whitespace-nowrap">
-            {right}
+        {!amount && (right || pill) && (
+          /* A place and a state, not a number: they read as labels rather
+             than competing with the name for the same weight of black. */
+          <span className="shrink-0 text-right">
+            {pill}
+            {right && (
+              <span className="block text-[12.5px] font-semibold text-sky-ink whitespace-nowrap">
+                {right}
+              </span>
+            )}
           </span>
         )}
       </span>
@@ -256,18 +265,23 @@ export function Row({ href, title, amount, meta, chip, right, onMore, avatar }: 
           customers into a wall — the tag is one word and belongs beside the
           detail it qualifies, not underneath it. */}
       {(meta || chip) && (
-        <span className="flex items-center gap-2 mt-2 min-w-0">
+        <span className={'flex items-center gap-2 min-w-0 ' + (stats ? 'mt-1' : 'mt-2')}>
           {chip}
           {meta && <span className="text-[13.5px] text-muted truncate min-w-0">{meta}</span>}
           {onMore && (
             <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMore(); }}
               aria-label="More"
-              className="w-9 h-9 -mr-2 flex items-center justify-center text-muted-2 text-[17px] font-bold tracking-[2px]">
-              ⋯
+              className="w-9 h-9 -mr-2 flex items-center justify-center text-muted-2">
+              <Icon name="more" size={17} />
             </button>
           )}
         </span>
+      )}
+      {/* The figures last, quietest of the three lines. They are what you
+          check after you have found the name, not what you scan for. */}
+      {stats && (
+        <span className="block text-[12.5px] text-muted-2 mt-1 truncate">{stats}</span>
       )}
     </>
   );
@@ -287,7 +301,8 @@ export function Row({ href, title, amount, meta, chip, right, onMore, avatar }: 
   /* A one-line row needs air around it more than a three-line one did: the
      space that used to be filled with a contact and a phone number becomes
      the gap between one customer and the next. */
-  const cls = 'block px-4 py-5 border-b border-line-soft last:border-b-0 active:bg-wash';
+  const cls = 'block px-4 border-b border-line-soft last:border-b-0 active:bg-wash '
+    + (stats ? 'py-4' : 'py-5');
   return href
     ? <Link href={href} className={cls}>{body}</Link>
     : <div className={cls}>{body}</div>;
@@ -496,6 +511,66 @@ export function Filters({ value, onChange, options }: {
   );
 }
 
+/**
+ * A filter that is a chip, not a dropdown.
+ *
+ * The operating system's own <select> lands on the screen as a grey list in
+ * system type — the one control that does not belong to this app. This is a
+ * chip that says what it is filtering by, and opens a sheet where a thumb
+ * already is. Filtering shows in the chip itself: once a choice is made it
+ * goes solid and carries the choice, so you can see what you are looking at
+ * without opening anything.
+ */
+export function PickChip({ label, value, options, onPick }: {
+  /** What it filters — "Status", "Location". Shown when nothing is picked. */
+  label: string;
+  value: string;
+  /** The first option is the one that filters nothing. */
+  options: Array<{ key: string; label: string }>;
+  onPick: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const on = !!value;
+  const picked = options.find((o) => o.key === value);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}
+        className={'h-[34px] pl-3.5 pr-2.5 rounded-full text-[13.5px] font-semibold '
+          + 'inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 '
+          + (on ? 'bg-accent text-white' : 'bg-white border border-line text-ink')}>
+        <span className="truncate max-w-[130px]">{on ? picked?.label || value : label}</span>
+        <Icon name="chevDown" size={13} className="shrink-0 opacity-75" />
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-[70] bg-navy/45 flex items-end"
+          onClick={() => setOpen(false)}>
+          <div className="w-full bg-white rounded-t-[24px] pt-2
+            pb-[calc(env(safe-area-inset-bottom)+96px)] max-h-[70vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}>
+            <span className="block w-10 h-1 rounded-full bg-line mx-auto mb-1" />
+            <p className="px-5 py-2 text-[12px] font-bold uppercase tracking-[0.06em] text-muted-2">
+              {label}
+            </p>
+            {options.map((o) => {
+              const sel = o.key === value;
+              return (
+                <button key={o.key || 'all'} type="button"
+                  onClick={() => { onPick(o.key); setOpen(false); }}
+                  className={'w-full text-left px-5 h-12 flex items-center justify-between gap-3 '
+                    + 'text-[15px] active:bg-wash ' + (sel ? 'font-bold text-accent' : 'text-ink')}>
+                  {o.label}
+                  {sel && <Icon name="check" size={16} className="text-accent" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 /** The screen's title bar for a top-level tab. */
 export function ScreenTitle({ title, children }: { title: string; children?: React.ReactNode }) {
   /* The same bar the New customer screen wears: 16px semibold, 56px tall,
@@ -562,6 +637,10 @@ export interface ListRow {
   state?: string;
   /** Show initials beside the row, taken from this name. */
   avatar?: string;
+  /** A third line of figures. */
+  stats?: string;
+  /** A state word on the right. */
+  pill?: React.ReactNode;
 }
 
 /**
@@ -574,6 +653,7 @@ export interface ListRow {
  */
 export function ListScreen({
   title, rows, loading, filters, filter, onFilter, search, onSearch,
+  searchPlaceholder, pinSearch, chips,
   empty, emptyHint, fabHref, fabOnClick, fabLabel, headerRight, children, back,
 }: {
   title: string;
@@ -589,6 +669,13 @@ export function ListScreen({
   /** Passing a value turns the search control on. */
   search?: string;
   onSearch?: (v: string) => void;
+  searchPlaceholder?: string;
+  /** Keep the field on screen instead of hiding it behind a magnifier. On a
+      list people arrive at knowing the name they want, a magnifier is one tap
+      standing between them and the only thing they came to do. */
+  pinSearch?: boolean;
+  /** PickChips, usually — a row of filters under the search field. */
+  chips?: React.ReactNode;
   empty?: string;
   emptyHint?: string;
   fabHref?: string;
@@ -607,17 +694,29 @@ export function ListScreen({
         <BackBar title={title} fallback={back} right={
           <>
             {headerRight}
-            {onSearch && <SearchToggle open={sOpen} onToggle={() => setSOpen((v) => !v)} />}
+            {onSearch && !pinSearch
+              && <SearchToggle open={sOpen} onToggle={() => setSOpen((v) => !v)} />}
           </>
         } />
       ) : (
         <ScreenTitle title={title}>
           {headerRight}
-          {onSearch && <SearchToggle open={sOpen} onToggle={() => setSOpen((v) => !v)} />}
+          {onSearch && !pinSearch
+            && <SearchToggle open={sOpen} onToggle={() => setSOpen((v) => !v)} />}
         </ScreenTitle>
       )}
 
-      {onSearch && sOpen && <SearchField value={search || ''} onChange={onSearch} />}
+      {onSearch && (pinSearch || sOpen) && (
+        <SearchField value={search || ''} onChange={onSearch}
+          placeholder={searchPlaceholder} focus={!pinSearch} />
+      )}
+
+      {chips && (
+        <div className="flex gap-2 px-4 pb-3 pt-0.5 overflow-x-auto no-scrollbar bg-white
+          border-b border-line">
+          {chips}
+        </div>
+      )}
 
       {filters && filter !== undefined && onFilter && (
         <Filters value={filter} onChange={onFilter} options={filters} />
@@ -641,6 +740,7 @@ export function ListScreen({
           <Card flush className="mb-4">
             {rows.map((r) => (
               <Row key={r.id} href={r.href} avatar={r.avatar}
+                stats={r.stats} pill={r.pill}
                 title={r.title} amount={r.amount} right={r.right} meta={r.meta}
                 chip={r.state ? <Chip tone={r.tone || 'plain'}>{r.state}</Chip> : undefined} />
             ))}
@@ -664,13 +764,24 @@ function SearchToggle({ open, onToggle }: { open: boolean; onToggle: () => void 
   return <IconButton name="search" label={open ? 'Close search' : 'Search'} onClick={onToggle} />;
 }
 
-function SearchField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function SearchField({ value, onChange, placeholder, focus }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; focus?: boolean;
+}) {
   return (
-    <div className="bg-white px-4 pb-3 border-b border-line">
-      <input value={value} onChange={(e) => onChange(e.target.value)} autoFocus
-        placeholder="Search…"
-        className="w-full h-11 px-3.5 rounded-xl bg-ground text-[15px] outline-none
-          focus:ring-2 focus:ring-accent/30" />
+    <div className={'bg-white px-4 pt-3 pb-3 ' + (focus ? 'border-b border-line' : '')}>
+      <label className="flex items-center gap-2.5 h-11 px-3.5 rounded-xl bg-ground
+        focus-within:ring-2 focus-within:ring-accent/30">
+        <Icon name="search" size={16} className="text-muted-2 shrink-0" />
+        <input value={value} onChange={(e) => onChange(e.target.value)} autoFocus={focus}
+          placeholder={placeholder || 'Search…'}
+          className="flex-1 min-w-0 bg-transparent text-[15px] outline-none" />
+        {value && (
+          <button type="button" onClick={() => onChange('')} aria-label="Clear search"
+            className="shrink-0 w-6 h-6 rounded-full bg-line-soft flex items-center justify-center">
+            <Icon name="x" size={12} className="text-muted" />
+          </button>
+        )}
+      </label>
     </div>
   );
 }

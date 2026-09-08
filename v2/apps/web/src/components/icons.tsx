@@ -56,6 +56,8 @@ const PATHS = {
   // without reading anything. Used for work nobody is assigned to.
   alert: <><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4.5M12 17.2h.01" /></>,
   sort: <><path d="M4 6h16M7 12h10M10 18h4" /></>,
+  /* Filled, because three hairline rings at 18px read as smudges. */
+  more: <><circle cx="12" cy="5" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="19" r="1.7" fill="currentColor" stroke="none" /></>,
 } as const;
 
 export type IconName = keyof typeof PATHS;

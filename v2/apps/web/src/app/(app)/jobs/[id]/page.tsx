@@ -149,12 +149,25 @@ function Kv({ rows }: { rows: Array<[string, React.ReactNode] | null> }) {
      label column inside 390px left both halves too narrow: "Estimated
      duration" broke in two on the left while its value wrapped on the
      right. */
+  /* A row with nothing in it is not a row. Assignment printed "Phone —,
+     Skills —, Rating —" for every technician whose profile is incomplete,
+     which is three lines telling you nothing, on the screen a technician
+     reads at somebody's gate. */
+  const filled = rows.filter((r): r is [string, React.ReactNode] => {
+    if (!r) return false;
+    const v = r[1];
+    if (v === null || v === undefined || v === false) return false;
+    if (typeof v === 'string') return v.trim() !== '' && v.trim() !== '—';
+    if (typeof v === 'number') return true;
+    return true;
+  });
+  if (!filled.length) return null;
   return (
     <dl>
-      {rows.filter(Boolean).map((r, i) => (
-        <div key={i} className="flex flex-col sm:flex-row gap-0.5 sm:gap-3 py-1.5 border-b border-line-soft last:border-0 text-[13px]">
-          <dt className="sm:w-[128px] shrink-0 text-muted">{r![0]}</dt>
-          <dd className="min-w-0 flex-1 text-ink">{r![1] || '—'}</dd>
+      {filled.map((r, i) => (
+        <div key={i} className="flex flex-col sm:flex-row gap-0.5 sm:gap-3 py-2 border-b border-line-soft last:border-0 text-[13px]">
+          <dt className="sm:w-[128px] shrink-0 text-muted">{r[0]}</dt>
+          <dd className="min-w-0 flex-1 text-ink">{r[1]}</dd>
         </div>
       ))}
     </dl>
@@ -195,13 +208,20 @@ function ReportCard({ j, onZoom }: { j: JobDetail; onZoom: (src: string) => void
   const inv = new Map(j.inventory.map((i) => [i.id, i]));
   const dur = x.durationMins || j.mins;
 
+  /* Two across on a phone, three on a desk, and tall enough to see.
+     At three across inside 390px a treatment photo was 110px wide and 80px
+     tall — the proof that the work was done, printed at the size of a
+     postage stamp. The whole tile is the tap target, not just the image. */
   const photoGrid = (list: string[], alt: string) => (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
       {list.length ? list.map((p, i) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img key={i} src={p} alt={alt} onClick={() => onZoom(p)}
-          className="h-20 w-full object-cover rounded border border-line cursor-zoom-in" />
-      )) : <p className="text-[12.5px] text-muted col-span-3">No photos</p>}
+        <button key={i} type="button" onClick={() => onZoom(p)}
+          className="block rounded-lg overflow-hidden border border-line active:brightness-95">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={p} alt={alt + ' ' + (i + 1)}
+            className="h-32 sm:h-24 w-full object-cover cursor-zoom-in" />
+        </button>
+      )) : <p className="text-[12.5px] text-muted col-span-full">No photos</p>}
     </div>
   );
 
@@ -578,12 +598,12 @@ function ManagerDetail({ j, me, reload }: {
 
         <div className="flex flex-col gap-4 min-w-0">
           <Card title="Service details">
+            {/* Scheduled, duration, the visit number and the technician are
+                all cards at the top of this screen already. Repeating them
+                here is why this section read as a wall. */}
             <Kv rows={[
               ['Service number', j.id],
-              ['Type', (j.type === 'AMC Visit' ? 'AMC Service' : j.type) + (j.visitNo ? ' — service ' + j.visitNo + ' of ' + j.ofVisits : '')],
               ['Services', j.services.map((s) => s.name).join(', ') || j.title],
-              ['Scheduled', fmtLong(j.date) + ' at ' + fmtTime(j.slot)],
-              ['Estimated duration', durationText(j.mins)],
               j.contract ? ['Contract', (
                 <Link key="c" href={'/contracts/' + j.contract.id} className="font-semibold text-accent">
                   {j.contract.id}

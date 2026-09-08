@@ -7,7 +7,7 @@
    ========================================================================== */
 
 import { SignArea } from '@/components/sign-area';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { money, waLink } from 'shared';
 
@@ -39,6 +39,21 @@ export default function PublicInvoice() {
   const [paying, setPaying] = useState(false);
   const [payErr, setPayErr] = useState('');
 
+  /* Zoom, not media queries: the sheet is 820px wide and the phone is not,
+     so it is scaled by whatever the viewport can give it. `zoom` reflows the
+     surrounding height correctly, which `transform: scale` does not. */
+  const sheet = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState<{ zoom?: number }>({});
+  useEffect(() => {
+    const size = () => {
+      const room = window.innerWidth - 24;
+      setFit(room < 820 ? { zoom: Math.max(0.34, room / 820) } : {});
+    };
+    size();
+    window.addEventListener('resize', size);
+    return () => window.removeEventListener('resize', size);
+  }, []);
+
   useEffect(() => {
     fetch('/api/public/docs/invoice/' + id)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
@@ -69,6 +84,7 @@ export default function PublicInvoice() {
   const t = doc.totals;
 
   /* WhatsApp, to this customer, with a link to this page. */
+
   const share = typeof window === 'undefined' ? '' : waLink(
     doc.client?.phone,
     'Invoice ' + doc.id + ' from ' + doc.company.name + ' — ' + money(doc.totals.total)
@@ -78,9 +94,35 @@ export default function PublicInvoice() {
   const paid = t.balance <= 0;
 
   return (
-    <div className="min-h-screen bg-[#f4f5f8] py-4 px-3 sm:py-8">
-      <div className="bg-white border border-[#e3e6ee] rounded-lg max-w-[820px] mx-auto shadow-sm">
-        <div className="p-5 sm:p-10">
+    /* One document, not two.
+       The page used to reflow into a stack of cards on a phone, which is a
+       web page, not an invoice. A tax invoice is a piece of paper with a
+       fixed shape, so the sheet keeps that shape at every size and is zoomed
+       down to whatever the screen can take. Smaller is fine; rearranged is
+       not — the customer and the office should be looking at the same
+       document. */
+    <div className="paper-page min-h-screen bg-[#f4f5f8] pb-10 px-3 sm:py-8">
+      {/* The phone gets a bar of its own: back to wherever you came from,
+          and the invoice named. The sheet below it is a document, and a
+          document should not have to carry navigation. */}
+      <div className="lg:hidden no-print sticky top-0 z-10 -mx-3 px-2 h-[60px] bg-[#f4f5f8]
+        flex items-center gap-1">
+        <button onClick={() => history.back()} aria-label="Back" className="p-2 text-[#141414]">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+        </button>
+        <span className="min-w-0">
+          <span className="block text-[16px] font-semibold leading-tight">Invoice</span>
+          <span className="block text-[12.5px] text-gray-500 leading-tight">{doc.id}</span>
+        </span>
+      </div>
+
+      <div ref={sheet} style={fit}
+        className="paper bg-white border border-[#e3e6ee] rounded-lg w-[820px] max-w-full mx-auto shadow-sm
+          max-lg:mt-2">
+        <div className="p-10">
           {/* head — the stamp rides beside the company so the phone reads
               like a document, not a wrapped form. */}
           <div className="flex items-start justify-between gap-4">
@@ -145,7 +187,7 @@ export default function PublicInvoice() {
           </div>
 
           {/* items — stacked cards on a phone, the table from tablet up */}
-          <div className="sm:hidden mt-5 border border-[#e3e6ee] rounded divide-y divide-[#eef0f5]">
+          <div className="hidden">
             {doc.items.map((it, i) => (
               <div key={i} className="px-3.5 py-2.5">
                 <p className="text-[13px] font-semibold">{it.desc}</p>
@@ -161,7 +203,7 @@ export default function PublicInvoice() {
               </div>
             ))}
           </div>
-          <div className="mt-5 sm:mt-6 overflow-x-auto max-sm:hidden">
+          <div className="mt-6">
             <table className="w-full text-[12.5px] border-collapse min-w-[440px]">
               <thead>
                 <tr>
@@ -223,28 +265,6 @@ export default function PublicInvoice() {
             </div>
           </div>
 
-          {/* Download and Share, on the document itself.
-
-              Download is the browser's own print-to-PDF: it is the same
-              engine that lays this page out, so what saves is exactly what
-              is on screen, and it needs no server. Share opens WhatsApp on
-              the customer's own number with a link back to this page — the
-              person who receives it can download and forward it in turn,
-              which is the whole point of a link rather than a file. */}
-          <div className="no-print mt-6 flex gap-2.5">
-            <button onClick={() => window.print()}
-              className="flex-1 h-12 rounded-md border border-[#141414] bg-white
-                text-[15px] font-bold text-[#141414] active:bg-[#f2f2f2]">
-              Download
-            </button>
-            {share && (
-              <a href={share} target="_blank" rel="noreferrer"
-                className="flex-1 h-12 rounded-md bg-[#141414] text-white text-[15px] font-bold
-                  flex items-center justify-center active:brightness-90">
-                Share
-              </a>
-            )}
-          </div>
 
           {/* The bill and the way to pay it belong on the same page. Hidden
               when printed — a piece of paper cannot be tapped. */}
@@ -298,7 +318,40 @@ export default function PublicInvoice() {
             {(co.docTerms?.invoice || []).join(' ')} This is a computer-generated
             invoice from {co.name}.
           </p>
+
+          {/* Download and Share, at the END of the document and on the phone
+              only. The web app prints from the browser and shares by URL, so
+              a pair of buttons in the middle of a tax invoice was noise on a
+              screen that did not need them. */}
         </div>
+      </div>
+
+      {/* Under the sheet, not on it. They are things you do WITH the invoice,
+          so they belong on the page beside it rather than printed into the
+          middle of a tax document. */}
+      <div className="lg:hidden no-print mt-5 flex items-center justify-center gap-5">
+        <button onClick={() => window.print()} aria-label="Download PDF"
+          className="w-[54px] h-[54px] rounded-full bg-white border border-[#e3e6ee] shadow-sm
+            flex items-center justify-center text-[#141414] active:bg-[#f2f2f2]">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3v11" /><path d="m8 10.5 4 4 4-4" />
+            <path d="M4 16.5v2.2A2.3 2.3 0 0 0 6.3 21h11.4a2.3 2.3 0 0 0 2.3-2.3v-2.2" />
+          </svg>
+        </button>
+        {share && (
+          <a href={share} target="_blank" rel="noreferrer" aria-label="Share"
+            className="w-[54px] h-[54px] rounded-full bg-[#141414] text-white shadow-sm
+              flex items-center justify-center active:brightness-90">
+            {/* The share glyph: two nodes joined to a third. */}
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="18" cy="5.5" r="2.6" /><circle cx="6" cy="12" r="2.6" />
+              <circle cx="18" cy="18.5" r="2.6" />
+              <path d="m8.3 10.8 7.4-4M8.3 13.2l7.4 4" />
+            </svg>
+          </a>
+        )}
       </div>
     </div>
   );

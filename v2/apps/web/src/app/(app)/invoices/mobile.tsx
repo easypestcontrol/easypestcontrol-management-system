@@ -125,7 +125,7 @@ export default function InvoicesMobile({ data, tab, onTab, q, onQ, newHref }: {
             {rows.map((r) => {
               const st = stateOf(r);
               return (
-                <Row key={r.id} href={'/invoices/' + r.id}
+                <Row key={r.id} href={'/invoice/' + r.id}
                   title={r.clientName || r.clientId}
                   amount={money(r.total)}
                   meta={`${niceDate(r.date)} · ${r.id}`}

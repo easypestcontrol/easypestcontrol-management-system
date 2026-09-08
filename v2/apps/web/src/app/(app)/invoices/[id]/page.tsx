@@ -30,6 +30,11 @@ const PRINT_CSS = `
   /* margin 0 also drops the browser's URL/date header-footer */
   @page { size: A4; margin: 0; }
   aside, header, nav, .no-print { display: none !important; }
+  /* Paper is about 794px wide, under the lg breakpoint. So at print time
+     every responsive layout flips to its PHONE variant: max-lg:hidden hid
+     the document and lg:hidden revealed the summary, and printing this
+     invoice produced the phone screen with Call, Open and Share on it. */
+  .on-paper { display: block !important; }
   html, body { height: auto !important; background: #fff !important; margin: 0 !important; }
   div, main { height: auto !important; overflow: visible !important; }
   main { padding: 0 !important; }
@@ -92,10 +97,12 @@ export default function InvoicePage() {
     <>
       {/* The end of the money path: the balance, who owes it, what it was
           for, and one button to take the payment. */}
-      <InvoiceMobile inv={inv} t={t} canPay={canBill} onPay={() => setPaying(true)}
-        shareHref={'/invoice/' + inv.id} />
+      <div className="no-print">
+        <InvoiceMobile inv={inv} t={t} canPay={canBill} onPay={() => setPaying(true)}
+          shareHref={'/invoice/' + inv.id} />
+      </div>
 
-    <div className="max-lg:hidden p-4 sm:p-6">
+    <div className="on-paper max-lg:hidden p-4 sm:p-6">
       <style>{PRINT_CSS}</style>
       <div className="no-print"><BackLink /></div>
 

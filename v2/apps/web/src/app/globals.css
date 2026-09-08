@@ -386,7 +386,41 @@ html, body {
    Share bar, the pay controls — but the rule itself was never written, so
    every one of those printed onto the document. A tax invoice with a
    "Pay now" button on it is not a tax invoice.                             */
+@page { size: A4; margin: 12mm; }
+
 @media print {
   .no-print { display: none !important; }
   body { background: #fff; }
+
+  /* A printed document fills the paper.
+
+     The invoice sheet is zoomed down on a phone so an A4 layout fits a 390px
+     screen. That zoom is an inline style, and it survived into the print
+     job — so "Download" produced an A4 page with a postage-stamp invoice in
+     the corner of it. `!important` is what beats an inline declaration, and
+     it is the reason this rule needs it.
+
+     The frame goes too: a border, a shadow and a page background are things
+     a screen has. Paper is the border. */
+  .paper {
+    zoom: 1 !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  .paper-page { padding: 0 !important; background: #fff !important; min-height: 0 !important; }
+  .paper > * { padding: 0 !important; }
+
+  /* Nothing built for a phone belongs on paper.
+
+     A printed page is about 794px wide, under the `lg` breakpoint, so every
+     responsive split in the app flips to its phone variant the moment the
+     print dialog opens — which is how a tax invoice came out as the phone's
+     summary screen with Call, Open and Share on it. Hiding is always safe;
+     a page that has a desktop document to print marks it `.on-paper` and
+     says so itself. */
+  .lg\:hidden { display: none !important; }
 }

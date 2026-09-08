@@ -159,7 +159,7 @@ export default function CustomerMobile({ c, actions, note }: {
               const st = invState(i.status);
               const total = i.items.reduce((s, it) => s + it.qty * it.rate, 0);
               return (
-                <Row key={i.id} href={'/invoices/' + i.id}
+                <Row key={i.id} href={'/invoice/' + i.id}
                   title={i.id}
                   amount={money(total)}
                   meta={niceDate(i.date)}

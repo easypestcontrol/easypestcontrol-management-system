@@ -36,6 +36,11 @@ export class ClientsController {
 
   @Get()
   async list(@Req() req: AuthedReq, @Query('q') q?: string, @Query('branch') branch?: string) {
+    /* Today, as the app writes dates. */
+    const now = new Date();
+    const today = now.getFullYear() + '-'
+      + String(now.getMonth() + 1).padStart(2, '0') + '-'
+      + String(now.getDate()).padStart(2, '0');
     const scope = clampScope(await branchScope(this.prisma, req.user), branch);
     const where = {
       ...branchWhere(scope),
@@ -50,7 +55,55 @@ export class ClientsController {
           }
         : {}),
     };
-    return this.prisma.client.findMany({ where, orderBy: { id: 'asc' } });
+    const rows = await this.prisma.client.findMany({ where, orderBy: { id: 'asc' } });
+    if (!rows.length) return rows;
+
+    /*
+     * What each customer is worth, in three numbers.
+     *
+     * The list used to be a directory: a name and an address. To decide who
+     * to ring first you need to know who is live, who is worth something and
+     * who has history — so the row carries a live-contract count, everything
+     * ever billed, and how many services have been done.
+     *
+     * Three grouped queries rather than one per customer: a hundred rows
+     * would otherwise be three hundred round trips to build one screen.
+     */
+    const ids = rows.map((r) => r.id);
+    const [contracts, jobs, invoices] = await Promise.all([
+      /* A contract has no status column — it is live while its end date has
+         not passed, which is how every other screen decides it too. */
+      this.prisma.contract.groupBy({
+        by: ['clientId'],
+        where: { clientId: { in: ids }, end: { gte: today } },
+        _count: true,
+      }),
+      this.prisma.job.groupBy({
+        by: ['clientId'],
+        where: { clientId: { in: ids }, status: 'completed' },
+        _count: true,
+      }),
+      this.prisma.invoice.findMany({
+        where: { clientId: { in: ids }, status: { not: 'draft' } },
+        select: { clientId: true, items: true },
+      }),
+    ]);
+
+    const liveOf = new Map(contracts.map((c) => [c.clientId, c._count]));
+    const doneOf = new Map(jobs.map((j) => [j.clientId, j._count]));
+    const billedOf = new Map<string, number>();
+    for (const inv of invoices) {
+      const lines = (inv.items || []) as Array<{ qty?: number; rate?: number }>;
+      const sum = lines.reduce((a, l) => a + (l.qty || 1) * (l.rate || 0), 0);
+      billedOf.set(inv.clientId, (billedOf.get(inv.clientId) || 0) + sum);
+    }
+
+    return rows.map((r) => ({
+      ...r,
+      contracts: liveOf.get(r.id) || 0,
+      services: doneOf.get(r.id) || 0,
+      billed: Math.round(billedOf.get(r.id) || 0),
+    }));
   }
 
   @Get(':id')
