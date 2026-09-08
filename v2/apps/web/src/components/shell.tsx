@@ -453,7 +453,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               className="w-8 h-8 rounded flex items-center justify-center text-muted hover:bg-wash relative">
               <Icon name="bell" size={17} />
               {notes.unread > 0 && (
-                <span className="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] px-0.5 rounded-full bg-accent text-white text-[9px] font-bold flex items-center justify-center">
+                <span className="absolute top-0 right-0 min-w-[17px] h-[17px] px-1 rounded-full bg-accent text-white text-[11px] font-bold flex items-center justify-center">
                   {notes.unread}
                 </span>
               )}

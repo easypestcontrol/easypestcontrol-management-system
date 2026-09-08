@@ -136,7 +136,7 @@ export default function EditContract() {
       <div className="mt-2 mb-5 flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-[20px] font-semibold">Edit contract</h1>
-          <p className="text-muted text-[13px] mt-0.5">
+          <p className="max-lg:hidden text-muted text-[13px] mt-0.5">
             {c.id} · started {fmtDate(c.start)} · value {money(c.value)} + GST
           </p>
         </div>

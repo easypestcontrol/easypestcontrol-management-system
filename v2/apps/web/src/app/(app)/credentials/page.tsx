@@ -198,7 +198,7 @@ export default function Credentials() {
     <div className="p-4 lg:p-6 max-w-[1000px] flex flex-col gap-4">
       <div>
         <h1 className="text-[19px] lg:text-[20px] font-semibold">Credentials</h1>
-        <p className="text-muted text-[13px] mt-0.5">
+        <p className="max-lg:hidden text-muted text-[13px] mt-0.5">
           Every key the business runs on, stored encrypted — masked here, revealed
           only when you press the eye. Green is stable, orange is worth a look,
           red needs you.

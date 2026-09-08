@@ -440,7 +440,7 @@ export default function TeamMember() {
             <h1 className="text-[20px] font-semibold">
               {isNew ? 'Add team member' : 'Edit team member'}
             </h1>
-            <p className="text-muted text-[13px] mt-0.5">
+            <p className="max-lg:hidden text-muted text-[13px] mt-0.5">
               Employee record, posting and access in PestOps.
               {isNew && ' A first password is generated when you save it.'}
             </p>

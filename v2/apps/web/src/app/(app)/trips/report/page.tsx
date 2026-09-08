@@ -61,15 +61,24 @@ export default function TripReport() {
     setBusy(false);
   }
 
-  const niceDate = new Date(date + 'T00:00:00').toLocaleDateString('en-IN',
-    { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  /* Built by hand rather than by toLocaleDateString.
+     The server and the browser do not have the same locale data, so 'en-IN'
+     rendered "Tuesday, 8 September 2026" on one and "Tuesday 8 September,
+     2026" on the other. React saw the mismatch and threw a hydration error
+     on every load of this page, and threw away the server's HTML with it. */
+  const D = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const M = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+  const dObj = new Date(date + 'T00:00:00');
+  const niceDate = D[dObj.getDay()] + ', ' + dObj.getDate() + ' '
+    + M[dObj.getMonth()] + ' ' + dObj.getFullYear();
 
   return (
     <div className="p-4 lg:p-6 max-w-[900px]">
       <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-[20px] font-semibold">Daily trip report</h1>
-          <p className="text-muted text-[13px] mt-0.5">{niceDate}</p>
+          <p className="max-lg:hidden text-muted text-[13px] mt-0.5">{niceDate}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {bf.el}

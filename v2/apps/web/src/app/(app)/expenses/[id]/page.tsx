@@ -160,7 +160,7 @@ export default function ReportPage() {
                 <span className="flex-1 min-w-0">
                   <span className="block text-[13px] font-semibold">
                     {e.category}
-                    {e.source === 'auto_trip' && <Link href={'/trips/' + e.tripId} className="ml-2 text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-wash text-muted border border-line align-middle hover:text-accent">AUTO · {e.tripId}</Link>}
+                    {e.source === 'auto_trip' && <Link href={'/trips/' + e.tripId} className="ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded bg-wash text-muted border border-line align-middle whitespace-nowrap hover:text-accent">AUTO · {e.tripId}</Link>}
                   </span>
                   <span className="block text-[11.5px] text-muted">
                     {[e.merchant, e.note && e.source !== 'auto_trip' ? e.note : '', e.source === 'auto_trip' ? e.km + ' km × ' + money(e.rate) + '/km' : ''].filter(Boolean).join(' · ')}

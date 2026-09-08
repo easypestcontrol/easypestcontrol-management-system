@@ -536,7 +536,7 @@ function NewContractForm() {
             <textarea className={input + ' min-h-[84px] py-2'} maxLength={200}
               placeholder="Annual Pest Control Service — factory and office"
               value={draft.subject} onChange={(e) => set({ subject: e.target.value })} />
-            <span className="block text-[11px] text-muted-2 text-right">{draft.subject.length}/200</span>
+            <span className="block text-[11px] text-muted-2 text-right whitespace-nowrap">{draft.subject.length}/200</span>
           </label>
         </div>
 
@@ -629,7 +629,7 @@ function NewContractForm() {
             <div className="lg:col-span-2">
               <span className={label}>
                 Service period *
-                <span className="font-normal text-muted-2"> · {monthsOf} months</span>
+                <span className="font-normal text-muted-2 whitespace-nowrap"> · {monthsOf} months</span>
               </span>
               <div className="grid grid-cols-2 gap-2 max-w-[420px]">
                 <label className="block">

@@ -90,7 +90,7 @@ export default function TripsDashboard() {
       <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-[20px] font-semibold">Trips — today</h1>
-          <p className="text-muted text-[13px] mt-0.5">
+          <p className="max-lg:hidden text-muted text-[13px] mt-0.5">
             Every work drive, monitored. Flagged trips wait for your decision; the rest are
             approved automatically and roll into the daily report.
           </p>
@@ -105,7 +105,9 @@ export default function TripsDashboard() {
       </div>
       {err && <p className="text-[12.5px] text-accent mb-3">{err}</p>}
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
+      {/* Five tiles across two columns leaves the fifth alone on its own
+          row, which reads as something failed to load. The last one spans. */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5 [&>*:last-child]:max-lg:col-span-2">
         {tiles.map((t) => (
           <div key={t.l} className={'rounded-md border bg-white p-3.5 shadow-card '
             + (t.alert ? 'border-red-line bg-red-wash' : 'border-line')}>
@@ -128,7 +130,44 @@ export default function TripsDashboard() {
           <p className="p-10 text-center text-[13px] text-muted">No trips today yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-[12.5px] border-collapse">
+            {/* The phone gets a list, not a table.
+                Seven columns inside 390px put distance, time and cost off the
+                side of the screen entirely — reachable only by scrolling a
+                table sideways, which nobody does. Each trip is one card: who,
+                where, and the three figures on one line under it. */}
+            <ul className="lg:hidden divide-y divide-line-soft">
+              {d.rows.map((r) => {
+                const c = chipFor(r);
+                return (
+                  <li key={r.id}>
+                    <button onClick={() => router.push('/trips/' + r.id)}
+                      className="w-full text-left px-4 py-3.5 active:bg-wash">
+                      <span className="flex items-center gap-2.5">
+                        <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0"
+                          style={{ background: r.userColor }}>{initials(r.userName)}</span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block font-semibold text-[14px] truncate">{r.userName}</span>
+                          <span className="block text-[12px] text-muted truncate">
+                            {(r.startPlace || '—') + ' → ' + (r.endPlace || r.dest || '…')}
+                          </span>
+                        </span>
+                        <span className={'shrink-0 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold whitespace-nowrap ' + c.cls}>
+                          <span className="w-1.5 h-1.5 rounded-full bg-current" />{c.label}
+                        </span>
+                      </span>
+                      <span className="mt-2 flex items-center gap-4 text-[12.5px] pl-[42px]">
+                        <span className={'whitespace-nowrap ' + (r.flagged ? 'text-amber-ink font-semibold' : 'text-ink-2')}>
+                          {km(r.distanceM)}
+                        </span>
+                        <span className="text-muted whitespace-nowrap">{dur(r.mins)}</span>
+                        <span className="font-semibold whitespace-nowrap">{money(r.cost)}</span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <table className="max-lg:hidden w-full text-[12.5px] border-collapse">
               <thead>
                 <tr className="bg-wash">
                   {['Employee', 'Route', 'Distance', 'Time', 'Cost', 'Status', ''].map((h, i) => (

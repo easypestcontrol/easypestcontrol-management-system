@@ -117,7 +117,7 @@ export default function Dashboard() {
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
           <h1 className="text-[20px] font-semibold">Home</h1>
-          <p className="text-muted text-[13px] mt-0.5">The state of the business, right now.</p>
+          <p className="max-lg:hidden text-muted text-[13px] mt-0.5">The state of the business, right now.</p>
         </div>
         {bf.el}
       </div>

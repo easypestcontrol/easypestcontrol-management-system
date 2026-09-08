@@ -216,7 +216,7 @@ export default function TechDashboard() {
         <h1 className="text-[19px] lg:text-[20px] font-semibold">
           {d.who.name.split(' ')[0]}&rsquo;s day
         </h1>
-        <p className="text-muted text-[13px] mt-0.5">{line}</p>
+        <p className="max-lg:hidden text-muted text-[13px] mt-0.5">{line}</p>
       </div>
 
       {/* ----------------------------------------------------- quick look

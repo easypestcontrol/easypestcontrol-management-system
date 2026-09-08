@@ -153,7 +153,7 @@ export default function Settings() {
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-[20px] font-semibold">Settings</h1>
-          <p className="text-muted text-[13px] mt-0.5">Pick a section, change it, save.</p>
+          <p className="max-lg:hidden text-muted text-[13px] mt-0.5">Pick a section, change it, save.</p>
         </div>
         <div className="flex items-center gap-3">
           {saved && (
@@ -162,7 +162,7 @@ export default function Settings() {
             </span>
           )}
           <button onClick={save}
-            className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90">
+            className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold whitespace-nowrap hover:brightness-90">
             Save changes
           </button>
         </div>

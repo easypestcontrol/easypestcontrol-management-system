@@ -65,15 +65,22 @@ function ManagerView({ me }: { me: SessionUser }) {
 
   return (
     <div className="p-4 lg:p-6 max-w-[1000px]">
-      <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-[20px] font-semibold">Expenses</h1>
-          <p className="text-muted text-[13px] mt-0.5">One report per branch per day — the whole branch&rsquo;s expenses in one place.</p>
+      {/* On a phone the actions get their own full-width row instead of being
+          squeezed beside the title, where "Add my expense" and "Open report"
+          both broke across two lines inside 390px. */}
+      <div className="mb-4 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-[17px] lg:text-[20px] font-semibold">Expenses</h1>
+          <p className="max-lg:hidden text-muted text-[13px] mt-0.5">One report per branch per day — the whole branch’s expenses in one place.</p>
         </div>
-        <div className="flex items-center gap-2">
-          {bf.el}
-          <button onClick={() => setAdding(true)} className="h-9 px-3.5 rounded border border-line text-[13px] font-semibold hover:bg-wash">Add my expense</button>
-          <button onClick={() => setOpening(true)} className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90">Open report</button>
+        {/* The branch picker plus two buttons is 434px of controls inside a
+            390px screen, and `shrink-0` meant the last one simply hung off
+            the edge. The picker takes its own line on a phone and the two
+            buttons share the next one. */}
+        <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:shrink-0">
+          <span className="max-lg:w-full [&>select]:max-lg:w-full">{bf.el}</span>
+          <button onClick={() => setAdding(true)} className="h-10 lg:h-9 flex-1 lg:flex-none min-w-0 px-3.5 rounded border border-line text-[13px] font-semibold whitespace-nowrap hover:bg-wash">Add my expense</button>
+          <button onClick={() => setOpening(true)} className="h-10 lg:h-9 flex-1 lg:flex-none min-w-0 px-4 rounded bg-accent text-white text-[13px] font-semibold whitespace-nowrap hover:brightness-90">Open report</button>
         </div>
       </div>
 
@@ -90,22 +97,24 @@ function ManagerView({ me }: { me: SessionUser }) {
                 <button key={r.id} onClick={() => router.push('/expenses/' + r.id)}
                   className="text-left w-full rounded-md border border-line bg-white shadow-card p-4 hover:border-navy/50 transition-colors">
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="text-[14px] font-bold flex items-center gap-2">
-                        {niceDate(r.date)} · {r.branchName}
-                        {r.status === 'closed' && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-wash text-muted border border-line">CLOSED</span>}
+                    <div className="min-w-0">
+                      {/* min-w-0 + truncate so a long branch name shortens
+                          instead of folding the line in two. */}
+                      <div className="text-[14px] font-bold flex items-center gap-2 min-w-0">
+                        <span className="truncate">{niceDate(r.date)} · {r.branchName}</span>
+                        {r.status === 'closed' && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-wash text-muted border border-line shrink-0">CLOSED</span>}
                       </div>
-                      <div className="text-[11.5px] text-muted mt-0.5">{r.employees} {r.employees === 1 ? 'employee' : 'employees'} · {r.count} expense{r.count === 1 ? '' : 's'} · {r.id}</div>
+                      <div className="text-[11.5px] text-muted mt-0.5 truncate">{r.employees} {r.employees === 1 ? 'employee' : 'employees'} · {r.count} expense{r.count === 1 ? '' : 's'} · {r.id}</div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="text-[16px] font-bold">{money(r.total)}</div>
+                      <div className="text-[16px] font-bold whitespace-nowrap">{money(r.total)}</div>
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5 text-[10.5px] font-semibold">
-                    {r.pending > 0 && <span className="px-2 py-0.5 rounded-full bg-amber text-amber-ink">{money(r.pending)} pending</span>}
-                    {r.approved > 0 && <span className="px-2 py-0.5 rounded-full bg-wash text-navy border border-navy">{money(r.approved)} approved</span>}
-                    {r.reimbursed > 0 && <span className="px-2 py-0.5 rounded-full bg-navy text-white">{money(r.reimbursed)} reimbursed</span>}
-                    {r.rejected > 0 && <span className="px-2 py-0.5 rounded-full bg-red-wash text-accent">{money(r.rejected)} rejected</span>}
+                    {r.pending > 0 && <span className="px-2 py-0.5 rounded-full whitespace-nowrap bg-amber text-amber-ink">{money(r.pending)} pending</span>}
+                    {r.approved > 0 && <span className="px-2 py-0.5 rounded-full whitespace-nowrap bg-wash text-navy border border-navy">{money(r.approved)} approved</span>}
+                    {r.reimbursed > 0 && <span className="px-2 py-0.5 rounded-full whitespace-nowrap bg-navy text-white">{money(r.reimbursed)} reimbursed</span>}
+                    {r.rejected > 0 && <span className="px-2 py-0.5 rounded-full whitespace-nowrap bg-red-wash text-accent">{money(r.rejected)} rejected</span>}
                     {r.count === 0 && <span className="text-muted-2">empty</span>}
                   </div>
                 </button>
@@ -178,7 +187,7 @@ function EmployeeView() {
       <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-[20px] font-semibold">My expenses</h1>
-          <p className="text-muted text-[13px] mt-0.5">Your submissions and where each one stands.</p>
+          <p className="max-lg:hidden text-muted text-[13px] mt-0.5">Your submissions and where each one stands.</p>
         </div>
         <button onClick={() => setAdding(true)} className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90">Add expense</button>
       </div>
@@ -205,7 +214,7 @@ function EmployeeView() {
                   <span className="flex-1 min-w-0">
                     <span className="block text-[13px] font-semibold">
                       {e.category}
-                      {e.source === 'auto_trip' && <span className="ml-2 text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-wash text-muted border border-line align-middle">AUTO · TRIP</span>}
+                      {e.source === 'auto_trip' && <span className="ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded bg-wash text-muted border border-line align-middle whitespace-nowrap">AUTO · TRIP</span>}
                     </span>
                     <span className="block text-[11.5px] text-muted">{niceDate(e.date)}{e.merchant ? ' · ' + e.merchant : ''}{e.note ? ' · ' + e.note : ''}</span>
                     {e.status === 'rejected' && e.rejectReason && (

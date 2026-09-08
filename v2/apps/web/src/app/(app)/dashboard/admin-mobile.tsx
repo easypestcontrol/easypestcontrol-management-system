@@ -91,7 +91,10 @@ export default function AdminMobile({ s, me, actions, branchEl }: {
      rather than as a deliberate stop. */
   const quick = actions.slice(0, 6).map((a, i) => ({
     href: a.href,
-    label: a.label.replace(/^(New|Add|Raise) /, ''),
+    /* The tile is a third of a phone wide, so the label has to be the noun.
+       "Schedule a service" ran onto a second line and pushed the row out of
+       square; the icon above it already says this is something you start. */
+    label: a.label.replace(/^(New|Add|Raise|Assign an?|Schedule an?) /, ''),
     icon: a.icon,
     tint: (['rose', 'sky', 'mint', 'amber', 'sky', 'mint'] as const)[i],
   }));
@@ -167,7 +170,7 @@ export default function AdminMobile({ s, me, actions, branchEl }: {
               foot={overdue && overdue.value > 0 ? compact(overdue.value) : 'None overdue'} />
             <Stat href="/invoices" label="Collected"
               value={compact(s.collected)} foot={`${rate}% of billed`} />
-            <Stat href="/board" tone="bad" label="Services with no technician"
+            <Stat href="/board" tone="bad" label="Unassigned services"
               value={s.waiting} foot={s.waiting > 0 ? 'Assign them' : 'All covered'} />
           </div>
 

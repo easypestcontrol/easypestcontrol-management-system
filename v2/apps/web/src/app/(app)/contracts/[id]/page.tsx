@@ -196,7 +196,7 @@ export default function ContractPage() {
               <span className="zpill outline">{one ? 'One-time' : 'AMC'}</span>
               <span className={statusPill(c.status.key)}>{c.status.label}</span>
             </div>
-            <p className="text-muted text-[13px] mt-0.5">
+            <p className="max-lg:hidden text-muted text-[13px] mt-0.5">
               {c.id} · {c.planSummaryText} · {c.billing} billing · {money(c.value)} / year
             </p>
           </div>

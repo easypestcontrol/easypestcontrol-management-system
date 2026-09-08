@@ -45,8 +45,8 @@ export function FormSteps({ steps, at, onGo, className = '' }: {
   return (
     <div className={'lg:hidden sticky top-0 z-20 bg-white border-b border-line px-4 pt-3 pb-2.5 ' + className}>
       <div className="flex items-baseline justify-between mb-2.5">
-        <span className="text-[13px] font-bold">{steps[at]}</span>
-        <span className="text-[12px] text-muted tabular-nums">
+        <span className="text-[13px] font-bold truncate min-w-0">{steps[at]}</span>
+        <span className="text-[12px] text-muted tabular-nums whitespace-nowrap shrink-0">
           Step {at + 1} of {steps.length}
         </span>
       </div>

@@ -97,7 +97,7 @@ export default function TripReview() {
             <span className={'inline-block px-2.5 py-0.5 rounded-full text-[10.5px] font-bold ' + st.cls}>{st.label}</span>
           </div>
           <p className="text-muted text-[12.5px] mt-1 flex items-center gap-2">
-            <span className="w-6 h-6 rounded-full inline-flex items-center justify-center text-white text-[9.5px] font-bold"
+            <span className="w-7 h-7 rounded-full inline-flex items-center justify-center text-white text-[11px] font-bold shrink-0"
               style={{ background: t.userColor }}>{initials(t.userName)}</span>
             {t.userName} · {day(t.startAt)} · {clock(t.startAt)}–{clock(t.endAt)} · {t.purpose || 'Trip'}
           </p>

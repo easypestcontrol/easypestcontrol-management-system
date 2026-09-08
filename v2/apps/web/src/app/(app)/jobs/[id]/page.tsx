@@ -145,11 +145,15 @@ function BackLink({ label }: { label: string }) {
 }
 
 function Kv({ rows }: { rows: Array<[string, React.ReactNode] | null> }) {
+  /* Label above value on a phone, side by side from sm up. A fixed 128px
+     label column inside 390px left both halves too narrow: "Estimated
+     duration" broke in two on the left while its value wrapped on the
+     right. */
   return (
     <dl>
       {rows.filter(Boolean).map((r, i) => (
-        <div key={i} className="flex gap-3 py-1.5 border-b border-line-soft last:border-0 text-[13px]">
-          <dt className="w-[128px] shrink-0 text-muted">{r![0]}</dt>
+        <div key={i} className="flex flex-col sm:flex-row gap-0.5 sm:gap-3 py-1.5 border-b border-line-soft last:border-0 text-[13px]">
+          <dt className="sm:w-[128px] shrink-0 text-muted">{r![0]}</dt>
           <dd className="min-w-0 flex-1 text-ink">{r![1] || '—'}</dd>
         </div>
       ))}
@@ -176,7 +180,7 @@ function StatTile({ label, value, foot }: { label: string; value: React.ReactNod
     <div className="card p-3.5">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</p>
       <p className="text-[19px] font-semibold text-navy mt-1 leading-tight">{value}</p>
-      {foot && <p className="text-[11.5px] text-muted mt-0.5">{foot}</p>}
+      {foot && <p className="text-[11.5px] text-muted mt-0.5 truncate">{foot}</p>}
     </div>
   );
 }
@@ -398,7 +402,7 @@ function ManagerDetail({ j, me, reload }: {
               <TypePill type={j.type} visitNo={j.visitNo} ofVisits={j.ofVisits} />
               <PriorityPill priority={j.priority} />
             </div>
-            <p className="text-muted text-[13px] mt-0.5">
+            <p className="max-lg:hidden text-muted text-[13px] mt-0.5">
               {j.id} · {j.title} · {fmtLong(j.date)} at {fmtTime(j.slot)}
             </p>
           </div>
@@ -480,7 +484,7 @@ function ManagerDetail({ j, me, reload }: {
           <span className="text-ink-2">
             This service was billed on{' '}
             <Link href={'/invoices/' + j.invoice.id}
-              className="font-bold text-navy underline decoration-line hover:text-accent">
+              className="font-bold text-navy underline decoration-line whitespace-nowrap hover:text-accent">
               {j.invoice.id} ↗
             </Link>{' '}
             on {j.invoice.date}.
@@ -496,7 +500,7 @@ function ManagerDetail({ j, me, reload }: {
             <span className="text-ink-2">
               {' '}Invoice{' '}
               <Link href={'/invoices/' + moneyInfo.invoice.id}
-                className="font-bold text-navy underline decoration-line hover:text-accent">
+                className="font-bold text-navy underline decoration-line whitespace-nowrap hover:text-accent">
                 {moneyInfo.invoice.id} ↗
               </Link>{' '}
               — {money(moneyInfo.invoice.total)} incl. GST
@@ -1483,7 +1487,7 @@ function TechMoney({ j }: { j: JobDetail }) {
         <p className="text-[12.5px] text-ink-2 mt-1">
           Invoice{' '}
           <Link href={'/invoices/' + info.invoice.id}
-            className="font-bold text-navy underline decoration-line hover:text-accent">
+            className="font-bold text-navy underline decoration-line whitespace-nowrap hover:text-accent">
             {info.invoice.id} ↗
           </Link>{' '}
           — {money(info.invoice.total)} incl. GST

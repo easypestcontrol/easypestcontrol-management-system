@@ -66,7 +66,7 @@ export default function TrainingPage() {
       <div className="flex items-start justify-between flex-wrap gap-3 mb-5">
         <div>
           <h1 className="text-[20px] font-semibold">Training</h1>
-          <p className="text-muted text-[13px] mt-0.5">
+          <p className="max-lg:hidden text-muted text-[13px] mt-0.5">
             {canManage
               ? 'The knowledge base — publish lessons per role and each person sees theirs.'
               : 'Your lessons — everything published for your role.'}
