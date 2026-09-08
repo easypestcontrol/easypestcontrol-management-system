@@ -119,7 +119,7 @@ export default function AdminMobile({ s, me, actions, branchEl }: {
           <HeroStats items={[
             { label: 'Receivable', value: compact(s.outstanding), icon: 'invoice', href: '/invoices' },
             { label: 'Today', value: s.jobsToday, icon: 'calendar', href: '/board' },
-            { label: 'Collected', value: compact(s.collected), icon: 'receipt', href: '/collections' },
+            { label: 'Collected', value: compact(s.collected), icon: 'receipt', href: '/wallet' },
           ]} />
         )}
       </Hero>

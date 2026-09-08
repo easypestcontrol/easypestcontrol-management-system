@@ -522,7 +522,13 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                   three-pixel line at the top. At arm's length, in daylight,
                   with a thumb over half the bar, a line is invisible and a
                   filled shape is not.                                        */}
-              <nav className="lg:hidden fixed left-3 right-3 z-40 bg-white rounded-[26px]
+              {/* z-30, deliberately below every dialog.
+                  At z-40 the bar tied with the dialogs that sit at z-40 and,
+                  coming first in the DOM, painted on top of them — so the
+                  Save row of the New customer sheet was covered by the tab
+                  bar and could not be tapped at all. A floating tab bar
+                  belongs above the page and below anything modal. */}
+              <nav className="lg:hidden fixed left-3 right-3 z-30 bg-white rounded-[26px]
                 flex items-stretch px-1.5 py-1.5 shadow-[0_6px_24px_rgba(20,20,20,0.16)]"
                 style={{ bottom: 'max(12px, env(safe-area-inset-bottom))' }}>
                 {primary.map((n) => {

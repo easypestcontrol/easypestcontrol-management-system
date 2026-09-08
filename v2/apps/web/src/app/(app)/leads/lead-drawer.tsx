@@ -140,7 +140,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
 
   if (!l) {
     return (
-      <div className="fixed inset-0 z-40 bg-navy/30" onClick={onClose}>
+      <div className="fixed inset-0 z-50 bg-navy/30" onClick={onClose}>
         <div className="absolute right-0 top-0 h-full w-[560px] max-w-full bg-white border-l border-line p-6"
           onClick={(e) => e.stopPropagation()}>
           <p className="text-muted text-[13px]">Loading…</p>
@@ -260,7 +260,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
   );
 
   return (
-    <div className="fixed inset-0 z-40 bg-navy/30" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-navy/30" onClick={onClose}>
       <div className="absolute right-0 top-0 h-full w-[560px] max-w-full bg-white border-l border-line overflow-y-auto"
         onClick={(e) => e.stopPropagation()}>
 
@@ -469,7 +469,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
           }>
           {edit ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <label className="block col-span-2">
+              <label className="block sm:col-span-2">
                 <span className="block text-[11px] text-muted mb-1">Name / Business</span>
                 {input('name')}
               </label>
@@ -502,7 +502,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
               {/* The same list the lead was captured with. It sets the lead's
                   value, and until now it could only ever be ticked once — so
                   a mistake at capture sat in the pipeline totals for good. */}
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <span className="block text-[11px] text-muted mb-1">Services required</span>
                 <div className="rounded border border-line max-h-[150px] overflow-y-auto px-2.5 py-1.5">
                   {(boot.services as unknown as BootService[]).map((sv) => (

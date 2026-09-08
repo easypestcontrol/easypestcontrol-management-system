@@ -251,7 +251,7 @@ export default function Branches() {
                   <input className={inputCls + ' uppercase'} value={draft.code} placeholder="e.g. ANR"
                     maxLength={6} onChange={(e) => set('code', e.target.value.toUpperCase())} />
                 </label>
-                <label className="block col-span-2">
+                <label className="block sm:col-span-2">
                   <span className={labelCls}>Phone</span>
                   <input className={inputCls} value={draft.phone} placeholder="+91 "
                     onChange={(e) => set('phone', e.target.value)} />

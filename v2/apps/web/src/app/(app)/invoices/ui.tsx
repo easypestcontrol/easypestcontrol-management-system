@@ -170,7 +170,7 @@ export function Dialog({ title, sub, wide, onClose, children, footer }: {
       {/* Wider and a little shorter. A form squeezed into 680px wraps onto
           more rows, and the extra rows are what made this thing tower over
           the screen — width costs nothing and buys back height. */}
-      <div className={'relative bg-white rounded-md shadow-pop w-full flex flex-col max-h-[86vh] ' +
+      <div className={'relative bg-white rounded-md shadow-pop w-full flex flex-col max-h-[86vh] max-lg:max-h-[calc(100vh-24px)] ' +
         (wide ? 'max-w-[780px]' : 'max-w-[480px]')}>
         <div className="flex items-start justify-between px-5 pt-4 pb-3 border-b border-line-soft">
           <div>
@@ -181,9 +181,15 @@ export function Dialog({ title, sub, wide, onClose, children, footer }: {
             <Icon name="x" size={16} />
           </button>
         </div>
-        <div className="px-5 py-4 overflow-y-auto">{children}</div>
+        <div className="px-5 py-4 overflow-y-auto flex-1 min-h-0">{children}</div>
+        {/* Three actions do not fit one 390px row, so they wrap as whole
+            buttons rather than breaking their words in half: "Save draft" and
+            "Save & issue" were each folding onto two lines. Every button in
+            here is nowrap and 44px tall on a phone. */}
         {footer && (
-          <div className="flex justify-end gap-2 px-5 py-3 border-t border-line-soft">{footer}</div>
+          <div className="flex flex-wrap justify-end gap-2 px-5 py-3 border-t border-line-soft [&>button]:whitespace-nowrap [&>button]:max-lg:h-11">
+            {footer}
+          </div>
         )}
       </div>
     </div>

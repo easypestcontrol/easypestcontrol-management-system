@@ -525,7 +525,7 @@ export default function CustomerForm({ initial, onDone, onClose }: {
   );
 
   return (
-    <div className="fixed inset-0 bg-navy/30 z-40 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-navy/30 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="w-full max-w-[760px] bg-white rounded-md shadow-pop max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 h-[52px] border-b border-line shrink-0">
@@ -537,10 +537,13 @@ export default function CustomerForm({ initial, onDone, onClose }: {
           </button>
         </div>
 
-        <div className="flex gap-0.5 px-5 pt-3 border-b border-line shrink-0">
+        {/* The tabs swipe sideways on a phone. Six of them inside 390px
+            wrapped "Tax & terms" onto a second line and pushed the strip two
+            rows deep, which ate the top of the form. */}
+        <div className="flex gap-0.5 px-5 pt-3 border-b border-line shrink-0 overflow-x-auto no-scrollbar">
           {TABS.map((t) => (
             <button key={t} onClick={() => setTab(t)}
-              className={'px-3 h-9 text-[13px] font-medium rounded-t border-b-2 -mb-px transition-colors ' +
+              className={'px-3 h-9 text-[13px] font-medium rounded-t border-b-2 -mb-px transition-colors shrink-0 whitespace-nowrap ' +
                 (tab === t
                   ? 'border-accent text-navy font-semibold'
                   : 'border-transparent text-muted hover:text-ink')}>
@@ -551,7 +554,7 @@ export default function CustomerForm({ initial, onDone, onClose }: {
           ))}
         </div>
 
-        <div className="p-5 overflow-y-auto">
+        <div className="p-5 overflow-y-auto flex-1 min-h-0">
           {tab === 'Overview' && overview}
           {tab === 'Tax & terms' && tax}
           {tab === 'Addresses' && (
@@ -572,11 +575,11 @@ export default function CustomerForm({ initial, onDone, onClose }: {
 
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-line-soft shrink-0">
           <button onClick={onClose}
-            className="h-9 px-4 rounded border border-line text-[13px] font-medium hover:bg-wash">
+            className="h-11 lg:h-9 px-4 rounded border border-line text-[13px] font-medium whitespace-nowrap hover:bg-wash">
             Cancel
           </button>
           <button onClick={save} disabled={busy}
-            className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-60">
+            className="h-11 lg:h-9 flex-1 sm:flex-none px-4 rounded bg-accent text-white text-[13px] font-semibold whitespace-nowrap hover:brightness-90 disabled:opacity-60">
             {busy ? 'Saving…' : initial ? 'Save changes' : 'Create customer'}
           </button>
         </div>

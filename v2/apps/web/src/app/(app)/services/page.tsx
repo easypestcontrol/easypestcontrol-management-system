@@ -297,11 +297,11 @@ export default function Services() {
                   <input type="number" step={15} className={inputCls} value={draft.mins}
                     onChange={(e) => set('mins', e.target.value)} />
                 </label>
-                <label className="block col-span-2">
+                <label className="block sm:col-span-2">
                   <span className={labelCls}>Warranty</span>
                   <input className={inputCls} value={draft.warranty} onChange={(e) => set('warranty', e.target.value)} />
                 </label>
-                <label className="block col-span-2">
+                <label className="block sm:col-span-2">
                   <span className={labelCls}>What the service covers</span>
                   <textarea className={inputCls + ' h-auto py-2 min-h-[72px]'} value={draft.desc}
                     onChange={(e) => set('desc', e.target.value)} />

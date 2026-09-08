@@ -72,3 +72,4 @@ secrets/
 
 # Source archives — the repository is the source.
 *.zip
+.gstack/

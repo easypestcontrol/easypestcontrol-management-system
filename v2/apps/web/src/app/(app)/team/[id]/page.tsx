@@ -569,7 +569,7 @@ export default function TeamMember() {
                 {BLOOD_GROUPS.map((b) => <option key={b} value={b}>{b}</option>)}
               </select>
             </Field>
-            <label className="block col-span-2">
+            <label className="block sm:col-span-2">
               <span className={labelCls}>Residential address</span>
               <textarea className={inputCls + ' h-auto py-2 min-h-[64px]'} value={draft.addr}
                 placeholder="Door no, street, area, city, PIN"
@@ -599,7 +599,7 @@ export default function TeamMember() {
               <input type="date" className={inputCls} value={draft.joined}
                 onChange={(e) => set('joined', e.target.value)} />
             </Field>
-            <label className="block col-span-2">
+            <label className="block sm:col-span-2">
               <span className={labelCls}>Skills (comma separated)</span>
               <input className={inputCls} value={draft.skillsText} placeholder="Termite, Cockroach, Rodent"
                 onChange={(e) => set('skillsText', e.target.value)} />

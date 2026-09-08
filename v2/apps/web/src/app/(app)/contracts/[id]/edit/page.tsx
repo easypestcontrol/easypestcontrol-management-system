@@ -157,7 +157,7 @@ export default function EditContract() {
       <section className="card p-5 mb-5">
         <h2 className="text-[13.5px] font-semibold mb-4">The agreement</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <label className="block col-span-2">
+          <label className="block lg:col-span-2">
             <span className={label}>Subject / description *</span>
             <textarea rows={2} value={scope} onChange={(e) => setScope(e.target.value)} className={area} />
           </label>

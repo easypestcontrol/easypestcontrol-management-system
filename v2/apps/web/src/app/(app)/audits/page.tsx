@@ -113,7 +113,7 @@ export default function Audits() {
 
       {/* ------------------------------------------------ detail drawer */}
       {open && (
-        <div className="fixed inset-0 bg-navy/30 z-40 flex justify-end" onClick={() => setOpen(null)}>
+        <div className="fixed inset-0 bg-navy/30 z-50 flex justify-end" onClick={() => setOpen(null)}>
           <div className="w-[440px] bg-white h-full overflow-y-auto shadow-pop"
             onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 h-[54px] border-b border-line">
@@ -189,7 +189,7 @@ function NewAudit({ clients, onDone, onClose }: {
   }
 
   return (
-    <div className="fixed inset-0 bg-navy/30 z-40 flex items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 bg-navy/30 z-50 flex items-center justify-center" onClick={onClose}>
       <div className="w-[460px] bg-white rounded-md shadow-pop p-5" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-[15px] font-semibold mb-4">New audit</h2>
 
