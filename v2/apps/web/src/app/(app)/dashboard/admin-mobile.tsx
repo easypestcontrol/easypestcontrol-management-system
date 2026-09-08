@@ -15,7 +15,7 @@
 import Link from 'next/link';
 import { Icon, type IconName } from '@/components/icons';
 import {
-  Card, Chip, Row, Screen, Stack, Stat, QuickTiles, Hero, HeroStats, HeroButton,
+  Card, Chip, Row, Screen, Stack, Stat, QuickTiles, Hero, HeroStats,
   money, compact, niceDate,
 } from '@/components/mobile';
 import type { DashboardStats, SessionUser } from '@/lib/api';
@@ -72,6 +72,14 @@ function Collections({ months }: { months: DashboardStats['months'] }) {
   );
 }
 
+/** Names only. The API's crew string mixes ids in with the names. */
+function crew(techs?: string): string {
+  const names = String(techs || '')
+    .split(',').map((x) => x.trim())
+    .filter((x) => x && !/^U\d+$/.test(x));
+  return names.length ? names.join(', ') : 'Not assigned';
+}
+
 /* ------------------------------------------------------------------ screen */
 
 export default function AdminMobile({ s, me, actions, branchEl }: {
@@ -109,12 +117,7 @@ export default function AdminMobile({ s, me, actions, branchEl }: {
       <Hero
         eyebrow="Welcome back"
         title={me?.name?.split(' ')[0] || 'Easy Pest Control'}
-        right={
-          <>
-            {branchEl}
-            <HeroButton name="bell" href="/notifications" label="Notifications" />
-          </>
-        }>
+        right={branchEl}>
         {s && (
           <HeroStats items={[
             { label: 'Receivable', value: compact(s.outstanding), icon: 'invoice', href: '/invoices' },
@@ -197,10 +200,12 @@ export default function AdminMobile({ s, me, actions, branchEl }: {
                 <Row key={j.id} href={'/jobs/' + j.id}
                   title={j.client}
                   right={j.slot || niceDate(j.date)}
-                  meta={[j.type, j.techs || 'Not assigned'].filter(Boolean).join(' · ')}
-                  chip={j.techs
-                    ? <Chip tone="info">Scheduled</Chip>
-                    : <Chip tone="bad">Needs a technician</Chip>} />
+                  /* Two lines, not four. The status chip said "Scheduled" on
+                     every row, which is not information, and the crew string
+                     carried raw user ids next to the names — "U10, Mohan S".
+                     What is left is who, when, and who is going. */
+                  meta={[j.type, crew(j.techs)].filter(Boolean).join(' · ')}
+                  chip={j.techs ? undefined : <Chip tone="bad">Needs a technician</Chip>} />
               ))
             )}
           </Card>
@@ -212,8 +217,7 @@ export default function AdminMobile({ s, me, actions, branchEl }: {
                 <Row key={p.id} href={'/invoices/' + p.invoiceId}
                   title={p.client}
                   amount={money(p.amount)}
-                  meta={[p.mode, niceDate(p.date)].filter(Boolean).join(' · ')}
-                  chip={<Chip tone="good">Received</Chip>} />
+                  meta={[p.mode, niceDate(p.date)].filter(Boolean).join(' · ')} />
               ))}
             </Card>
           )}

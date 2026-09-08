@@ -58,7 +58,7 @@ export default function Customers() {
         emptyHint={q
           ? 'Try a phone number, or part of the name.'
           : 'Add the first one with the red button.'}
-        fabOnClick={() => setCreating(true)}
+        fabHref="/customers/new"
         fabLabel="Add customer"
       />
 

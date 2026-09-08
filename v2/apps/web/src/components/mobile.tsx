@@ -215,10 +215,14 @@ export function Row({ href, title, amount, meta, chip, right, onMore }: {
           <span className="text-[15.5px] font-bold tabular-nums shrink-0">{amount || right}</span>
         )}
       </span>
-      {meta && <span className="block text-[13px] text-muted truncate mt-1">{meta}</span>}
-      {chip && (
-        <span className="flex items-center justify-between gap-2 mt-1.5">
+      {/* The chip rides on the meta line instead of taking a third row of
+          its own. Three stacked lines per record turned a list of eight
+          customers into a wall — the tag is one word and belongs beside the
+          detail it qualifies, not underneath it. */}
+      {(meta || chip) && (
+        <span className="flex items-center gap-2 mt-1.5 min-w-0">
           {chip}
+          {meta && <span className="text-[13px] text-muted truncate min-w-0">{meta}</span>}
           {onMore && (
             <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMore(); }}
@@ -232,7 +236,9 @@ export function Row({ href, title, amount, meta, chip, right, onMore }: {
     </>
   );
 
-  const cls = 'block px-4 py-3.5 min-h-[84px] border-b border-line-soft last:border-b-0 active:bg-wash';
+  /* Roomier and shorter at the same time: the third line is gone, so the
+     space it used to take becomes breathing room around two. */
+  const cls = 'block px-4 py-4 border-b border-line-soft last:border-b-0 active:bg-wash';
   return href
     ? <Link href={href} className={cls}>{body}</Link>
     : <div className={cls}>{body}</div>;
@@ -280,31 +286,26 @@ export function Stat({ href, label, value, foot, tone = 'info' }: {
   foot?: string;
   tone?: 'info' | 'bad';
 }) {
-  /* A "bad" tile showing nought is good news and stops looking like an
-     alarm. "0 services with no technician / All covered" was printed in
-     red, which is the app telling somebody off for having nothing wrong. */
+  /* One card, one look. These used to come in three colours — rose for a
+     problem, mint for a problem that had gone away, white for everything
+     else — and four tiles side by side in three different tints read as
+     decoration rather than as information. They are all the white card now.
+     The figure still carries the state: a real alarm prints in the brand
+     red, everything else in ink. */
   const bad = tone === 'bad' && Number(value) !== 0 && value !== '0';
   return (
     <Link href={href}
-      className={'rounded-[18px] p-3.5 min-h-[96px] flex flex-col active:brightness-95 '
-        + (bad ? 'bg-rose' : tone === 'bad' ? 'bg-mint' : 'bg-white shadow-card')}>
-      {bad ? (
-        <>
-          <span className="text-[27px] font-bold leading-none tabular-nums text-rose-ink">{value}</span>
-          <span className="text-[12.5px] leading-tight mt-1.5 text-muted">{label}</span>
-        </>
-      ) : (
-        <>
-          <span className="text-[12.5px] text-muted font-medium leading-tight">{label}</span>
-          <span className="text-[23px] font-bold tracking-[-0.02em] tabular-nums mt-1">{value}</span>
-        </>
-      )}
+      className="rounded-[18px] p-3.5 min-h-[96px] flex flex-col bg-white shadow-card active:brightness-95">
+      <span className="text-[12.5px] text-muted font-medium leading-tight">{label}</span>
+      <span className={'text-[23px] font-bold tracking-[-0.02em] tabular-nums mt-1 '
+        + (bad ? 'text-hero' : 'text-ink')}>
+        {value}
+      </span>
       <span className="mt-auto pt-2 flex items-center justify-between">
-        <span className={'text-[12.5px] truncate ' + (bad ? 'text-rose-ink font-semibold'
-          : tone === 'bad' ? 'text-mint-ink font-semibold' : 'text-muted')}>
+        <span className={'text-[12.5px] truncate ' + (bad ? 'text-hero font-semibold' : 'text-muted')}>
           {foot || ''}
         </span>
-        <Icon name="chevRight" size={14} className={bad ? 'text-rose-ink' : 'text-muted-2'} />
+        <Icon name="chevRight" size={14} className="text-muted-2" />
       </span>
     </Link>
   );
@@ -432,7 +433,9 @@ export function IconButton({ name, onClick, href, label }: {
 export function Fab({ href, onClick, label = 'New' }: {
   href?: string; onClick?: () => void; label?: string;
 }) {
-  const cls = 'lg:hidden fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+76px)] z-30 '
+  /* Clear of the tab bar. At +76px the button's lower half sat behind the
+     floating bar and read as half-hidden. */
+  const cls = 'lg:hidden fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+104px)] z-30 '
     + 'w-14 h-14 rounded-full bg-accent text-white flex items-center justify-center '
     + 'shadow-[0_6px_18px_rgba(255,0,0,0.35)] active:brightness-90';
   const inner = <Icon name="plus" size={25} />;

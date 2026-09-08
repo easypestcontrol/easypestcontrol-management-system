@@ -363,8 +363,12 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
       {/* ------------------------------------------------------- main */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className={'h-[48px] shrink-0 bg-white border-b border-line items-center gap-3 px-4 '
-          + 'relative z-30 lg:flex ' + (onHome ? 'flex' : 'hidden')}>
+        {/* Desktop only. The phone had a white bar carrying a logo, the
+            company name, a bell and a cog across the top of the home screen,
+            which is 48px of chrome saying what the app already is. The bell
+            was the only part of it doing any work, so the bell is what
+            stayed — floating, top right, on every screen. */}
+        <header className="h-[48px] shrink-0 bg-white border-b border-line items-center gap-3 px-4 relative z-30 hidden lg:flex">
           {/* the phone app bar identity — desktop has the sidebar for this */}
           <Link href={homeFor(me?.role)} className="lg:hidden flex items-center gap-2 min-w-0 shrink-0">
             {co?.logo ? (
@@ -484,6 +488,18 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         {/* The content sits on the grey ground; every card on it is white. That
             single swap is what stops the desktop reading as a document with
             hairlines drawn on it. */}
+        {/* The phone's only piece of top chrome. */}
+        <Link href="/notifications" aria-label="Notifications"
+          className="lg:hidden fixed top-3 right-3 z-30 w-10 h-10 rounded-full bg-white shadow-card
+            flex items-center justify-center text-ink-2 active:bg-wash">
+          <Icon name="bell" size={18} />
+          {notes.unread > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full
+              bg-accent text-white text-[11px] font-bold flex items-center justify-center">
+              {notes.unread}
+            </span>
+          )}
+        </Link>
         <main className="flex-1 overflow-y-auto bg-ground max-lg:pb-20">{children}</main>
 
         {/* ---------------------------------------------- bottom navigation

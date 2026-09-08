@@ -58,10 +58,14 @@ function L({ children }: { children: React.ReactNode }) {
 const INPUT = 'w-full h-9 px-3 rounded border border-line text-[13px] outline-none focus:border-navy';
 const SELECT = INPUT + ' bg-white';
 
-export default function CustomerForm({ initial, onDone, onClose }: {
+export default function CustomerForm({ initial, onDone, onClose, page }: {
   initial?: Client | null;
   onDone: (c: Client) => void;
   onClose: () => void;
+
+  /** Render as a whole screen with a back arrow, the way a phone expects,
+      instead of as a floating dialog. */
+  page?: boolean;
 }) {
   const [f, setF] = useState<F>(() => ({
     ...BLANK,
@@ -231,7 +235,6 @@ export default function CustomerForm({ initial, onDone, onClose }: {
       <label className="block"><L>Mobile <span className="text-accent">*</span></L>
         <input value={f.phone} onChange={(e) => set('phone', e.target.value)}
           inputMode="tel" placeholder="+91 …" className={INPUT} />
-        <span className="block text-[11px] text-muted-2 mt-1">Used for WhatsApp and the visit reminders.</span>
       </label>
 
       <label className="block"><L>Property type</L>
@@ -265,9 +268,6 @@ export default function CustomerForm({ initial, onDone, onClose }: {
         <select value={f.placeOfSupply} onChange={(e) => set('placeOfSupply', e.target.value)} className={SELECT}>
           {STATES.map((s) => <option key={s}>{s}</option>)}
         </select>
-        <span className="block text-[11px] text-muted-2 mt-1">
-          Decides the split on every document: home state = CGST + SGST, any other = IGST.
-        </span>
       </label>
 
       <label className="block"><L>GSTIN</L>
@@ -299,7 +299,6 @@ export default function CustomerForm({ initial, onDone, onClose }: {
       <label className="block"><L>Opening balance (₹)</L>
         <input type="number" step={100} value={f.openingBalance}
           onChange={(e) => set('openingBalance', Number(e.target.value) || 0)} className={INPUT} />
-        <span className="block text-[11px] text-muted-2 mt-1">What they already owed when they came on the books.</span>
       </label>
       <label className="block"><L>Payment terms</L>
         <select value={f.payTerms} onChange={(e) => set('payTerms', e.target.value)} className={SELECT}>
@@ -399,11 +398,7 @@ export default function CustomerForm({ initial, onDone, onClose }: {
       </div>
 
       {f.sites.length === 0 && (
-        <p className="text-[13px] text-muted mb-3 leading-relaxed">
-          None yet — the billing address is used as the site, and that is right
-          for most customers. Add one for each separate place a technician has
-          to go to.
-        </p>
+      <p className="text-[12.5px] text-muted-2">None yet.</p>
       )}
 
       {f.sites.map((a, i) => (
@@ -431,11 +426,6 @@ export default function CustomerForm({ initial, onDone, onClose }: {
         + Add another service address
       </button>
 
-      <p className="text-[11.5px] text-muted-2 mt-3 leading-relaxed">
-        The first of these is where the technician goes by default, and it is
-        what a quotation or contract offers first. Leave the list empty and the
-        billing address is used.
-      </p>
     </div>
   );
 
@@ -525,16 +515,28 @@ export default function CustomerForm({ initial, onDone, onClose }: {
   );
 
   return (
-    <div className="fixed inset-0 bg-navy/30 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="w-full max-w-[760px] bg-white rounded-md shadow-pop max-h-[92vh] flex flex-col"
+    <div className={page
+      ? 'fixed inset-0 z-50 bg-white flex flex-col'
+      : 'fixed inset-0 bg-navy/30 z-50 flex items-center justify-center p-4'}
+      onClick={page ? undefined : onClose}>
+      <div className={page
+        ? 'w-full h-full bg-white flex flex-col'
+        : 'w-full max-w-[760px] bg-white rounded-md shadow-pop max-h-[92vh] flex flex-col'}
         onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 h-[52px] border-b border-line shrink-0">
-          <h2 className="text-[15px] font-semibold">
+        <div className="flex items-center gap-2 px-4 sm:px-5 h-[56px] border-b border-line shrink-0">
+          {page && (
+            <button onClick={onClose} aria-label="Back" className="-ml-2 p-2 text-ink-2">
+              <Icon name="chevRight" size={18} className="rotate-180" />
+            </button>
+          )}
+          <h2 className="text-[16px] font-semibold flex-1 truncate">
             {initial ? 'Edit ' + initial.name : 'New customer'}
           </h2>
-          <button onClick={onClose} className="text-muted hover:text-ink">
-            <Icon name="x" size={16} />
-          </button>
+          {!page && (
+            <button onClick={onClose} aria-label="Close" className="text-muted hover:text-ink">
+              <Icon name="x" size={16} />
+            </button>
+          )}
         </div>
 
         {/* The tabs swipe sideways on a phone. Six of them inside 390px
@@ -561,9 +563,6 @@ export default function CustomerForm({ initial, onDone, onClose }: {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {billingBlock}
               {sitesBlock}
-              <p className="sm:col-span-2 text-[11.5px] text-muted-2 -mt-2">
-                The site address is where the technician goes. Leave it blank and billing is used.
-              </p>
             </div>
           )}
           {tab === 'Contacts' && contacts}
