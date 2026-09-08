@@ -79,7 +79,7 @@ function ManagerView({ me }: { me: SessionUser }) {
 
       {!rows ? <div className="text-muted text-[13px]">Loading…</div>
         : rows.length === 0 ? (
-          <div className="card p-10 text-center text-muted text-[13px]">
+          <div className="rounded-md border border-line bg-white p-10 text-center text-muted text-[13px]">
             No reports yet. Open one for a branch and a date, then the branch&rsquo;s people add their expenses.
           </div>
         ) : groups.map((g) => (
@@ -88,7 +88,7 @@ function ManagerView({ me }: { me: SessionUser }) {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               {g.rows.map((r) => (
                 <button key={r.id} onClick={() => router.push('/expenses/' + r.id)}
-                  className="text-left card card-hover p-4">
+                  className="text-left w-full rounded-md border border-line bg-white shadow-card p-4 hover:border-navy/50 transition-colors">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="text-[14px] font-bold flex items-center gap-2">
@@ -192,11 +192,11 @@ function EmployeeView() {
 
       {!rows ? <div className="text-muted text-[13px]">Loading…</div>
         : shown.length === 0 ? (
-          <div className="card p-10 text-center text-muted text-[13px]">
+          <div className="rounded-md border border-line bg-white p-10 text-center text-muted text-[13px]">
             {rows.length === 0 ? 'No expenses yet. Add one with the red button.' : 'Nothing in this filter.'}
           </div>
         ) : (
-          <div className="card divide-y divide-line-soft">
+          <div className="rounded-md border border-line bg-white shadow-card divide-y divide-line-soft">
             {shown.map((e) => {
               const c = chip(e.status);
               return (
