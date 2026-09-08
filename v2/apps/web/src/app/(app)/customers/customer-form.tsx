@@ -515,25 +515,27 @@ export default function CustomerForm({ initial, onDone, onClose, page }: {
   );
 
   return (
+    /* Full screen on a phone, a dialog on a desk — the same component, told
+       apart by the viewport rather than by a flag. `page` forces the
+       full-screen shape everywhere, which is what /customers/new wants. */
     <div className={page
       ? 'fixed inset-0 z-50 bg-white flex flex-col'
-      : 'fixed inset-0 bg-navy/30 z-50 flex items-center justify-center p-4'}
+      : 'fixed inset-0 z-50 flex max-lg:bg-white lg:bg-navy/30 lg:items-center lg:justify-center lg:p-4'}
       onClick={page ? undefined : onClose}>
       <div className={page
         ? 'w-full h-full bg-white flex flex-col'
-        : 'w-full max-w-[760px] bg-white rounded-md shadow-pop max-h-[92vh] flex flex-col'}
+        : 'w-full h-full bg-white flex flex-col lg:h-auto lg:max-w-[760px] lg:max-h-[92vh] lg:rounded-md lg:shadow-pop'}
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 px-4 sm:px-5 h-[56px] border-b border-line shrink-0">
-          {page && (
-            <button onClick={onClose} aria-label="Back" className="-ml-2 p-2 text-ink-2">
-              <Icon name="chevRight" size={18} className="rotate-180" />
-            </button>
-          )}
+          <button onClick={onClose} aria-label="Back"
+            className={'-ml-2 p-2 text-ink-2 ' + (page ? '' : 'lg:hidden')}>
+            <Icon name="chevRight" size={18} className="rotate-180" />
+          </button>
           <h2 className="text-[16px] font-semibold flex-1 truncate">
             {initial ? 'Edit ' + initial.name : 'New customer'}
           </h2>
           {!page && (
-            <button onClick={onClose} aria-label="Close" className="text-muted hover:text-ink">
+            <button onClick={onClose} aria-label="Close" className="max-lg:hidden text-muted hover:text-ink">
               <Icon name="x" size={16} />
             </button>
           )}

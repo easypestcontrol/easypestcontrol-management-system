@@ -9,7 +9,7 @@
 import { SignArea } from '@/components/sign-area';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { money } from 'shared';
+import { money, waLink } from 'shared';
 
 interface Doc {
   id: string; date: string; due: string; period: string; status: string; place: string;
@@ -67,6 +67,13 @@ export default function PublicInvoice() {
   if (!doc) return <p className="p-10 text-center text-[14px] text-muted">Opening the invoice…</p>;
 
   const t = doc.totals;
+
+  /* WhatsApp, to this customer, with a link to this page. */
+  const share = typeof window === 'undefined' ? '' : waLink(
+    doc.client?.phone,
+    'Invoice ' + doc.id + ' from ' + doc.company.name + ' — ' + money(doc.totals.total)
+    + '\n' + window.location.href,
+  );
   const co = doc.company;
   const paid = t.balance <= 0;
 
@@ -214,6 +221,29 @@ export default function PublicInvoice() {
                 </>
               )}
             </div>
+          </div>
+
+          {/* Download and Share, on the document itself.
+
+              Download is the browser's own print-to-PDF: it is the same
+              engine that lays this page out, so what saves is exactly what
+              is on screen, and it needs no server. Share opens WhatsApp on
+              the customer's own number with a link back to this page — the
+              person who receives it can download and forward it in turn,
+              which is the whole point of a link rather than a file. */}
+          <div className="no-print mt-6 flex gap-2.5">
+            <button onClick={() => window.print()}
+              className="flex-1 h-12 rounded-md border border-[#141414] bg-white
+                text-[15px] font-bold text-[#141414] active:bg-[#f2f2f2]">
+              Download
+            </button>
+            {share && (
+              <a href={share} target="_blank" rel="noreferrer"
+                className="flex-1 h-12 rounded-md bg-[#141414] text-white text-[15px] font-bold
+                  flex items-center justify-center active:brightness-90">
+                Share
+              </a>
+            )}
           </div>
 
           {/* The bill and the way to pay it belong on the same page. Hidden

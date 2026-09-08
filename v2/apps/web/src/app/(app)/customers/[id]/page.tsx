@@ -15,6 +15,7 @@ import CustomerForm from '../customer-form';
 import { isOpen, phoneKey } from '../../leads/lib';
 import CustomerMobile from './mobile';
 import ActionMenu from '@/components/action-menu';
+import Confirm, { type ConfirmSpec } from '@/components/confirm';
 
 interface PlanLine { svId: string; crew: number; techIds: string[]; visits: number }
 interface Contract {
@@ -45,6 +46,7 @@ export default function CustomerDetail() {
   const [c, setC] = useState<Detail | null>(null);
   const [boot, setBoot] = useState<Bootstrap | null>(null);
   const [editing, setEditing] = useState(false);
+  const [ask, setAsk] = useState<ConfirmSpec | null>(null);
   const [missing, setMissing] = useState(false);
   const [note, setNote] = useState('');
 
@@ -102,7 +104,6 @@ export default function CustomerDetail() {
      the person meant it. */
   async function removeCustomer() {
     if (!c) return;
-    if (!window.confirm('Delete ' + c.name + '? This cannot be undone.')) return;
     try {
       await api.del('/clients/' + c.id);
       router.replace('/customers');
@@ -111,14 +112,51 @@ export default function CustomerDetail() {
     }
   }
 
+  /* Every one of these asks first, in the app's own card rather than the
+     browser's grey strip. Editing does not: opening a form changes nothing
+     until it is saved, and a confirm in front of it is a tap for nothing. */
   function actions() {
     if (!c) return [];
     return [
       { label: 'Edit', onClick: () => setEditing(true) },
-      { label: 'Move to lead', onClick: moveToLead },
-      { label: 'Create quotation', onClick: () => router.push('/quotations/new?client=' + c.id) },
-      { label: 'Create contract', onClick: () => router.push('/contracts/new?client=' + c.id) },
-      { label: 'Delete customer', onClick: removeCustomer, danger: true },
+      {
+        label: 'Move to lead',
+        onClick: () => setAsk({
+          title: 'Move ' + c.name + ' back to leads?',
+          body: 'They return to the pipeline as a fresh enquiry. The customer record stays as it is.',
+          confirmLabel: 'Move to lead',
+          onConfirm: moveToLead,
+        }),
+      },
+      {
+        label: 'Create quotation',
+        onClick: () => setAsk({
+          title: 'Start a quotation for ' + c.name + '?',
+          body: 'The builder opens with this customer already filled in.',
+          confirmLabel: 'Create quotation',
+          onConfirm: () => router.push('/quotations/new?client=' + c.id),
+        }),
+      },
+      {
+        label: 'Create contract',
+        onClick: () => setAsk({
+          title: 'Start a contract for ' + c.name + '?',
+          body: 'The contract form opens with this customer already filled in.',
+          confirmLabel: 'Create contract',
+          onConfirm: () => router.push('/contracts/new?client=' + c.id),
+        }),
+      },
+      {
+        label: 'Delete customer',
+        danger: true,
+        onClick: () => setAsk({
+          title: 'Delete ' + c.name + '?',
+          body: 'This cannot be undone. It is refused if they still have contracts, invoices or services.',
+          confirmLabel: 'Delete',
+          danger: true,
+          onConfirm: removeCustomer,
+        }),
+      },
     ];
   }
 
@@ -418,11 +456,16 @@ export default function CustomerDetail() {
         </div>
       </div>
 
+    </div>
+
+      {/* Outside the desktop-only wrapper. It was inside it, so on a phone
+          Edit set the flag and rendered the form into a hidden subtree —
+          the button did nothing at all. */}
       {editing && (
         <CustomerForm initial={c} onClose={() => setEditing(false)}
           onDone={() => { setEditing(false); load(); }} />
       )}
-    </div>
+      <Confirm spec={ask} onClose={() => setAsk(null)} />
     </>
   );
 }

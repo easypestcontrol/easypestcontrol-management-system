@@ -13,7 +13,7 @@
 
 import Link from 'next/link';
 import { Icon } from '@/components/icons';
-import { BackBar, Card, Chip, Row, Screen, money, niceDate, type Tone } from '@/components/mobile';
+import { BackBar, Card, Chip, Fold, Row, Screen, money, niceDate, type Tone } from '@/components/mobile';
 import ActionMenu, { type Action } from '@/components/action-menu';
 
 interface Job { id: string; date: string; slot: string; status: string; type: string }
@@ -125,7 +125,7 @@ export default function CustomerMobile({ c, actions, note }: {
 
         {/* ---------------------------------------------------- contracts */}
         {c.contracts.length > 0 && (
-          <Card title="Contracts" flush>
+          <Fold title="Contracts" count={c.contracts.length} icon="contract">
             {c.contracts.map((ct) => (
               <Row key={ct.id} href={'/contracts/' + ct.id}
                 title={ct.mode === 'amc' ? 'AMC contract' : 'One-time'}
@@ -133,12 +133,12 @@ export default function CustomerMobile({ c, actions, note }: {
                 meta={[niceDate(ct.start), ct.end ? 'to ' + niceDate(ct.end) : ''].filter(Boolean).join(' ')}
                 chip={<Chip tone="info">{ct.id}</Chip>} />
             ))}
-          </Card>
+          </Fold>
         )}
 
         {/* --------------------------------------------------- the visits */}
         {c.jobs.length > 0 && (
-          <Card title="Services" flush>
+          <Fold title="Services" count={c.jobs.length} icon="calendar">
             {c.jobs.slice(0, 6).map((j) => {
               const st = jobState(j.status);
               return (
@@ -149,12 +149,12 @@ export default function CustomerMobile({ c, actions, note }: {
                   chip={<Chip tone={st.tone}>{st.label}</Chip>} />
               );
             })}
-          </Card>
+          </Fold>
         )}
 
         {/* ------------------------------------------------------ billing */}
         {c.invoices.length > 0 && (
-          <Card title="Invoices" flush className="mb-4">
+          <Fold title="Invoices" count={c.invoices.length} icon="invoice">
             {c.invoices.slice(0, 6).map((i) => {
               const st = invState(i.status);
               const total = i.items.reduce((s, it) => s + it.qty * it.rate, 0);
@@ -166,7 +166,7 @@ export default function CustomerMobile({ c, actions, note }: {
                   chip={<Chip tone={st.tone}>{st.label}</Chip>} />
               );
             })}
-          </Card>
+          </Fold>
         )}
       </div>
     </Screen>

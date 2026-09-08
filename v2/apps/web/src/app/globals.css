@@ -67,8 +67,12 @@
      -------------------------------------------------------------------- */
   --color-hero: #FF0000;
   --color-hero-2: #E00000;
-  --color-hero-soft: rgb(255 255 255 / 0.16);
-  --color-hero-line: rgb(255 255 255 / 0.22);
+  /* The tiles that sit ON the band. At 0.16 white over #FF0000 they came out
+     a washed pink that fought the red behind them; darkening instead of
+     lightening keeps them in the same family, and a hairline of white does
+     the separating that the fill used to have to do. */
+  --color-hero-soft: rgb(120 0 0 / 0.28);
+  --color-hero-line: rgb(255 255 255 / 0.16);
 
   /* the sidebar's internal palette — a white sidebar wears dark text */
   --color-side-text: rgb(20 20 20 / 0.80);

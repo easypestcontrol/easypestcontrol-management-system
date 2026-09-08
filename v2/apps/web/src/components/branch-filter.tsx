@@ -14,9 +14,64 @@
    ========================================================================== */
 
 import { useEffect, useState, type ReactNode } from 'react';
+import { Icon } from '@/components/icons';
 import { api, getToken, type Bootstrap, type SessionUser } from '@/lib/api';
 
 const KEY = 'pestops.branchFilter';
+
+/**
+ * The branch picker for the phone's red band.
+ *
+ * A native <select> opens the operating system's own list — a white box with
+ * a blue highlight and system fonts, dropped on top of the brand. It is the
+ * one control on that screen that belongs to Windows rather than to this app.
+ * This is a sheet instead: our type, our red, our corners, and a tick against
+ * the branch you are on.
+ */
+function BranchSheet({ rows, value, onPick }: {
+  rows: Array<{ id: string; name: string }>; value: string; onPick: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const label = rows.find((r) => r.id === value)?.name || 'All branches';
+  const items = [{ id: '', name: 'All branches' }, ...rows];
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}
+        className="h-10 max-w-[150px] pl-3.5 pr-2.5 rounded-full text-white text-[13px] font-semibold
+          inline-flex items-center gap-1.5 border border-hero-line active:brightness-95"
+        style={{ background: 'var(--color-hero-soft)' }}>
+        <span className="truncate">{label}</span>
+        <Icon name="chevDown" size={14} className="shrink-0 opacity-80" />
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-[70] bg-navy/45 flex items-end lg:items-center lg:justify-center"
+          onClick={() => setOpen(false)}>
+          <div className="w-full lg:max-w-[360px] bg-white rounded-t-[24px] lg:rounded-[22px]
+            pt-2 pb-[calc(env(safe-area-inset-bottom)+96px)] lg:pb-2"
+            onClick={(e) => e.stopPropagation()}>
+            <span className="lg:hidden block w-10 h-1 rounded-full bg-line mx-auto mb-1" />
+            <p className="px-5 py-2 text-[12px] font-bold uppercase tracking-[0.06em] text-muted-2">
+              Branch
+            </p>
+            {items.map((r) => {
+              const on = r.id === value;
+              return (
+                <button key={r.id || 'all'} type="button"
+                  onClick={() => { onPick(r.id); setOpen(false); }}
+                  className={'w-full text-left px-5 h-12 flex items-center justify-between gap-3 '
+                    + 'text-[15px] active:bg-wash ' + (on ? 'font-bold text-accent' : 'text-ink')}>
+                  {r.name}
+                  {on && <Icon name="check" size={16} className="text-accent" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 export function useBranchFilter(): { branch: string; el: ReactNode; heroEl: ReactNode } {
   const [branch, setBranch] = useState<string>(() =>
@@ -62,22 +117,10 @@ export function useBranchFilter(): { branch: string; el: ReactNode; heroEl: Reac
     </select>
   ) : null;
 
-  /* The same control for the phone's coloured band. The desktop one is a
-     white box with a hairline, which on the brand red rendered as a blank
-     white slab beside the greeting — the one thing on that screen with no
-     apparent purpose. Translucent white on white text belongs there. */
-  const heroEl = rows.length > 1 ? (
-    <select value={branch} onChange={(e) => pick(e.target.value)}
-      title="See one branch, or the whole company"
-      /* The options need their own colour. They inherit the select's, which
-         on the red band is white — so the open list was white text on a
-         white popup and every branch but the highlighted one was invisible. */
-      className="h-10 max-w-[132px] pl-3 pr-2 rounded-full border-0 text-white text-[13px] font-semibold
-        outline-none appearance-none truncate [&>option]:text-ink [&>option]:bg-white"
-      style={{ background: 'var(--color-hero-soft)' }}>
-      {options}
-    </select>
-  ) : null;
+  /* The band gets a picker of our own, not the operating system’s. */
+  const heroEl = rows.length > 1
+    ? <BranchSheet rows={rows} value={branch} onPick={pick} />
+    : null;
 
   return { branch, el, heroEl };
 }

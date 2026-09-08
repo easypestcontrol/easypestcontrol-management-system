@@ -151,7 +151,9 @@ export function HeroStats({ items }: {
         /* Taller tiles inside a taller band — at 2.5 the figures sat on top
            of their labels and the whole panel read as a strip rather than a
            panel. */
-        const cls = 'rounded-2xl px-2.5 py-4 text-center';
+        /* A hairline instead of a heavier fill: the tile reads as a panel
+           on the band rather than a paler rectangle stuck to it. */
+        const cls = 'rounded-2xl px-2.5 py-4 text-center border border-hero-line';
         return it.href
           ? <Link key={it.label} href={it.href} className={cls + ' active:brightness-95'}
               style={{ background: 'var(--color-hero-soft)' }}>{body}</Link>
@@ -327,6 +329,38 @@ export function Card({ title, action, actionHref, icon, flush, children, classNa
         </header>
       )}
       <div className={flush ? '' : 'px-4 py-4'}>{children}</div>
+    </section>
+  );
+}
+
+/**
+ * A card that starts closed and says how much is inside.
+ *
+ * A customer with twelve visits and nine invoices printed all twenty-one on
+ * the page, so the thing people actually open this screen for — the phone
+ * number and what is owed — was four screens above the fold. Now each section
+ * is one row you tap: "Services 12". Open it and the list is there; leave it
+ * and the page is short.
+ */
+export function Fold({ title, count, icon, children, open: initial }: {
+  title: string; count: number; icon?: IconName;
+  children: React.ReactNode; open?: boolean;
+}) {
+  const [open, setOpen] = useState(!!initial);
+  if (!count) return null;
+  return (
+    <section className="bg-white rounded-[20px] overflow-hidden">
+      <button type="button" onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3.5 active:bg-wash">
+        <span className="flex items-center gap-2 min-w-0">
+          {icon && <Icon name={icon} size={16} className="text-accent shrink-0" />}
+          <span className="text-[12.5px] font-bold uppercase tracking-[0.06em] truncate">{title}</span>
+          <span className="text-[12.5px] font-bold text-muted-2 tabular-nums">{count}</span>
+        </span>
+        <Icon name="chevRight" size={16}
+          className={'text-muted-2 shrink-0 transition-transform ' + (open ? 'rotate-90' : '')} />
+      </button>
+      {open && <div className="border-t border-line">{children}</div>}
     </section>
   );
 }
@@ -696,7 +730,7 @@ export function BackBar({ title, sub, fallback = '/dashboard', right }: {
   const router = useRouter();
   return (
     <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-line-soft
-      relative flex items-center gap-2 h-[52px] px-2">
+      relative flex items-center gap-2 h-[60px] px-2">
       <button
         onClick={() => {
           if (typeof window !== 'undefined' && window.history.length > 1) router.back();
