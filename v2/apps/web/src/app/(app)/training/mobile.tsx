@@ -17,7 +17,7 @@
 import { useState } from 'react';
 import { getToken } from '@/lib/api';
 import { Icon } from '@/components/icons';
-import { BackBar, Card, Chip, Fab, Screen, SearchBox } from '@/components/mobile';
+import { BackBar, Card, Fab, Screen, SearchBox } from '@/components/mobile';
 
 export interface Lesson {
   id: string; title: string; role: string; body: string;
@@ -41,6 +41,23 @@ const niceDay = (iso: string) => {
   const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   return p.length === 3 ? Number(p[2]) + ' ' + M[Number(p[1]) - 1] + ' ' + p[0] : iso;
 };
+
+/* A cover, from the title. Six covers on a shelf that all look the same are
+   six covers nobody can tell apart at a glance; the same title always gets the
+   same colour, so a lesson keeps its face. */
+const COVERS = [
+  { bg: '#C62828', spine: '#8E1B1B' },
+  { bg: '#1F6F5C', spine: '#14493C' },
+  { bg: '#2D5BA8', spine: '#1D3C6E' },
+  { bg: '#B4622A', spine: '#7C421C' },
+  { bg: '#5A4B9C', spine: '#3C3169' },
+  { bg: '#0F6E7A', spine: '#0A4A52' },
+];
+function coverOf(title: string) {
+  let n = 0;
+  for (const ch of String(title || '')) n = (n * 31 + ch.charCodeAt(0)) >>> 0;
+  return COVERS[n % COVERS.length];
+}
 
 /** What kind of thing this lesson is, in the two words somebody would use. */
 function kindOf(l: Lesson): { label: string; icon: 'play' | 'book'; watch: boolean } {
@@ -137,37 +154,31 @@ export default function TrainingMobile({ rows, onOpen, onNew }: {
         ) : (
           shown.map((l) => {
             const k = kindOf(l);
+            const c = coverOf(l.title);
             return (
               <button key={l.id} type="button" onClick={() => onOpen(l)}
-                className="w-full text-left bg-white rounded-[20px] px-4 py-4 active:bg-wash
-                  flex items-start gap-3">
-                <span className={'w-11 h-11 rounded-full shrink-0 flex items-center justify-center '
-                  + (k.watch ? 'bg-accent text-white' : 'bg-rose text-accent')}>
-                  <Icon name={k.icon} size={19} />
+                className="w-full text-left bg-white rounded-[20px] p-3 active:bg-wash
+                  flex items-center gap-3.5">
+                {/* The cover. There are no cover images to load, so the shelf
+                    makes its own: the lesson's own colour, a spine down the
+                    left, and the mark that says whether it is read or watched. */}
+                <span className="w-[62px] h-[82px] rounded-[10px] shrink-0 relative overflow-hidden
+                  flex items-center justify-center shadow-[0_2px_8px_rgba(20,20,20,0.14)]"
+                  style={{ background: c.bg }}>
+                  <span className="absolute left-0 top-0 bottom-0 w-[7px]"
+                    style={{ background: c.spine }} />
+                  <Icon name={k.icon} size={24} className="text-white/90" />
                 </span>
+
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-baseline justify-between gap-3">
-                    <span className="text-[15.5px] font-bold tracking-[-0.01em] truncate">{l.title}</span>
-                    <Icon name="chevRight" size={15} className="text-muted-2 shrink-0" />
+                  <span className="block text-[16px] font-bold leading-snug line-clamp-2">
+                    {l.title}
                   </span>
-                  <span className="flex items-center gap-2 mt-1.5">
-                    <Chip tone={k.watch ? 'info' : 'plain'}>{k.label}</Chip>
-                    <span className="text-[13px] text-muted truncate">
-                      {ROLE_LABEL[l.role] || l.role}
-                    </span>
+                  <span className="inline-flex items-center gap-1.5 h-9 px-4 mt-2.5 rounded-full
+                    bg-accent text-white text-[13.5px] font-bold">
+                    Explore
+                    <Icon name="chevRight" size={14} />
                   </span>
-                  {/* line-clamp sets its own display; a `block` class beside it
-                      wins in the cascade and the whole lesson spills into the
-                      card, which is what happened here the first time. */}
-                  {l.body && (
-                    <span className="text-[13px] text-muted-2 mt-1.5 line-clamp-2 leading-snug">
-                      {l.body}
-                    </span>
-                  )}
-                  {/* Who wrote it, and not when. The date told a technician
-                      nothing he could act on and made a four-line card out of
-                      a three-line one; it is on the lesson itself. */}
-                  <span className="block text-[12.5px] text-muted-2 mt-1.5">{l.by}</span>
                 </span>
               </button>
             );

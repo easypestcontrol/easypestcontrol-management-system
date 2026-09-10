@@ -14,7 +14,8 @@ import { api, type Bootstrap } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { useBranchFilter } from '@/components/branch-filter';
 import { usePager } from '@/components/pager';
-import { ListScreen, niceDate } from '@/components/mobile';
+import Confirm from '@/components/confirm';
+import TasksMobile from './mobile';
 import TimePicker from '@/components/time-picker';
 
 /* ------------------------------------------------------------------ types */
@@ -99,6 +100,7 @@ export default function TasksPage() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [editing, setEditing] = useState('');
   const [openTask, setOpenTask] = useState<Full | null>(null);
+  const [removing, setRemoving] = useState('');
   const [err, setErr] = useState('');
   const bf = useBranchFilter();
 
@@ -128,10 +130,32 @@ export default function TasksPage() {
     catch { /* row stays */ }
   }
 
+  /* Removing a task is asked in the app's own voice. The browser's confirm()
+     is a grey strip with the hostname on it — on a phone it is the most
+     out-of-place thing on the screen. */
+  function askRemove(id: string) { setRemoving(id); }
+
   async function remove(id: string) {
-    if (!confirm('Remove this task?')) return;
     try { await api.del('/tasks/' + id); setOpenTask(null); load(); }
     catch (e) { setErr(e instanceof Error ? e.message : 'Could not remove'); }
+  }
+
+  /**
+   * Done, or not done — the one verb an assignee has, and the one thing
+   * anybody opens this screen to do. It is optimistic: the row ticks
+   * immediately and the list reloads behind it, because waiting for a round
+   * trip to see a checkbox move is how a list starts feeling broken.
+   */
+  async function toggle(t: { id: string; status: string }) {
+    const next = t.status === 'done' ? 'open' : 'done';
+    setData((d) => (d ? {
+      ...d,
+      rows: d.rows.map((r) => (r.id === t.id
+        ? { ...r, status: next, doneAt: next === 'done' ? 'now' : '' } : r)),
+    } : d));
+    try { await api.patch('/tasks/' + t.id, { status: next }); }
+    catch (e) { setErr(e instanceof Error ? e.message : 'Could not update'); }
+    load();
   }
 
   async function editFrom(t: Full) {
@@ -168,26 +192,11 @@ export default function TasksPage() {
 
   return (
     <>
-      {/* A to-do read on the move: what, who, and by when. */}
-      <ListScreen
-        back="/dashboard"
-        title="Tasks"
-        loading={!data}
-        rows={(data?.rows || []).map((t) => ({
-          id: t.id,
-          title: t.title,
-          right: t.due ? niceDate(t.due) : '',
-          meta: [t.assigneeName || 'Nobody', t.dueTime].filter(Boolean).join(' \u00b7 '),
-          tone: (t.status === 'done' ? 'good'
-            : t.priority === 'high' ? 'bad' : 'info') as 'good' | 'bad' | 'info',
-          state: t.status === 'done' ? 'Done'
-            : t.priority === 'high' ? 'High priority' : 'Open',
-        }))}
-        empty="No tasks"
-        emptyHint="Anything that has to happen by a date, given to a person."
-        fabOnClick={() => { setDraft(blank()); setEditing(''); setErr(''); }}
-        fabLabel="New task"
-      />
+      {/* A to-do read on the move: what, who, by when — and ticked off from
+          the list, which is the only verb this screen really has. */}
+      <TasksMobile rows={data?.rows || null} canManage={canManage}
+        onOpen={openDetail} onToggle={toggle}
+        onNew={canManage ? () => { setDraft(blank()); setEditing(''); setErr(''); } : undefined} />
     <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
       <div className="flex items-center justify-between px-4 lg:px-6 h-[56px] border-b border-line">
@@ -243,38 +252,15 @@ export default function TasksPage() {
         </div>
       ) : (
         <>
-          {/* phones: cards */}
-          <div className="lg:hidden flex flex-col gap-2.5 p-3">
-            {pg.pageRows.map((t) => (
-              <div key={t.id}
-                className={'rounded-xl border border-line bg-white p-4 shadow-card '
-                  + (t.status === 'done' ? 'opacity-60' : '')}>
-                <div className="flex items-start gap-3">
-                  <button className="flex-1 min-w-0 text-left" onClick={() => openDetail(t.id)}>
-                    <p className={'text-[14px] font-semibold ' + (t.status === 'done' ? 'line-through' : '')}>
-                      {t.title}
-                    </p>
-                    {t.notes && <p className="text-[12px] text-muted truncate mt-0.5">{t.notes}</p>}
-                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-2 text-[11.5px]">
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded-full text-white text-[8.5px] font-bold flex items-center justify-center"
-                          style={{ background: t.assigneeColor }}>{initials(t.assigneeName)}</span>
-                        {t.assigneeName}
-                      </span>
-                      {dueCell(t)}
-                      <span className={PRIO[t.priority]?.cls}>{PRIO[t.priority]?.label}</span>
-                      {attachIcons(t)}
-                    </div>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
+          {/* The phone card list that used to live here could never show
+              itself: it was marked lg:hidden inside a max-lg:hidden wrapper,
+              so it was hidden on a phone by its parent and hidden on a desk by
+              itself. The phone has TasksMobile above. */}
           {/* desk: the table */}
           <table className="ztable max-lg:hidden">
             <thead>
               <tr>
+                <th style={{ width: 44 }}></th>
                 <th>Task</th><th>Assigned to</th><th>Deadline</th>
                 <th>Priority</th><th>Branch</th>
                 {canManage && <th style={{ width: 96 }}></th>}
@@ -284,6 +270,17 @@ export default function TasksPage() {
               {pg.pageRows.map((t) => (
                 <tr key={t.id} className={'zrow ' + (t.status === 'done' ? 'opacity-60' : '')}
                   onClick={() => openDetail(t.id)}>
+                  {/* Ticking a task off used to mean opening it first. */}
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => toggle(t)}
+                      title={t.status === 'done' ? 'Mark not done' : 'Mark done'}
+                      className={'w-6 h-6 rounded-full border-2 flex items-center justify-center '
+                        + (t.status === 'done'
+                          ? 'bg-mint border-mint text-mint-ink'
+                          : 'border-line text-transparent hover:border-navy')}>
+                      <Icon name="check" size={13} />
+                    </button>
+                  </td>
                   <td>
                     <span className={'block font-semibold text-navy max-w-[340px] truncate '
                       + (t.status === 'done' ? 'line-through' : '')}>{t.title}</span>
@@ -310,7 +307,7 @@ export default function TasksPage() {
                       <span className="flex items-center gap-1.5">
                         <button onClick={() => openDetail(t.id).then(() => {})}
                           className="h-7 px-2.5 rounded border border-line text-[12px] hover:bg-wash">Open</button>
-                        <button onClick={() => remove(t.id)} title="Remove"
+                        <button onClick={() => askRemove(t.id)} title="Remove"
                           className="w-7 h-7 rounded flex items-center justify-center text-muted hover:text-accent hover:bg-red-wash">
                           <Icon name="x" size={13} />
                         </button>
@@ -336,7 +333,7 @@ export default function TasksPage() {
             setOpenTask(null); load();
           }}
           onEdit={() => editFrom(openTask)}
-          onRemove={() => remove(openTask.id)} />
+          onRemove={() => askRemove(openTask.id)} />
       )}
 
       {/* --------------------------------------------------- new / edit */}
@@ -346,6 +343,14 @@ export default function TasksPage() {
           onClose={() => { setDraft(null); setEditing(''); }}
           onSaved={() => { setDraft(null); setEditing(''); load(); }} />
       )}
+      <Confirm spec={removing ? {
+        title: 'Remove this task?',
+        body: 'It disappears from the assignee\u2019s list. This cannot be undone.',
+        confirmLabel: 'Yes, remove it',
+        cancelLabel: 'Keep it',
+        danger: true,
+        onConfirm: () => { const id = removing; setRemoving(''); void remove(id); },
+      } : null} onClose={() => setRemoving('')} />
     </>
   );
 }
