@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { waLink } from 'shared';
 
 interface Doc {
   id: string; date: string; slot: string; contractId: string;
@@ -52,6 +53,23 @@ export default function PublicReport() {
   const [missing, setMissing] = useState(false);
   const [zoom, setZoom] = useState('');
 
+  /* Zoom, not media queries — the same treatment the invoice gets. The sheet
+     is 820px of paper and the phone is not, so it is scaled by whatever the
+     viewport can give it rather than rearranged into a stack of cards. A
+     report the customer opens and the report the office prints have to be
+     the same document. `zoom` reflows the surrounding height correctly,
+     which `transform: scale` does not. */
+  const [fit, setFit] = useState<{ zoom?: number }>({});
+  useEffect(() => {
+    const size = () => {
+      const room = window.innerWidth - 24;
+      setFit(room < 820 ? { zoom: Math.max(0.34, room / 820) } : {});
+    };
+    size();
+    window.addEventListener('resize', size);
+    return () => window.removeEventListener('resize', size);
+  }, []);
+
   useEffect(() => {
     fetch('/api/public/docs/report/' + id)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
@@ -68,10 +86,37 @@ export default function PublicReport() {
   const co = doc.company;
   const head = doc.crew.find((c) => c.head) || doc.crew[0];
 
+  /* WhatsApp, to this customer, with a link to this page. */
+  const share = typeof window === 'undefined' ? '' : waLink(
+    doc.client?.phone,
+    'Service report ' + doc.id + ' from ' + doc.company.name
+    + ' — what was done, the photos and your signed acknowledgement:\n'
+    + window.location.href,
+  );
+
   return (
-    <div className="min-h-screen bg-[#f4f5f8] py-4 px-3 sm:py-8">
-      <div className="bg-white border border-[#e3e6ee] rounded-lg max-w-[820px] mx-auto shadow-sm">
-        <div className="p-5 sm:p-10">
+    <div className="paper-page min-h-screen bg-[#f4f5f8] pb-10 px-3 sm:py-8">
+      {/* The phone gets a bar of its own: back to wherever you came from, and
+          the report named. The sheet below is a document, and a document
+          should not have to carry navigation. */}
+      <div className="lg:hidden no-print sticky top-0 z-10 -mx-3 px-2 h-[60px] bg-[#f4f5f8]
+        flex items-center gap-1">
+        <button onClick={() => history.back()} aria-label="Back" className="p-2 text-[#141414]">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+        </button>
+        <span className="min-w-0">
+          <span className="block text-[16px] font-semibold leading-tight">Service report</span>
+          <span className="block text-[12.5px] text-gray-500 leading-tight">{doc.id}</span>
+        </span>
+      </div>
+
+      <div style={fit}
+        className="paper bg-white border border-[#e3e6ee] rounded-lg w-[820px] max-w-full mx-auto
+          shadow-sm max-lg:mt-2">
+        <div className="p-10">
           {/* head */}
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -270,6 +315,31 @@ export default function PublicReport() {
             {(co.docTerms?.service || []).join(' ')}
           </p>
         </div>
+      </div>
+
+      {/* Under the sheet, not on it: things you do WITH the report. */}
+      <div className="lg:hidden no-print mt-5 flex items-center justify-center gap-5">
+        <button onClick={() => window.print()} aria-label="Download PDF"
+          className="w-[54px] h-[54px] rounded-full bg-white border border-[#e3e6ee] shadow-sm
+            flex items-center justify-center text-[#141414] active:bg-[#f2f2f2]">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3v11" /><path d="m8 10.5 4 4 4-4" />
+            <path d="M4 16.5v2.2A2.3 2.3 0 0 0 6.3 21h11.4a2.3 2.3 0 0 0 2.3-2.3v-2.2" />
+          </svg>
+        </button>
+        {share && (
+          <a href={share} target="_blank" rel="noreferrer" aria-label="Share"
+            className="w-[54px] h-[54px] rounded-full bg-[#141414] text-white shadow-sm
+              flex items-center justify-center active:brightness-90">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="18" cy="5.5" r="2.6" /><circle cx="6" cy="12" r="2.6" />
+              <circle cx="18" cy="18.5" r="2.6" />
+              <path d="m8.3 10.8 7.4-4M8.3 13.2l7.4 4" />
+            </svg>
+          </a>
+        )}
       </div>
 
       {zoom && (

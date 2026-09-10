@@ -114,7 +114,10 @@ export default function TechDone({ j }: { j: JobDetail }) {
 
         {/* The report, in the order it is read. */}
         <div className="grid grid-cols-2 gap-2.5">
-          <Link href={'/report/' + j.id} target="_blank" rel="noreferrer"
+          {/* In the app, not a new tab. A second tab on a phone is a place
+              you have to find your way out of, and the report has its own
+              back arrow. */}
+          <Link href={'/report/' + j.id}
             className="h-12 rounded-xl bg-accent text-white text-[14.5px] font-bold
               flex items-center justify-center gap-2 active:brightness-90">
             <Icon name="report" size={17} /> View report
