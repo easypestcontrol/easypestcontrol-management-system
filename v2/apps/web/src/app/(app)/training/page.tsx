@@ -10,7 +10,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, getToken, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
-import { ListScreen } from '@/components/mobile';
+import Confirm from '@/components/confirm';
+import TrainingMobile, { LessonScreen } from './mobile';
 
 const API_BASE = '/api'; // the Next proxy forwards to the API
 
@@ -34,6 +35,7 @@ export default function TrainingPage() {
   const [rows, setRows] = useState<Lesson[] | null>(null);
   const [open, setOpen] = useState<Lesson | null>(null);
   const [adding, setAdding] = useState(false);
+  const [confirming, setConfirming] = useState<Lesson | null>(null);
   const [me, setMe] = useState<SessionUser | null>(null);
 
   const load = () => api.get<Lesson[]>('/training').then(setRows).catch(() => setRows([]));
@@ -47,21 +49,27 @@ export default function TrainingPage() {
 
   return (
     <>
-      {/* A lesson is read on the phone between jobs, which is the whole point of writing it down. */}
-      <ListScreen
-        back="/dashboard"
-        title="Training"
-        loading={!rows}
-        rows={(rows || []).map((l) => ({
-          id: l.id,
-          title: l.title,
-          meta: [ROLE_LABEL[l.role] || l.role, l.by].filter(Boolean).join(' · '),
-          tone: (l.hasVideo ? 'info' : 'plain') as 'info' | 'plain',
-          state: l.hasVideo ? 'Video' : 'Reading',
-        }))}
-        empty="No lessons yet"
-        emptyHint="Write down how the work is done, once, so it can be handed over."
-      />
+      {/* A lesson is read on the phone between jobs, which is the whole point
+          of writing it down — so on a phone it opens, plays and reads there
+          rather than listing titles that go nowhere. */}
+      <TrainingMobile rows={rows} onOpen={setOpen}
+        onNew={canManage ? () => setAdding(true) : undefined} />
+      {open && (
+        <LessonScreen lesson={open} onClose={() => setOpen(null)}
+          onDelete={() => setConfirming(open)} />
+      )}
+      <Confirm spec={confirming ? {
+        title: 'Delete this lesson?',
+        body: 'It goes for everyone it was published to. This cannot be undone.',
+        confirmLabel: 'Yes, delete it',
+        cancelLabel: 'Keep it',
+        danger: true,
+        onConfirm: () => {
+          const id = confirming.id;
+          setConfirming(null); setOpen(null);
+          api.del('/training/' + id).then(load).catch(() => {});
+        },
+      } : null} onClose={() => setConfirming(null)} />
     <div className="max-lg:hidden p-6 max-w-[980px]">
       <div className="flex items-start justify-between flex-wrap gap-3 mb-5">
         <div>
@@ -107,9 +115,13 @@ export default function TrainingPage() {
         </div>
       )}
 
-      {open && <Viewer lesson={open} onClose={() => setOpen(null)} onDeleted={() => { setOpen(null); load(); }} />}
-      {adding && <AddDialog onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} />}
+      {open && (
+        <span className="max-lg:hidden">
+          <Viewer lesson={open} onClose={() => setOpen(null)} onDeleted={() => { setOpen(null); load(); }} />
+        </span>
+      )}
     </div>
+    {adding && <AddDialog onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} />}
     </>
   );
 }

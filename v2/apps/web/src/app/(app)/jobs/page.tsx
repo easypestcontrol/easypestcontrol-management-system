@@ -80,6 +80,7 @@ export default function Jobs() {
           banner. The board below is drag-and-drop across a whole day and
           needs a mouse. */}
       <JobsMobile data={data} tab={tab} onTab={setTab} q={q} onSearch={setQ}
+        canSchedule={canManage}
         techName={(id) => usersById.get(id)?.name || ''}
         onNew={canManage ? () => setShowNew(true) : undefined} />
 

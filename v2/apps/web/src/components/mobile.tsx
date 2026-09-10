@@ -839,11 +839,14 @@ export function DeskOnly({ title, why, goHref, goLabel, back = '/dashboard' }: {
  * not: opening a link straight into a detail screen leaves nothing to go back
  * to, and a dead button is worse than no button.
  */
-export function BackBar({ title, sub, fallback = '/dashboard', right }: {
+export function BackBar({ title, sub, fallback = '/dashboard', right, onBack }: {
   title: string;
   sub?: string;
   fallback?: string;
   right?: React.ReactNode;
+  /** For a bar on something that opened OVER the page — a lesson, a preview.
+      Back should close that, not leave the screen behind it. */
+  onBack?: () => void;
 }) {
   const router = useRouter();
   return (
@@ -851,6 +854,7 @@ export function BackBar({ title, sub, fallback = '/dashboard', right }: {
       relative flex items-center gap-2 h-[60px] px-2">
       <button
         onClick={() => {
+          if (onBack) { onBack(); return; }
           if (typeof window !== 'undefined' && window.history.length > 1) router.back();
           else router.push(fallback);
         }}

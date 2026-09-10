@@ -37,7 +37,7 @@ const TABS = [
 
 /* ----------------------------------------------------------------- screen */
 
-export default function JobsMobile({ data, tab, onTab, techName, onNew, q, onSearch }: {
+export default function JobsMobile({ data, tab, onTab, techName, onNew, q, onSearch, canSchedule }: {
   data: JobsList | null;
   tab: string;
   onTab: (t: string) => void;
@@ -47,6 +47,8 @@ export default function JobsMobile({ data, tab, onTab, techName, onNew, q, onSea
   /** The same search the desk has: a customer, an address, a service id. */
   q?: string;
   onSearch?: (v: string) => void;
+  /** The office plans the week; a technician is handed his day. */
+  canSchedule?: boolean;
 }) {
   const rows = data?.rows || [];
   const unassigned = data?.counts.unassigned || 0;
@@ -54,7 +56,10 @@ export default function JobsMobile({ data, tab, onTab, techName, onNew, q, onSea
   return (
     <Screen>
       <ScreenTitle title="Services">
-        <IconButton name="calendar" href="/schedule" label="Schedule" />
+        {/* The schedule is the office planning the week. A technician cannot
+            move anybody's work, so the button only ever took him to a screen
+            he could look at and not use. */}
+        {canSchedule && <IconButton name="calendar" href="/schedule" label="Schedule" />}
       </ScreenTitle>
 
       {onSearch && (

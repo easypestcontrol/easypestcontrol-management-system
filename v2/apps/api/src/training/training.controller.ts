@@ -31,8 +31,12 @@ export class TrainingController {
   async list(@Req() req: Request & Jwt) {
     const role = req.user?.role || '';
     const manage = role === 'admin' || role === 'ops';
+    /* A senior technician does the technician's job with more of it on his
+       shoulders, so a lesson written for technicians is written for him too.
+       Filtering on his exact role hid every one of them. */
+    const mine = role === 'senior_tech' ? ['all', role, 'tech'] : ['all', role];
     const rows = await this.prisma.training.findMany({
-      where: manage ? {} : { role: { in: ['all', role] } },
+      where: manage ? {} : { role: { in: mine } },
       orderBy: { createdAt: 'desc' },
     });
     const users = await this.prisma.user.findMany({ select: { id: true, name: true } });
