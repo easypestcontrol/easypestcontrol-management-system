@@ -37,6 +37,53 @@ const PURPOSES = [
   'Bank', 'Customer meeting', 'Other',
 ];
 
+/**
+ * "Service SER-1003 — Mr. Arun VK" → the name, and the id kept aside.
+ *
+ * The id is the widest part of a trip's name and the least useful thing on
+ * the row; the customer is what somebody is looking for.
+ */
+function tripName(purpose: string): { title: string; ref: string } {
+  const m = /^Service\s+(\S+)\s+[—-]\s*(.*)$/.exec(String(purpose || ''));
+  if (m) return { title: m[2].trim() || m[1], ref: m[1] };
+  return { title: String(purpose || 'Trip'), ref: '' };
+}
+
+/** "2026-09-10T22:40:12Z" → "10:40 pm". */
+function hhmmOf(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const h = d.getHours();
+  return ((h + 11) % 12 + 1) + ':' + String(d.getMinutes()).padStart(2, '0')
+    + ' ' + (h < 12 ? 'am' : 'pm');
+}
+
+/** Trips under the day they happened on — Today, Yesterday, then the date. */
+function byDay<T extends { startAt: string }>(rows: T[]): Array<{ label: string; trips: T[] }> {
+  const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const dayOf = (iso: string) => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const t = new Date();
+    t.setHours(0, 0, 0, 0);
+    const at = new Date(d);
+    at.setHours(0, 0, 0, 0);
+    const diff = Math.round((at.getTime() - t.getTime()) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === -1) return 'Yesterday';
+    return at.getDate() + ' ' + M[at.getMonth()];
+  };
+  const out: Array<{ label: string; trips: T[] }> = [];
+  for (const r of rows) {
+    const label = dayOf(r.startAt);
+    const last = out[out.length - 1];
+    if (last && last.label === label) last.trips.push(r);
+    else out.push({ label, trips: [r] });
+  }
+  return out;
+}
+
 const km = (m: number) => (m / 1000).toFixed(m < 10000 ? 2 : 1) + ' km';
 const dur = (mins: number) => mins < 60 ? mins + ' min' : Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm';
 const when = (iso: string) => {
@@ -311,27 +358,59 @@ export default function TripPage() {
         )}
       </div>
       <section className="card overflow-hidden max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
-        {/* phones: trip cards */}
-        <div className="lg:hidden flex flex-col divide-y divide-line-soft">
+        {/* phones: a day at a time.
+            Every row used to lead with "Service SER-1003 — Mr. Arun VK",
+            which truncates to "Service SER-1003 — Mr. Arun…" — the id is the
+            widest part of it and the least useful, and eight rows in a row
+            said the same first two words. The name leads now, the id is a
+            quiet mark beside the time, and the trips sit under the day they
+            happened on. */}
+        <div className="lg:hidden flex flex-col">
           {!rows ? (
             <p className="text-muted text-[13px] px-4 py-6 text-center">Loading…</p>
           ) : rows.length === 0 ? (
             <p className="text-muted text-[13px] px-4 py-6 text-center">
               No trips yet — the first one starts above.
             </p>
-          ) : pg.pageRows.map((t) => (
-            <div key={t.id} className="px-4 py-3.5">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-[15px] font-bold truncate">{t.purpose}</span>
-                <span className="text-[15px] font-bold tabular-nums shrink-0">{km(t.distanceM)}</span>
-              </div>
-              {t.dest && <p className="text-[13px] text-muted truncate mt-0.5">{t.dest}</p>}
-              <p className="text-[12.5px] text-muted-2 mt-1">
-                {all && t.userName ? t.userName + ' · ' : ''}{when(t.startAt)} ·{' '}
-                {t.status === 'active'
-                  ? <span className="text-accent font-semibold">live now</span>
-                  : dur(t.mins)}
+          ) : byDay(pg.pageRows).map((day) => (
+            <div key={day.label}>
+              <p className="px-4 pt-4 pb-1.5 text-[12px] font-bold uppercase tracking-[0.06em] text-muted">
+                {day.label}
               </p>
+              {day.trips.map((t) => {
+                const n = tripName(t.purpose);
+                return (
+                  <div key={t.id} className="flex items-start gap-3 px-4 py-3.5
+                    border-b border-line-soft last:border-b-0">
+                    <span className={'w-10 h-10 rounded-full shrink-0 flex items-center justify-center '
+                      + (t.status === 'active' ? 'bg-accent text-white' : 'bg-rose text-accent')}>
+                      <Icon name="road" size={18} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline justify-between gap-3">
+                        <span className="text-[15px] font-bold truncate">{n.title}</span>
+                        <span className="text-[15px] font-bold tabular-nums shrink-0">
+                          {km(t.distanceM)}
+                        </span>
+                      </span>
+                      {t.dest && (
+                        <span className="block text-[13px] text-muted truncate mt-0.5">{t.dest}</span>
+                      )}
+                      <span className="block text-[12.5px] text-muted-2 mt-1 truncate">
+                        {[
+                          all && t.userName ? t.userName : '',
+                          hhmmOf(t.startAt),
+                          t.status === 'active' ? '' : dur(t.mins),
+                          n.ref,
+                        ].filter(Boolean).join(' · ')}
+                        {t.status === 'active' && (
+                          <span className="text-accent font-bold"> · live now</span>
+                        )}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
@@ -426,39 +505,77 @@ function AddTripDialog({ onClose, onStart }: {
     catch (e) { setErr(e instanceof Error ? e.message : 'Could not start'); setBusy(false); }
   }
 
-  const input = 'w-full h-10 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy';
-  const label = 'block text-[12px] font-semibold text-ink-2 mb-1.5';
+  const input = 'w-full h-12 lg:h-10 px-3.5 rounded-xl lg:rounded border border-line '
+    + 'text-[15px] lg:text-[13.5px] outline-none focus:border-accent';
+  const label = 'block text-[13px] lg:text-[12px] font-semibold text-ink-2 mb-1.5';
+  const chip = (on: boolean) => 'h-9 px-3.5 rounded-full text-[13.5px] font-semibold '
+    + 'whitespace-nowrap shrink-0 ' + (on ? 'bg-accent text-white' : 'bg-white border border-line text-ink');
 
   return (
-    <div className="fixed inset-0 z-50 bg-navy/40 flex items-center justify-center p-6" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-[440px]" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-line">
-          <h2 className="text-[15px] font-semibold">Add trip</h2>
-          <button onClick={onClose} className="text-muted hover:text-ink p-1"><Icon name="x" size={16} /></button>
+    /* A sheet on the phone, a card at a desk.
+       The two dropdowns here were native <select>s, so tapping one handed the
+       screen to Android or Windows — a blue-highlighted system list on top of
+       the app. Both are ours now: the purpose is a row of chips, and where you
+       are going is a list you tap. */
+    <div className="fixed inset-0 z-[70] bg-navy/45 flex items-end lg:items-center lg:justify-center lg:p-6"
+      onClick={onClose}>
+      <div className="bg-white w-full rounded-t-[24px] lg:rounded-lg shadow-xl lg:max-w-[440px]
+        max-h-[88vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line sticky top-0 bg-white">
+          <h2 className="text-[16px] font-bold">Add trip</h2>
+          <button onClick={onClose} aria-label="Close"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-muted-2 active:bg-wash">
+            <Icon name="x" size={16} />
+          </button>
         </div>
         <div className="p-5 flex flex-col gap-4">
-          <label className="block">
-            <span className={label}>Purpose *</span>
-            <select value={purpose} onChange={(e) => setPurpose(e.target.value)} className={input + ' bg-white'}>
-              {PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </label>
+          <div>
+            <span className={label}>Purpose</span>
+            <div className="flex flex-wrap gap-2">
+              {PURPOSES.map((p) => (
+                <button key={p} type="button" onClick={() => setPurpose(p)}
+                  className={chip(purpose === p)}>
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
           <label className="block">
             <span className={label}>{purpose === 'Other' ? 'What is it? *' : 'Note (optional)'}</span>
             <input value={note} onChange={(e) => setNote(e.target.value)}
               placeholder={purpose === 'Other' ? 'e.g. Vehicle service' : 'e.g. picking up gel tubes'}
               className={input} />
           </label>
-          <label className="block">
-            <span className={label}>Where to? *</span>
-            <select value={placeId} onChange={(e) => setPlaceId(e.target.value)} className={input + ' bg-white'}>
-              <option value="">Pick a location…</option>
-              <option value="__other">Somewhere else — type it below</option>
-              {places.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}{p.dest ? ' — ' + p.dest : ''}</option>
-              ))}
-            </select>
-          </label>
+          <div>
+            <span className={label}>Where to?</span>
+            <div className="rounded-xl border border-line overflow-hidden">
+              {places.map((pl) => {
+                const on = placeId === pl.id;
+                return (
+                  <button key={pl.id} type="button" onClick={() => setPlaceId(pl.id)}
+                    className={'w-full text-left px-3.5 py-3 border-b border-line-soft last:border-b-0 '
+                      + 'flex items-center justify-between gap-3 active:bg-wash '
+                      + (on ? 'bg-rose' : 'bg-white')}>
+                    <span className="min-w-0">
+                      <span className={'block text-[14.5px] truncate ' + (on ? 'font-bold text-accent' : 'font-semibold')}>
+                        {pl.name}
+                      </span>
+                      {pl.dest && <span className="block text-[12.5px] text-muted truncate">{pl.dest}</span>}
+                    </span>
+                    {on && <Icon name="check" size={16} className="text-accent shrink-0" />}
+                  </button>
+                );
+              })}
+              <button type="button" onClick={() => setPlaceId('__other')}
+                className={'w-full text-left px-3.5 py-3 flex items-center justify-between gap-3 '
+                  + 'active:bg-wash ' + (placeId === '__other' ? 'bg-rose' : 'bg-white')}>
+                <span className={'text-[14.5px] ' + (placeId === '__other' ? 'font-bold text-accent' : 'font-semibold')}>
+                  Somewhere else
+                </span>
+                {placeId === '__other' && <Icon name="check" size={16} className="text-accent shrink-0" />}
+              </button>
+            </div>
+          </div>
           {placeId === '__other' && (
             <div className="block">
               <span className={label}>Place / address *</span>
@@ -485,23 +602,22 @@ function AddTripDialog({ onClose, onStart }: {
                 </div>
               )}
               {found && found.length === 0 && !err && (
-                <p className="text-[11.5px] text-muted mt-1.5">
-                  Ola found nothing for that — refine the text, or start with it as typed.
-                </p>
+                <p className="text-[12.5px] text-muted mt-1.5">Nothing found — start with it as typed.</p>
               )}
-              <p className="text-[11px] text-muted-2 mt-1.5">
-                Search finds the exact place on the Ola map, so Route and the road
-                distance line up with the real address.
-              </p>
             </div>
           )}
           {err && <p className="text-accent text-[12.5px]">{err}</p>}
         </div>
-        <div className="flex justify-end gap-2 px-5 py-4 border-t border-line">
+        <div className="px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-1 flex flex-col-reverse
+          lg:flex-row lg:justify-end gap-2.5 lg:px-5 lg:py-4 lg:border-t lg:border-line">
           <button onClick={onClose}
-            className="h-9 px-4 rounded border border-line text-[13px] font-medium hover:bg-wash">Cancel</button>
+            className="h-12 lg:h-9 lg:px-4 rounded-xl lg:rounded border border-line
+              text-[15px] lg:text-[13px] font-semibold hover:bg-wash">
+            Cancel
+          </button>
           <button onClick={go} disabled={busy}
-            className="h-9 px-4 rounded bg-navy text-white text-[13px] font-semibold hover:brightness-110 disabled:opacity-60">
+            className="h-12 lg:h-9 lg:px-4 rounded-xl lg:rounded bg-accent text-white
+              text-[15px] lg:text-[13px] font-bold hover:brightness-90 disabled:opacity-60">
             {busy ? 'Starting…' : 'Start trip'}
           </button>
         </div>
