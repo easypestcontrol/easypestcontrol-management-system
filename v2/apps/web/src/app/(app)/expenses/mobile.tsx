@@ -14,9 +14,10 @@
    one sits where a thumb is, not in a corner.
    ========================================================================== */
 
+import { useState } from 'react';
 import { money } from 'shared';
 import { Icon } from '@/components/icons';
-import { Card, Chip, Fab, Filters, Screen, ScreenTitle, type Tone } from '@/components/mobile';
+import { Card, Chip, Fab, Filters, Screen, ScreenTitle, SearchBox, type Tone } from '@/components/mobile';
 import { catIcon } from './ui';
 
 export interface MineRow {
@@ -57,8 +58,16 @@ export default function MyExpensesMobile({ rows, filter, onFilter }: {
   filter: string;
   onFilter: (v: string) => void;
 }) {
+  const [q, setQ] = useState('');
   const all = rows || [];
-  const shown = all.filter((r) => filter === 'all' || r.status === filter);
+  /* Over the claims already fetched: a month of petrol is a few dozen rows,
+     and the question being asked of them — "what was that one at the pump on
+     the seventh" — is answered faster here than by a round trip. */
+  const needle = q.trim().toLowerCase();
+  const shown = all
+    .filter((r) => filter === 'all' || r.status === filter)
+    .filter((r) => !needle || [r.category, r.merchant, r.note, r.date, String(r.amount)]
+      .filter(Boolean).join(' ').toLowerCase().includes(needle));
   const owed = all
     .filter((r) => r.status === 'pending' || r.status === 'approved' || r.status === 'processing')
     .reduce((a, r) => a + r.amount, 0);
@@ -67,6 +76,7 @@ export default function MyExpensesMobile({ rows, filter, onFilter }: {
   return (
     <Screen>
       <ScreenTitle title="My expenses" />
+      <SearchBox value={q} onChange={setQ} placeholder="Search petrol, a shop, an amount" />
       <Filters value={filter} onChange={onFilter} options={TABS} />
 
       <div className="px-4 pt-3 flex flex-col gap-3">
@@ -87,12 +97,14 @@ export default function MyExpensesMobile({ rows, filter, onFilter }: {
         ) : shown.length === 0 ? (
           <Card>
             <p className="text-[16px] font-bold text-center">
-              {all.length === 0 ? 'No expenses yet' : 'Nothing in this filter'}
+              {all.length === 0 ? 'No expenses yet'
+                : needle ? 'Nothing matches that' : 'Nothing in this filter'}
             </p>
             <p className="text-muted text-[14px] mt-1.5 text-center leading-relaxed">
               {all.length === 0
                 ? 'Petrol, tolls, parking — add one with the red button and the office sees it.'
-                : 'Try another filter.'}
+                : needle ? 'Try the shop, the amount, or clear the search.'
+                  : 'Try another filter.'}
             </p>
           </Card>
         ) : (

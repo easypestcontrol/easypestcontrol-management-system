@@ -707,7 +707,7 @@ export function ListScreen({
       )}
 
       {onSearch && (pinSearch || sOpen) && (
-        <SearchField value={search || ''} onChange={onSearch}
+        <SearchBox value={search || ''} onChange={onSearch}
           placeholder={searchPlaceholder} focus={!pinSearch} />
       )}
 
@@ -764,7 +764,14 @@ function SearchToggle({ open, onToggle }: { open: boolean; onToggle: () => void 
   return <IconButton name="search" label={open ? 'Close search' : 'Search'} onClick={onToggle} />;
 }
 
-function SearchField({ value, onChange, placeholder, focus }: {
+/**
+ * A search box that stays on screen and filters as you type.
+ *
+ * Exported because it is not only the list screens that need one — Services
+ * and My expenses build their own layouts and were the two places on the
+ * phone with no way to find anything at all.
+ */
+export function SearchBox({ value, onChange, placeholder, focus }: {
   value: string; onChange: (v: string) => void; placeholder?: string; focus?: boolean;
 }) {
   return (

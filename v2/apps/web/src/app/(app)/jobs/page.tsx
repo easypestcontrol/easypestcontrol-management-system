@@ -79,7 +79,7 @@ export default function Jobs() {
       {/* The phone gets the day as a list, with unassigned work lifted into a
           banner. The board below is drag-and-drop across a whole day and
           needs a mouse. */}
-      <JobsMobile data={data} tab={tab} onTab={setTab}
+      <JobsMobile data={data} tab={tab} onTab={setTab} q={q} onSearch={setQ}
         techName={(id) => usersById.get(id)?.name || ''}
         onNew={canManage ? () => setShowNew(true) : undefined} />
 

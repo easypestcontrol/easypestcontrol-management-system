@@ -12,7 +12,7 @@
 
 import {
   Card, Chip, Row, Screen, Filters, ScreenTitle, IconButton, Alert, Fab,
-  niceDate, type Tone,
+  SearchBox, niceDate, type Tone,
 } from '@/components/mobile';
 import type { JobRow, JobsList } from './format';
 
@@ -37,13 +37,16 @@ const TABS = [
 
 /* ----------------------------------------------------------------- screen */
 
-export default function JobsMobile({ data, tab, onTab, techName, onNew }: {
+export default function JobsMobile({ data, tab, onTab, techName, onNew, q, onSearch }: {
   data: JobsList | null;
   tab: string;
   onTab: (t: string) => void;
   /** Turns a technician id into a name; the row shows people, not ids. */
   techName: (id: string) => string;
   onNew?: () => void;
+  /** The same search the desk has: a customer, an address, a service id. */
+  q?: string;
+  onSearch?: (v: string) => void;
 }) {
   const rows = data?.rows || [];
   const unassigned = data?.counts.unassigned || 0;
@@ -53,6 +56,10 @@ export default function JobsMobile({ data, tab, onTab, techName, onNew }: {
       <ScreenTitle title="Services">
         <IconButton name="calendar" href="/schedule" label="Schedule" />
       </ScreenTitle>
+
+      {onSearch && (
+        <SearchBox value={q || ''} onChange={onSearch} placeholder="Search a customer or a service" />
+      )}
 
       <Filters value={tab} onChange={onTab} options={TABS} />
 
@@ -77,11 +84,13 @@ export default function JobsMobile({ data, tab, onTab, techName, onNew }: {
             <Card>
               <p className="text-[16px] font-bold text-center">Nothing here</p>
               <p className="text-muted text-[14px] mt-1.5 text-center leading-relaxed">
-                {tab === 'today'
-                  ? 'No services scheduled for today.'
-                  : tab === 'unassigned'
-                    ? 'Every service has a technician. Nothing to do.'
-                    : 'Nothing in this list right now.'}
+                {q
+                  ? 'Nothing matches that. Try a phone number, or part of the name.'
+                  : tab === 'today'
+                    ? 'No services scheduled for today.'
+                    : tab === 'unassigned'
+                      ? 'Every service has a technician. Nothing to do.'
+                      : 'Nothing in this list right now.'}
               </p>
             </Card>
           ) : (
