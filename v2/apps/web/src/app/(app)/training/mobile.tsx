@@ -164,9 +164,10 @@ export default function TrainingMobile({ rows, onOpen, onNew }: {
                       {l.body}
                     </span>
                   )}
-                  <span className="block text-[12.5px] text-muted-2 mt-1.5">
-                    {l.by} · {niceDay(l.createdAt)}
-                  </span>
+                  {/* Who wrote it, and not when. The date told a technician
+                      nothing he could act on and made a four-line card out of
+                      a three-line one; it is on the lesson itself. */}
+                  <span className="block text-[12.5px] text-muted-2 mt-1.5">{l.by}</span>
                 </span>
               </button>
             );
