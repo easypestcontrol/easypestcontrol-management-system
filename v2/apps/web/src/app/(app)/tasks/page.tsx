@@ -322,7 +322,15 @@ export default function TasksPage() {
         </>
       )}
 
-      {/* ------------------------------------------------------- detail */}
+      {/* --------------------------------------------------- new / edit */}
+    </div>
+
+      {/* ------------------------------------------------------- detail
+          OUTSIDE the desk-only wrapper. It was inside it, so tapping a task
+          on a phone set the state, rendered the sheet, and hid it behind a
+          max-lg:hidden — the row simply did nothing. The sheet itself was
+          always responsive: full width from the bottom on a phone, a dialog
+          at a desk. */}
       {openTask && (
         <TaskDetail t={openTask} canManage={canManage}
           branchName={boot?.branches.find((b) => b.id === openTask.branch)?.name || openTask.branch}
@@ -335,9 +343,6 @@ export default function TasksPage() {
           onEdit={() => editFrom(openTask)}
           onRemove={() => askRemove(openTask.id)} />
       )}
-
-      {/* --------------------------------------------------- new / edit */}
-    </div>
       {draft && boot && (
         <TaskForm draft={draft} setDraft={setDraft} boot={boot} editing={editing}
           onClose={() => { setDraft(null); setEditing(''); }}
@@ -438,17 +443,19 @@ function TaskDetail({ t, canManage, branchName, onClose, onToggle, onEdit, onRem
         <div className="px-5 py-4 border-t border-line flex gap-2 flex-wrap
           pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button onClick={onToggle}
-            className={'h-10 px-4 rounded text-[13px] font-semibold '
+            className={'h-12 sm:h-10 px-5 sm:px-4 rounded-xl sm:rounded text-[14.5px] sm:text-[13px] '
+              + 'font-semibold '
               + (t.status === 'done'
                 ? 'border border-line hover:bg-wash'
-                : 'bg-navy text-white hover:brightness-110')}>
+                : 'bg-accent text-white hover:brightness-90')}>
             {t.status === 'done' ? 'Reopen' : 'Mark completed'}
           </button>
           <span className="flex-1" />
           {canManage && (
             <>
               <button onClick={onEdit}
-                className="h-10 px-4 rounded border border-line text-[13px] font-semibold hover:bg-wash">
+                className="h-12 sm:h-10 px-5 sm:px-4 rounded-xl sm:rounded border border-line
+                  text-[14.5px] sm:text-[13px] font-semibold hover:bg-wash">
                 Edit
               </button>
               <button onClick={onRemove}
