@@ -348,8 +348,15 @@ export default function TripPage() {
       )}
 
       {/* --------------------------------------------------------- history */}
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-[13.5px] font-semibold">{all ? 'Everyone’s trips' : 'My trips'}</h2>
+      {/* "My trips" under "Trips" said the same thing twice, and the days
+          below already label what follows. The desk keeps the heading; the
+          phone keeps only the office's own/everyone toggle, and a technician
+          — who has no toggle — gets no row at all. */}
+      <div className={'flex items-center justify-between mb-2 max-lg:justify-end '
+        + (canSeeAll ? '' : 'max-lg:hidden')}>
+        <h2 className="max-lg:hidden text-[13.5px] font-semibold">
+          {all ? 'Everyone’s trips' : 'My trips'}
+        </h2>
         {canSeeAll && (
           <button onClick={() => { setAll(!all); load(!all); }}
             className="text-[12px] font-medium text-navy hover:text-accent">

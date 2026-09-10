@@ -388,6 +388,18 @@ html, body {
    "Pay now" button on it is not a tax invoice.                             */
 @page { size: A4; margin: 12mm; }
 
+/* The tab bar's highlight slides between tabs rather than blinking from one
+   to the next. Slightly overshooting easing makes it feel like a thing that
+   moved rather than a value that changed — and it stops dead for anybody who
+   has asked their phone for less motion. */
+.tab-pill {
+  transition: transform 320ms cubic-bezier(0.34, 1.32, 0.64, 1), opacity 160ms ease-out;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-pill { transition: none; }
+}
+
 @media print {
   .no-print { display: none !important; }
   body { background: #fff; }
