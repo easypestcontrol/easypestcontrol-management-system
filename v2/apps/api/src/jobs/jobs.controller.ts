@@ -22,6 +22,7 @@ import {
 } from 'shared';
 import { mintInvoiceId, raiseDueBilling } from '../billing.util';
 import { StorageService } from '../storage/storage.service';
+import { TripsService } from '../trips/trips.service';
 
 /* ------------------------------------------------------------------ types */
 
@@ -149,7 +150,7 @@ function pick(body: Record<string, unknown>) {
 @Controller('jobs')
 @UseGuards(AuthGuard)
 export class JobsController {
-  constructor(private prisma: PrismaService, private storage: StorageService) {}
+  constructor(private prisma: PrismaService, private storage: StorageService, private trips: TripsService) {}
 
   /* ------------------------------------------------------------- catalog */
   // Declared before ':id' so the literal path wins.
@@ -708,6 +709,13 @@ export class JobsController {
     const x = execOf(j);
     x.geo = String(body.geo || '') || geoFallback();
     x.checkinAt = nowStamp();
+    /* Arriving IS the end of the trip.
+       Closing it on the phone was not enough: a technician who checked in from
+       the desk, or on a build older than the one that does it, left the trip
+       running through the treatment and out the other side — hours of
+       "travel" against a service that was finished. The server ends it, so it
+       ends however the check-in happened. */
+    await this.trips.endForJob(id).catch(() => {});
     return this.prisma.job.update({
       where: { id }, data: { status: 'enroute', exec: x as never },
     });
@@ -1110,6 +1118,10 @@ export class JobsController {
       );
     }
     const [job] = await this.prisma.$transaction([jobUpdate, ...stockOps]);
+    /* Nothing about this service is still running. Belt and braces beside the
+       check-in: a crew that never checked in, or a trip started twice, would
+       otherwise leave one counting against a service that is over. */
+    await this.trips.endForJob(id).catch(() => {});
 
     // The finish click is what raises the service's invoice — and the answer
     // the technician sees. If the office raised it earlier (any screen, any

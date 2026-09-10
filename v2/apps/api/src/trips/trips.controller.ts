@@ -14,6 +14,7 @@ import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { branchScope, branchWhere, clampScope, inScope } from '../branch.util';
 import { open } from '../secrets.util';
+import { TripsService } from './trips.service';
 
 interface Jwt { user?: { sub?: string; role?: string } }
 interface Pt { lat: number; lng: number; t: string }
@@ -42,17 +43,19 @@ const nowStamp = () => {
 @Controller('trips')
 @UseGuards(AuthGuard)
 export class TripsController {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private trips: TripsService) {}
 
-  private async notify(userId: string, text: string) {
-    if (!userId) return;
-    await this.prisma.notification.create({ data: { userId, at: nowStamp(), text } }).catch(() => {});
+  private notify(userId: string, text: string) {
+    return this.trips.notify(userId, text);
   }
 
   /** The ₹/km rate the whole business runs on — shared with Expenses. */
-  private async kmRate(): Promise<number> {
-    const co = await this.prisma.company.findFirst({ select: { kmRate: true } });
-    return co?.kmRate || 0;
+  private kmRate(): Promise<number> {
+    return this.trips.kmRate();
+  }
+
+  private autoExpenseForTrip(tripId: string) {
+    return this.trips.autoExpenseForTrip(tripId);
   }
 
   /** Shortest-route metres between two points — one Ola call, best-effort.
@@ -83,10 +86,26 @@ export class TripsController {
     const purpose = String(body.purpose || '').trim();
     if (!purpose) throw new BadRequestException('Say what the trip is for');
 
-    await this.prisma.trip.updateMany({
-      where: { userId, status: 'active' },
-      data: { status: 'done', endAt: new Date() },
+    /* A finished service is not somewhere you drive to.
+       The app stopped offering it, but the route was still open — and a
+       second tap on an old screen would start a fresh trip against a job
+       that was over hours ago. */
+    const jobId = String(body.jobId || '');
+    if (jobId) {
+      const j = await this.prisma.job.findUnique({ where: { id: jobId }, select: { status: true } });
+      if (j && (j.status === 'completed' || j.status === 'cancelled')) {
+        throw new BadRequestException('That service is already ' + j.status + ' — no trip to start');
+      }
+    }
+
+    /* Anything still running is CLOSED, not just stamped.
+       A bare updateMany here marked the old trip done and skipped the
+       measuring, the flag and the allowance — so a technician who started a
+       second trip quietly lost the kilometres of the first. */
+    const running = await this.prisma.trip.findMany({
+      where: { userId, status: 'active' }, select: { id: true },
     });
+    for (const t of running) await this.trips.finish(t.id).catch(() => {});
     const seq = await this.prisma.seq.upsert({
       where: { key: 'trip' }, create: { key: 'trip', value: 1 },
       update: { value: { increment: 1 } },
@@ -97,7 +116,7 @@ export class TripsController {
       data: {
         id, userId, purpose,
         branch: user?.branches[0] || '',
-        jobId: String(body.jobId || ''),
+        jobId,
         dest: String(body.dest || '').trim().slice(0, 200),
         // The app already knows where the driver is standing and the road
         // distance to the destination — passing them here means no extra
@@ -408,30 +427,13 @@ export class TripsController {
       plannedM = await this.plannedMetres(pts[0], pts[pts.length - 1]);
     }
 
-    // Flag the drive against the shortest route: more than 40% + 2 km longer
-    // is worth the office's eyes. No planned figure (Ola off, or a free-form
-    // trip) means nothing to compare — it passes through as auto-approved.
-    let flagged = false;
-    let flagReason = '';
-    if (plannedM > 0 && t.distanceM > plannedM * 1.4 + 2000) {
-      flagged = true;
-      const over = ((t.distanceM - plannedM) / 1000).toFixed(1);
-      flagReason = over + ' km longer than the shortest route (' +
-        (t.distanceM / 1000).toFixed(1) + ' km driven vs ' + (plannedM / 1000).toFixed(1) + ' km).';
-    }
-    const up = await this.prisma.trip.update({
-      where: { id },
-      data: {
-        status: 'done', endAt: new Date(), plannedM,
-        endPlace: String(body.endPlace || t.dest || '').trim().slice(0, 200),
-        flagged, flagReason,
-        review: flagged ? 'pending' : 'auto',
-      },
+    /* The measuring, the flagging and the expense live in TripsService, so a
+       trip ended by arriving at a site closes by exactly the same rules as
+       one ended from this screen. */
+    const up = await this.trips.finish(id, {
+      plannedM, endPlace: String(body.endPlace || t.dest || ''),
     });
-    // A clean, auto-approved trip becomes its expense straight away — if the
-    // branch+date report is open. Best-effort: never break ending a trip.
-    if (up.review === 'auto') await this.autoExpenseForTrip(up.id).catch(() => {});
-    return this.shape(up);
+    return this.shape(up!);
   }
 
   /** My history — admin and ops can see everyone with ?all=1. */
@@ -677,44 +679,6 @@ export class TripsController {
    * to the GPS distance x the company rate. No open report for that day+branch
    * yet means nothing is created — the sweep or a later open picks it up.
    */
-  private async autoExpenseForTrip(tripId: string): Promise<'created' | 'exists' | 'no-report' | 'skip'> {
-    const t = await this.prisma.trip.findUnique({ where: { id: tripId } });
-    if (!t || t.status === 'active' || t.status === 'cancelled') return 'skip';
-    if (t.review === 'rejected' || t.distanceM <= 0) return 'skip';
-    const existing = await this.prisma.expense.findFirst({ where: { tripId } });
-    if (existing) return 'exists';
-    const rate = await this.kmRate();
-    if (!rate) return 'skip';
-    const d = new Date(t.startAt);
-    const date = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
-    const report = await this.prisma.expenseReport.findUnique({ where: { date_branch: { date, branch: t.branch } } });
-    if (!report || report.status === 'closed') return 'no-report';
-
-    const km = +(t.distanceM / 1000).toFixed(1);
-    const eseq = await this.prisma.seq.upsert({
-      where: { key: 'expense' }, create: { key: 'expense', value: 1 }, update: { value: { increment: 1 } },
-    });
-    const expId = 'EXP-' + eseq.value;
-    await this.prisma.$transaction([
-      this.prisma.expense.create({
-        data: {
-          id: expId, reportId: report.id, userId: t.userId, branch: t.branch, date,
-          category: 'Trip / Travel', source: 'auto_trip', tripId: t.id, status: 'pending',
-          merchant: (t.startPlace || 'Trip') + ' \u2192 ' + (t.endPlace || t.dest || ''),
-          note: t.id, amount: Math.round(km * rate), km, rate,
-        },
-      }),
-      this.prisma.trip.update({ where: { id: t.id }, data: { claimId: report.id } }),
-    ]);
-    const hist = Array.isArray(report.history) ? (report.history as Array<unknown>) : [];
-    await this.prisma.expenseReport.update({
-      where: { id: report.id },
-      data: { history: [...hist, { at: nowStamp(), text: expId + ' auto-generated from trip ' + t.id + ' (' + km + ' km)' }] as never },
-    }).catch(() => {});
-    await this.notify(t.userId, 'Trip allowance added to your expenses: ' + km + ' km \u00d7 \u20b9' + rate +
-      ' = \u20b9' + Math.round(km * rate).toLocaleString('en-IN') + '. (' + expId + ')');
-    return 'created';
-  }
 
   /**
    * Sweep a day's eligible trips into their branch's open reports. Used by the

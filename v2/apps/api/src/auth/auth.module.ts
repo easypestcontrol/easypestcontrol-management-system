@@ -7,6 +7,10 @@ import { PrismaService } from '../prisma.service';
 // Global, like Prisma: every controller that stores a photograph needs it,
 // and none of them should have to import a module to get one.
 import { StorageService } from '../storage/storage.service';
+// Also global: ending a trip is a rule the Trips screen and a finished
+// service both have to obey, and a trip that outlives its job is money the
+// office cannot account for.
+import { TripsService } from '../trips/trips.service';
 
 @Global()
 @Module({
@@ -18,7 +22,7 @@ import { StorageService } from '../storage/storage.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthGuard, PrismaService, StorageService],
-  exports: [AuthService, AuthGuard, PrismaService, StorageService],
+  providers: [AuthService, AuthGuard, PrismaService, StorageService, TripsService],
+  exports: [AuthService, AuthGuard, PrismaService, StorageService, TripsService],
 })
 export class AuthModule {}
