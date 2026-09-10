@@ -225,22 +225,20 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
                   const tone: Tone = done ? 'good' : t.priority === 'high' ? 'bad' : 'info';
                   return (
                     <div key={t.id}
-                      className="flex items-start gap-3 px-4 py-3.5 border-b border-line-soft last:border-b-0">
-                      {/* The tick.
-                          A pale mint disc with a thin green check on it read as
-                          a smudge — you could not tell a done task from an open
-                          one at arm's length, which is the one thing this
-                          control exists to say. Done is a solid green disc with
-                          a white check in it; open is an empty ring waiting to
-                          be filled. */}
+                      className={'flex items-start gap-3 px-4 border-b border-line-soft '
+                        + 'last:border-b-0 ' + (done ? 'py-3' : 'py-3.5')}>
+                      {/* Open work gets a ring to fill; finished work gets a
+                          quiet mark and nothing else. Two rows of filled green
+                          discs made a list of things that are OVER the loudest
+                          thing on the screen. */}
                       <button type="button" onClick={() => tick(t)}
                         aria-label={done ? 'Mark not done' : 'Mark done'}
-                        className={'w-[30px] h-[30px] rounded-full shrink-0 mt-0.5 flex items-center '
-                          + 'justify-center transition-colors active:scale-95 '
-                          + (done
-                            ? 'bg-mint-ink text-white'
-                            : 'border-2 border-line-strong text-transparent hover:border-muted-2')}>
-                        <Icon name="check" size={17} className={done ? '' : 'opacity-0'} />
+                        className={done
+                          ? 'w-6 h-6 shrink-0 mt-0.5 flex items-center justify-center text-muted-2'
+                          : 'w-[30px] h-[30px] rounded-full shrink-0 mt-0.5 flex items-center '
+                            + 'justify-center border-2 border-line-strong text-transparent '
+                            + 'transition-colors active:scale-95 hover:border-muted-2'}>
+                        <Icon name="check" size={done ? 15 : 17} className={done ? '' : 'opacity-0'} />
                       </button>
 
                       <button type="button" onClick={() => onOpen(t.id)}
@@ -249,13 +247,13 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
                           {/* Done work is quiet, not struck out. A line through
                               every finished task makes the Done list unreadable
                               exactly when somebody is checking what was done. */}
-                          <span className={'text-[15px] truncate '
-                            + (done ? 'font-semibold text-muted' : 'font-bold')}>
+                          <span className={'truncate '
+                            + (done ? 'text-[14.5px] font-medium text-ink-2' : 'text-[15px] font-bold')}>
                             {t.title}
                           </span>
                           {done ? (
                             t.doneAt && (
-                              <span className="text-[12.5px] font-semibold text-mint-ink shrink-0 whitespace-nowrap">
+                              <span className="text-[12.5px] text-muted-2 shrink-0 whitespace-nowrap">
                                 {clock(t.doneAt.slice(11)) || 'Done'}
                               </span>
                             )
@@ -266,9 +264,13 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
                             </span>
                           )}
                         </span>
-                        {t.notes && (
+                        {t.notes && !done && (
                           <span className="text-[13px] text-muted mt-0.5 line-clamp-1">{t.notes}</span>
                         )}
+                        {/* Everything under the title is for work still to be
+                            done: what it is, who has it, what came with it.
+                            On a finished task it is a paragraph about the past. */}
+                        {!done && (
                         <span className="flex items-center gap-2 mt-1.5 min-w-0">
                           {t.priority === 'high' && !done && <Chip tone={tone}>High</Chip>}
                           {canManage && (
@@ -292,6 +294,7 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
                             </span>
                           )}
                         </span>
+                        )}
                       </button>
                     </div>
                   );
