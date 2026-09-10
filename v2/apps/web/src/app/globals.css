@@ -24,6 +24,10 @@
   --color-muted-2: rgb(20 20 20 / 0.40);
   --color-line: rgb(20 20 20 / 0.09);
   --color-line-soft: rgb(20 20 20 / 0.055);
+  /* For a control whose whole job is to be seen — an empty tick waiting to be
+     filled. The ordinary hairline is a divider between things, and at 9% it
+     disappears on a phone held at arm's length in daylight. */
+  --color-line-strong: rgb(20 20 20 / 0.28);
   --color-wash: rgb(20 20 20 / 0.035);
   --color-wash-2: rgb(20 20 20 / 0.06);
 

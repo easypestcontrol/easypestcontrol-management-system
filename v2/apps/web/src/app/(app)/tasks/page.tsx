@@ -368,22 +368,37 @@ function TaskDetail({ t, canManage, branchName, onClose, onToggle, onEdit, onRem
 }) {
   const [zoom, setZoom] = useState('');
   return (
-    <div className="fixed inset-0 z-50 bg-navy/40 flex items-end sm:items-center justify-center sm:p-6"
+    <div className="fixed inset-0 z-50 bg-navy/45 flex items-end sm:items-center justify-center sm:p-6"
       onClick={onClose}>
-      <div className="bg-white w-full sm:max-w-[560px] rounded-t-xl sm:rounded-lg shadow-xl max-h-[92vh] overflow-y-auto"
+      <div className="bg-white w-full sm:max-w-[560px] rounded-t-[24px] sm:rounded-lg shadow-xl
+        max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-line sticky top-0 bg-white">
+        {/* A handle, so the sheet reads as a sheet. */}
+        <span className="sm:hidden block w-10 h-1 rounded-full bg-line mx-auto mt-2.5" />
+        <div className="flex items-start justify-between gap-3 px-5 pt-3 pb-4 sm:py-4
+          border-b border-line-soft sticky top-0 bg-white">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={PRIO[t.priority]?.cls}>{PRIO[t.priority]?.label}</span>
-              {t.status === 'done'
-                ? <span className="zpill navy">Completed</span>
-                : <span className="zpill outline">Open</span>}
-              <span className="font-mono text-[11px] text-muted-2">{t.id}</span>
+              {t.status === 'done' ? (
+                <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full
+                  bg-mint text-mint-ink text-[12px] font-bold">
+                  <Icon name="check" size={12} /> Completed
+                </span>
+              ) : (
+                <span className="inline-flex items-center h-6 px-2.5 rounded-full
+                  bg-wash text-ink-2 text-[12px] font-bold">Open</span>
+              )}
+              {t.priority === 'high' && (
+                <span className="inline-flex items-center h-6 px-2.5 rounded-full
+                  bg-rose text-rose-ink text-[12px] font-bold">High</span>
+              )}
+              <span className="font-mono text-[11.5px] text-muted-2">{t.id}</span>
             </div>
-            <h2 className="text-[16px] font-bold mt-1.5 leading-snug">{t.title}</h2>
+            <h2 className="text-[18px] sm:text-[16px] font-bold mt-2 leading-snug">{t.title}</h2>
           </div>
-          <button onClick={onClose} className="text-muted hover:text-ink p-1 shrink-0">
+          <button onClick={onClose} aria-label="Close"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-muted-2
+              active:bg-wash shrink-0">
             <Icon name="x" size={16} />
           </button>
         </div>
@@ -396,26 +411,32 @@ function TaskDetail({ t, canManage, branchName, onClose, onToggle, onEdit, onRem
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3 text-[12.5px]">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1">Assigned to</p>
-              <span className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full text-white text-[9px] font-bold flex items-center justify-center"
+          {/* One fact per line, label left and answer right — a two-column
+              grid of four labelled boxes is a form, and this is a card being
+              read. */}
+          <div className="rounded-xl bg-wash divide-y divide-line-soft">
+            <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+              <span className="text-[13px] text-muted">Assigned to</span>
+              <span className="flex items-center gap-2 text-[14px] font-semibold min-w-0">
+                <span className="w-6 h-6 rounded-full text-white text-[9px] font-bold
+                  flex items-center justify-center shrink-0"
                   style={{ background: t.assigneeColor }}>{initials(t.assigneeName)}</span>
-                {t.assigneeName}
+                <span className="truncate">{t.assigneeName}</span>
               </span>
             </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1">Deadline</p>
-              {t.due ? `${fmtD(t.due)}${t.dueTime ? ' · ' + fmtT(t.dueTime) : ''}` : '—'}
+            <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+              <span className="text-[13px] text-muted">Deadline</span>
+              <span className="text-[14px] font-semibold">
+                {t.due ? `${fmtD(t.due)}${t.dueTime ? ' · ' + fmtT(t.dueTime) : ''}` : '—'}
+              </span>
             </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1">Branch</p>
-              {branchName || '—'}
+            <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+              <span className="text-[13px] text-muted">Branch</span>
+              <span className="text-[14px] font-semibold">{branchName || '—'}</span>
             </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1">Scheduled by</p>
-              {t.createdByName}
+            <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+              <span className="text-[13px] text-muted">Scheduled by</span>
+              <span className="text-[14px] font-semibold truncate">{t.createdByName}</span>
             </div>
           </div>
 
@@ -440,17 +461,20 @@ function TaskDetail({ t, canManage, branchName, onClose, onToggle, onEdit, onRem
           )}
         </div>
 
-        <div className="px-5 py-4 border-t border-line flex gap-2 flex-wrap
+        <div className="px-5 py-4 border-t border-line-soft flex flex-wrap items-center gap-2.5
           pb-[max(1rem,env(safe-area-inset-bottom))]">
+          {/* The verb takes the width on a phone; Edit and Remove sit under it
+              rather than competing with it. */}
           <button onClick={onToggle}
-            className={'h-12 sm:h-10 px-5 sm:px-4 rounded-xl sm:rounded text-[14.5px] sm:text-[13px] '
-              + 'font-semibold '
+            className={'h-12 sm:h-10 w-full sm:w-auto px-5 sm:px-4 rounded-xl sm:rounded '
+              + 'text-[15px] sm:text-[13px] font-bold flex items-center justify-center gap-2 '
               + (t.status === 'done'
                 ? 'border border-line hover:bg-wash'
-                : 'bg-accent text-white hover:brightness-90')}>
+                : 'bg-mint-ink text-white hover:brightness-110')}>
+            {t.status !== 'done' && <Icon name="check" size={17} />}
             {t.status === 'done' ? 'Reopen' : 'Mark completed'}
           </button>
-          <span className="flex-1" />
+          <span className="hidden sm:block flex-1" />
           {canManage && (
             <>
               <button onClick={onEdit}

@@ -226,13 +226,21 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
                   return (
                     <div key={t.id}
                       className="flex items-start gap-3 px-4 py-3.5 border-b border-line-soft last:border-b-0">
-                      {/* The tick, first and biggest — one tap from the list. */}
+                      {/* The tick.
+                          A pale mint disc with a thin green check on it read as
+                          a smudge — you could not tell a done task from an open
+                          one at arm's length, which is the one thing this
+                          control exists to say. Done is a solid green disc with
+                          a white check in it; open is an empty ring waiting to
+                          be filled. */}
                       <button type="button" onClick={() => tick(t)}
                         aria-label={done ? 'Mark not done' : 'Mark done'}
-                        className={'w-8 h-8 rounded-full shrink-0 mt-0.5 flex items-center justify-center '
-                          + 'border-2 active:brightness-95 '
-                          + (done ? 'bg-mint border-mint text-mint-ink' : 'border-line text-transparent')}>
-                        <Icon name="check" size={16} />
+                        className={'w-[30px] h-[30px] rounded-full shrink-0 mt-0.5 flex items-center '
+                          + 'justify-center transition-colors active:scale-95 '
+                          + (done
+                            ? 'bg-mint-ink text-white'
+                            : 'border-2 border-line-strong text-transparent hover:border-muted-2')}>
+                        <Icon name="check" size={17} className={done ? '' : 'opacity-0'} />
                       </button>
 
                       <button type="button" onClick={() => onOpen(t.id)}
