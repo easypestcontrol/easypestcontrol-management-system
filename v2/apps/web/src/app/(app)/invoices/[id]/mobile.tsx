@@ -20,6 +20,7 @@ import { api } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { BackBar, Card, Chip, Screen, money, niceDate, type Tone } from '@/components/mobile';
 import type { InvoiceDetail, Totals } from '../ui';
+import { ShareSheet } from '@/components/share-link';
 
 function stateOf(inv: InvoiceDetail): { tone: Tone; label: string } {
   if (inv.status === 'paid') return { tone: 'good', label: 'Paid in full' };
@@ -65,6 +66,7 @@ export default function InvoiceMobile({ inv, t, onPay, canPay, shareHref }: {
   canPay: boolean;
   shareHref: string;
 }) {
+  const [sharing, setSharing] = useState(false);
   const st = stateOf(inv);
   const owed = t.balance > 0;
 
@@ -124,13 +126,13 @@ export default function InvoiceMobile({ inv, t, onPay, canPay, shareHref }: {
             <Act icon="phone" label="Call" href={'tel:' + inv.client.phone} />
           )}
           <Act icon="invoice" label="Open" href={shareHref} />
-          <Act icon="upload" label="Share"
-            onClick={() => {
-              const nav = navigator as Navigator & { share?: (d: { title: string; url: string }) => Promise<void> };
-              const url = window.location.origin + shareHref;
-              if (nav.share) nav.share({ title: inv.id, url }).catch(() => {});
-              else navigator.clipboard?.writeText(url).catch(() => {});
-            }} />
+          {/* Our sheet, not the operating system's.
+              navigator.share hands the phone over to Windows or Android: a
+              black panel offering Zoom, Outlook, LinkedIn and a QR code — and
+              on the plain-http LAN inside the Android shell it does not exist
+              at all. The link, WhatsApp and Copy are what anybody sending an
+              invoice actually wants, and they look like this app. */}
+          <Act icon="upload" label="Share" onClick={() => setSharing(true)} />
           {canPay && owed && <Act icon="receipt" label="Payment" tone="red" onClick={onPay} />}
         </div>
       </div>
@@ -246,6 +248,13 @@ export default function InvoiceMobile({ inv, t, onPay, canPay, shareHref }: {
           </button>
         </div>
       )}
+      {sharing && (
+        <ShareSheet path={shareHref} title={'Invoice ' + inv.id}
+          phone={inv.client?.phone}
+          text={'Invoice ' + inv.id + ' from Easy Pest Control:'}
+          onClose={() => setSharing(false)} />
+      )}
+
     </Screen>
   );
 }

@@ -18,7 +18,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/icons';
 import { BackBar } from '@/components/mobile';
-import ShareLink from '@/components/share-link';
+import { ShareSheet } from '@/components/share-link';
 import { durationText, fmtTime, relDay, type JobDetail } from '../format';
 import { Lightbox } from '../ui';
 import { TechMoney } from './money';
@@ -47,6 +47,7 @@ export default function TechDone({ j }: { j: JobDetail }) {
   const x = j.exec;
   const cl = j.client;
   const [zoom, setZoom] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
   const inv = new Map(j.inventory.map((i) => [i.id, i]));
 
   const photos = (list: string[], alt: string) => (
@@ -118,13 +119,11 @@ export default function TechDone({ j }: { j: JobDetail }) {
               flex items-center justify-center gap-2 active:brightness-90">
             <Icon name="report" size={17} /> View report
           </Link>
-          <div className="[&>*]:w-full [&_button]:h-12 [&_button]:w-full [&_button]:rounded-xl
-            [&_button]:text-[14.5px] [&_button]:font-semibold [&_a]:h-12 [&_a]:w-full
-            [&_a]:rounded-xl [&_a]:text-[14.5px] [&_a]:font-semibold">
-            <ShareLink path={'/report/' + j.id} title={'Service report ' + j.id}
-              phone={cl?.phone}
-              text={'Service report for ' + j.id + ' — what was done, photos and your signed acknowledgement:'} />
-          </div>
+          <button type="button" onClick={() => setSharing(true)}
+            className="h-12 rounded-xl border border-line text-[14.5px] font-semibold
+              flex items-center justify-center gap-2 active:bg-wash">
+            <Icon name="upload" size={17} /> Share
+          </button>
         </div>
 
         {x && (
@@ -250,6 +249,12 @@ export default function TechDone({ j }: { j: JobDetail }) {
         )}
       </div>
 
+      {sharing && (
+        <ShareSheet path={'/report/' + j.id} title={'Service report ' + j.id}
+          phone={cl?.phone}
+          text={'Service report for ' + j.id + ' — what was done, photos and your signed acknowledgement:'}
+          onClose={() => setSharing(false)} />
+      )}
       {zoom && <Lightbox src={zoom} onClose={() => setZoom(null)} />}
     </div>
   );

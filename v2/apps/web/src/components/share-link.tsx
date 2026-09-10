@@ -12,10 +12,14 @@ import { useState } from 'react';
 import { waLink, waNumber } from 'shared';
 import { Icon } from '@/components/icons';
 
-export default function ShareLink({ path, title, phone, text }: {
-  path: string; title?: string; phone?: string; text?: string;
+/**
+ * The sheet on its own, for screens that already have a button of their own
+ * shape — a round icon tile on the invoice, a wide one on a finished service.
+ * The trigger changes; what a share IS does not.
+ */
+export function ShareSheet({ path, title, phone, text, onClose }: {
+  path: string; title?: string; phone?: string; text?: string; onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const url = (typeof window !== 'undefined' ? window.location.origin : '') + path;
@@ -42,21 +46,14 @@ export default function ShareLink({ path, title, phone, text }: {
   }
 
   return (
-    <>
-      <button onClick={() => { setCopied(false); setOpen(true); }}
-        className="flex items-center gap-1.5 h-8 px-3.5 rounded border border-line text-[13px] font-medium hover:bg-wash">
-        <Icon name="upload" size={13} /> Share
-      </button>
-
-      {open && (
         <div className="fixed inset-0 z-[80] bg-navy/50 flex items-end sm:items-center justify-center sm:p-6"
-          onClick={() => setOpen(false)}>
+          onClick={onClose}>
           <div className="bg-white w-full sm:max-w-[440px] rounded-t-xl sm:rounded-lg shadow-xl p-5
             pb-[max(1.25rem,env(safe-area-inset-bottom))]"
             onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[15px] font-semibold">{title || 'Share'}</h2>
-              <button onClick={() => setOpen(false)} aria-label="Close"
+              <button onClick={onClose} aria-label="Close"
                 className="w-8 h-8 rounded flex items-center justify-center text-muted hover:bg-wash">
                 <Icon name="x" size={15} />
               </button>
@@ -87,6 +84,23 @@ export default function ShareLink({ path, title, phone, text }: {
             </p>
           </div>
         </div>
+  );
+}
+
+export default function ShareLink({ path, title, phone, text }: {
+  path: string; title?: string; phone?: string; text?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button onClick={() => setOpen(true)}
+        className="flex items-center gap-1.5 h-8 px-3.5 rounded border border-line
+          text-[13px] font-medium hover:bg-wash">
+        <Icon name="upload" size={13} /> Share
+      </button>
+      {open && (
+        <ShareSheet path={path} title={title} phone={phone} text={text}
+          onClose={() => setOpen(false)} />
       )}
     </>
   );
