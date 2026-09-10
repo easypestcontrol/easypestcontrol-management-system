@@ -65,20 +65,23 @@ export default function WalletPage() {
   /* ------------------------------------------------------- technician view */
   if (data.kind === 'mine') {
     return (
-      <div className="p-6 max-w-[760px]">
-        <h1 className="text-[20px] font-semibold">My wallet</h1>
-        <p className="text-muted text-[13px] mt-0.5 mb-5">
-          Cash you collected on site. Deposit it at the office — accounts marks it received.
-        </p>
+      <>
+      {/* The technician's own wallet had the phone screen written for it and
+          never wired up — a technician opening it got the desk page, headings,
+          explanatory paragraphs and all. */}
+      <WalletMobile data={data} />
 
-        <section className="rounded-md border-2 border-navy p-5 mb-6 flex items-baseline justify-between">
-          <div>
-            <span className="block text-[12px] font-semibold uppercase tracking-wide text-muted">Cash in hand</span>
-            <span className="block text-[32px] font-bold text-navy leading-tight">{money(data.inHand)}</span>
-          </div>
-          <span className="text-[12px] text-muted max-w-[240px] text-right">
-            Every collection is recorded against your name, with the date and time.
-          </span>
+      <div className="max-lg:hidden p-6 max-w-[760px]">
+        <h1 className="text-[20px] font-semibold mb-5">My wallet</h1>
+
+        {/* The figure, and nothing explaining the figure. A technician opening
+            his wallet knows what the cash in his hand is; the sentences that
+            used to sit here and beside it were the app talking to itself. The
+            one line that survives is under the Transfer button, because that
+            one says what the button will do. */}
+        <section className="rounded-md border-2 border-navy p-5 mb-6">
+          <span className="block text-[12px] font-semibold uppercase tracking-wide text-muted">Cash in hand</span>
+          <span className="block text-[32px] font-bold text-navy leading-tight">{money(data.inHand)}</span>
         </section>
 
         {/* This existed only on the phone layout, which meant anybody working
@@ -91,6 +94,7 @@ export default function WalletPage() {
 
         <EntriesTable entries={data.entries} />
       </div>
+      </>
     );
   }
 

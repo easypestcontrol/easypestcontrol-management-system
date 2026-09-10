@@ -14,7 +14,7 @@
    Keys are random UUIDs, so the public door exposes exactly the photograph
    whose link was shared, never a listing and never a neighbour.
    ========================================================================== */
-import { Controller, Get, NotFoundException, Param, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, NotFoundException, Param, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthGuard, Public } from '../auth/auth.guard';
 import { StorageService } from './storage.service';
@@ -32,9 +32,31 @@ function send(res: Response, file: { body: Buffer; type: string } | null) {
 export class FilesController {
   constructor(private storage: StorageService) {}
 
+  /**
+   * The app's own door — opened by a signature in the URL, not a header.
+   *
+   * It used to sit behind the login guard, which is correct for a fetch and
+   * useless for a photograph: the app renders `<img src={photo}>`, the
+   * browser asks for the URL with no Authorization header, and every
+   * before-photo, after-photo and signature in the app came back 401 and drew
+   * as a broken icon. The evidence a technician had taken was on screens
+   * nobody could see it on.
+   *
+   * The URL carries an HMAC of the key instead (StorageService.url mints it).
+   * Only this API can produce one, so the bucket is no more exposed than it
+   * was — and an <img> tag can finally load what it is pointed at.
+   */
   @Get('*key')
-  async one(@Param('key') key: string | string[], @Res() res: Response) {
+  @Public()
+  async one(
+    @Param('key') key: string | string[],
+    @Query('s') sig: string,
+    @Res() res: Response,
+  ) {
     const path = Array.isArray(key) ? key.join('/') : key;
+    // An unsigned request is not "unauthorised", it is a request for a file
+    // this API never handed out. Say what a stranger should hear.
+    if (!StorageService.verify(path, sig)) throw new NotFoundException('No such file');
     send(res, await this.storage.get(path));
   }
 }

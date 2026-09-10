@@ -22,6 +22,7 @@ import {
   DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client,
 } from '@aws-sdk/client-s3';
 import { randomUUID } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 /** `r2:` marks a stored key. Anything else is a data URL we left alone. */
 const PREFIX = 'r2:';
@@ -119,13 +120,44 @@ export class StorageService {
   }
 
   /**
+   * The signature that makes a photograph loadable by an <img> tag.
+   *
+   * This is the whole reason the app's own photographs were coming back 401
+   * and rendering as broken icons: the file route was behind the login guard,
+   * and an <img src> cannot carry an Authorization header. There is no header
+   * to add — the browser simply asks for the URL.
+   *
+   * So the URL carries its own proof. It is an HMAC of the key under the
+   * server's JWT secret: only this API can mint one, it cannot be guessed
+   * from the key, and it says nothing about who is looking. The bucket stays
+   * private, the key stays a UUID, and the door now opens for exactly the
+   * objects the API decided to hand out.
+   */
+  static sign(key: string): string {
+    return createHmac('sha256', process.env.JWT_SECRET || 'dev-only-change-me-on-the-vps')
+      .update(key)
+      .digest('base64url')
+      .slice(0, 22);
+  }
+
+  /** Is this the signature we would have minted for that key? */
+  static verify(key: string, sig: string): boolean {
+    const want = Buffer.from(StorageService.sign(key));
+    const got = Buffer.from(String(sig || ''));
+    return want.length === got.length && timingSafeEqual(want, got);
+  }
+
+  /**
    * What the browser should load. A stored object is served back through the
    * API rather than from a public bucket — the bucket stays private, and the
    * app decides who may look.
    */
   static url(stored: string, pub = false): string {
     if (!StorageService.isKey(stored)) return stored;
-    return (pub ? '/api/public/files/' : '/api/files/') + StorageService.keyOf(stored);
+    const key = StorageService.keyOf(stored);
+    return pub
+      ? '/api/public/files/' + key
+      : '/api/files/' + key + '?s=' + StorageService.sign(key);
   }
 
   /**

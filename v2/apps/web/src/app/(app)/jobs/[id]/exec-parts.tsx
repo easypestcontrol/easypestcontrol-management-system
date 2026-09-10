@@ -326,8 +326,13 @@ export function SigPad({ apiRef, big }: {
   useEffect(() => {
     const cv = cvRef.current;
     if (!cv) return;
-    // Big mode fills the customer-facing sheet — a signature needs room.
-    const h = big ? Math.max(300, Math.round(window.innerHeight - 230)) : 168;
+    /* A signature is a wide, short thing.
+       Filling the whole height of a phone made the saved PNG portrait — taller
+       than it is wide — so every report showed a name signed across the middle
+       of a tall white box, printed at stamp size to fit. The pad is now a
+       landscape strip, and what comes out of it is the shape of the line
+       somebody actually signs on. */
+    const h = big ? Math.min(240, Math.max(150, Math.round(window.innerHeight * 0.32))) : 168;
     cv.style.height = h + 'px';
     const rect = cv.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
@@ -386,7 +391,7 @@ export function SigPad({ apiRef, big }: {
   }, [apiRef, big]);
 
   return (
-    <canvas ref={cvRef} style={{ height: big ? 300 : 168 }}
+    <canvas ref={cvRef} style={{ height: big ? 220 : 168 }}
       className="w-full rounded border border-line bg-white touch-none" />
   );
 }

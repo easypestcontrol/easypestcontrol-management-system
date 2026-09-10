@@ -247,7 +247,8 @@ export default function PublicReport() {
               {x.signatureImage && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={x.signatureImage} alt="Signature"
-                  className="h-[54px] w-auto border border-[#e3e6ee] rounded bg-white" />
+                  className="h-[68px] w-[210px] max-w-full object-contain border border-[#e3e6ee]
+                    rounded bg-white p-1" />
               )}
               <div className="text-[12.5px] font-semibold mt-1">{x.signedBy || doc.client?.contact || '—'}</div>
               <div className="text-[10.5px] text-gray-500">Digitally signed on completion</div>

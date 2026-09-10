@@ -36,22 +36,26 @@ function stateOf(inv: InvoiceDetail): { tone: Tone; label: string } {
 }
 
 /** A round action under the amount. Four is the most a thumb reaches easily. */
-function Act({ icon, label, onClick, href }: {
+function Act({ icon, label, onClick, href, tone = 'plain' }: {
   icon: 'upload' | 'phone' | 'receipt' | 'invoice';
   label: string; onClick?: () => void; href?: string;
+  /** The one action that moves money is red; the rest are quiet. */
+  tone?: 'plain' | 'red';
 }) {
   const inner = (
     <>
-      <span className="w-[46px] h-[46px] rounded-full bg-wash flex items-center justify-center">
-        <Icon name={icon} size={19} />
+      <span className={'w-[52px] h-[52px] rounded-full flex items-center justify-center '
+        + (tone === 'red' ? 'bg-accent text-white' : 'bg-rose text-accent')}>
+        <Icon name={icon} size={20} />
       </span>
-      <span className="text-[12.5px] text-muted font-medium">{label}</span>
+      <span className={'text-[12.5px] font-semibold '
+        + (tone === 'red' ? 'text-accent' : 'text-ink-2')}>{label}</span>
     </>
   );
   const cls = 'flex flex-col items-center gap-1.5 active:opacity-60';
   return href
     ? <a href={href} className={cls}>{inner}</a>
-    : <button onClick={onClick} className={cls}>{inner}</button>;
+    : <button type="button" onClick={onClick} className={cls}>{inner}</button>;
 }
 
 export default function InvoiceMobile({ inv, t, onPay, canPay, shareHref }: {
@@ -100,7 +104,8 @@ export default function InvoiceMobile({ inv, t, onPay, canPay, shareHref }: {
         <p className="text-[12px] font-bold uppercase tracking-[0.09em] text-muted">
           {owed ? 'Amount due' : 'Invoice total'}
         </p>
-        <p className="text-[38px] font-bold tracking-[-0.03em] tabular-nums mt-1">
+        <p className={'text-[38px] font-bold tracking-[-0.03em] tabular-nums mt-1 '
+          + (owed ? 'text-accent' : '')}>
           {money(owed ? t.balance : t.total)}
         </p>
         {t.paid > 0 && owed && (
@@ -110,7 +115,11 @@ export default function InvoiceMobile({ inv, t, onPay, canPay, shareHref }: {
         )}
         <div className="mt-2.5"><Chip tone={st.tone}>{st.label}</Chip></div>
 
-        <div className="grid grid-cols-4 gap-1.5 mt-5">
+        {/* Centred, and evenly spread over however many there are.
+            A fixed four-column grid with three actions in it left them all
+            hugging the left edge with an empty column on the right, which is
+            what made this row look broken. */}
+        <div className="mt-5 flex items-start justify-center gap-8">
           {inv.client?.phone && (
             <Act icon="phone" label="Call" href={'tel:' + inv.client.phone} />
           )}
@@ -122,7 +131,7 @@ export default function InvoiceMobile({ inv, t, onPay, canPay, shareHref }: {
               if (nav.share) nav.share({ title: inv.id, url }).catch(() => {});
               else navigator.clipboard?.writeText(url).catch(() => {});
             }} />
-          {canPay && owed && <Act icon="receipt" label="Payment" onClick={onPay} />}
+          {canPay && owed && <Act icon="receipt" label="Payment" tone="red" onClick={onPay} />}
         </div>
       </div>
 

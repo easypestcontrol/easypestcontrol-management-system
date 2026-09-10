@@ -213,6 +213,11 @@ export default function TechRun({ j, me, reload }: {
         geo = cl!.siteLat!.toFixed(4) + '° N, ' + cl!.siteLng!.toFixed(4) + '° E';
       }
       await api.post(path + '/exec/checkin', geo ? { geo } : {});
+      /* Arriving IS the end of the trip. It used to keep recording through the
+         service and out the other side, so a two-hour treatment turned into
+         two hours of "travel" and the map kept offering to navigate to a site
+         the technician was standing in. */
+      await endTrip();
       await reload();
       say('Checked in at site');
     } catch (e) {
@@ -222,6 +227,17 @@ export default function TechRun({ j, me, reload }: {
         : e instanceof Error ? e.message : 'Could not check in');
     }
     setBusy(false);
+  }
+
+  /** Close this job's running trip, if it is still going. */
+  async function endTrip() {
+    try {
+      const t = await api.get<{ id: string; jobId: string; status: string } | null>('/trips/active');
+      if (t && t.jobId === j.id && t.status === 'active') {
+        await api.post('/trips/' + t.id + '/end', {});
+        window.dispatchEvent(new Event('trip:changed'));
+      }
+    } catch { /* the office can close a stray trip; this is not worth an error */ }
   }
 
   const addUniform = (f: File) =>
@@ -261,7 +277,12 @@ export default function TechRun({ j, me, reload }: {
       confirmLabel: 'Yes, finish and send',
       cancelLabel: 'Not yet',
       danger: true,
-      onConfirm: () => { void act(() => api.post(path + '/exec/finish', { observations: x.observations || '' })); },
+      onConfirm: () => {
+        void act(async () => {
+          await api.post(path + '/exec/finish', { observations: x.observations || '' });
+          await endTrip();   // nothing about this service is still running
+        });
+      },
     });
   }
 
@@ -693,7 +714,8 @@ export default function TechRun({ j, me, reload }: {
               Cancel
             </button>
           </div>
-          <div className="flex-1 p-3 overflow-hidden">
+          <div className="flex-1 p-4 flex flex-col justify-center overflow-hidden">
+            <p className="text-[13px] text-muted text-center mb-2">Sign inside the box</p>
             <SigPad apiRef={sigRef} big />
           </div>
           {err && <p className="px-4 pb-1 text-[13px] font-semibold text-accent shrink-0">{err}</p>}

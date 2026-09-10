@@ -83,9 +83,16 @@ export function Modal({ title, sub, onClose, children, wide }: {
   title: string; sub?: string; onClose: () => void; children: React.ReactNode; wide?: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[8vh] px-4"
+    /* Centred on a phone, near the top at a desk.
+       Pinned 8vh from the top of a 390px screen the dialog sat up under the
+       status bar with the page showing beneath it — it read as a notification
+       that had dropped down rather than as the app asking something. Every
+       other dialog on the phone is a card in the middle; this is now one too. */
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-5
+      lg:items-start lg:pt-[8vh] lg:px-4"
       style={{ background: 'rgb(20 20 20 / 0.4)' }} onClick={onClose}>
-      <div className={'bg-white rounded-md shadow-pop w-full ' + (wide ? 'max-w-[640px]' : 'max-w-[480px]')}
+      <div className={'bg-white rounded-[22px] lg:rounded-md shadow-pop w-full '
+        + (wide ? 'max-w-[640px]' : 'max-w-[480px]')}
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between px-5 pt-4 pb-3 border-b border-line-soft">
           <div>
