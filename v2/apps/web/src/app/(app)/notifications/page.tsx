@@ -16,27 +16,9 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { BackBar } from '@/components/mobile';
+import { notifTime } from '@/components/notification-bell';
 
 interface Note { id: number; at: string; text: string; read: boolean }
-
-/** "2026-09-08 14:12" → "Today, 2:12 pm" / "8 Sep, 2:12 pm". */
-function when(at: string): string {
-  const [d, t] = String(at || '').split(' ');
-  if (!d) return '';
-  const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const p = d.split('-');
-  const now = new Date();
-  const iso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0')
-    + '-' + String(now.getDate()).padStart(2, '0');
-  const day = d === iso ? 'Today' : Number(p[2]) + ' ' + (M[Number(p[1]) - 1] || '');
-  if (!t) return day;
-  const [hRaw, m] = t.split(':');
-  const h = Number(hRaw);
-  const am = h < 12 ? 'am' : 'pm';
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return day + ', ' + h12 + ':' + m + ' ' + am;
-}
 
 export default function Notifications() {
   const [rows, setRows] = useState<Note[] | null>(null);
@@ -86,7 +68,7 @@ export default function Notifications() {
                     {n.text}
                   </span>
                   <span className="block text-[12px] text-muted-2 mt-0.5 whitespace-nowrap">
-                    {when(n.at)}
+                    {notifTime(n.at)}
                   </span>
                 </span>
               </li>

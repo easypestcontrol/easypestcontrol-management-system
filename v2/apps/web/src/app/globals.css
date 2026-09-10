@@ -392,6 +392,23 @@ html, body {
   .no-print { display: none !important; }
   body { background: #fff; }
 
+  /* A service report is one sheet of paper.
+
+     On screen its sections breathe at 20px apart, which is right for a thumb
+     and wrong for A4: the last three lines — the customer's name and the
+     footer — were tipping onto a second page that held nothing else. Print
+     closes the gaps, keeps the acknowledgement and the photographs from being
+     split down the middle, and the whole thing lands on one page. */
+  .report-doc .mt-5 { margin-top: 9px !important; }
+  .report-doc .mt-6 { margin-top: 9px !important; }
+  /* The signature keeps its shape, at the size a signature needs and no more. */
+  .report-doc .sign { height: 52px !important; }
+  .report-doc .my-5, .report-doc .my-6 { margin-top: 11px !important; margin-bottom: 11px !important; }
+  .report-doc .mt-3 { margin-top: 7px !important; }
+  .report-doc .gap-4 { gap: 10px !important; }
+  .report-doc .p-10 { padding: 0 !important; }
+  .report-doc .ack, .report-doc .shot { break-inside: avoid; page-break-inside: avoid; }
+
   /* A printed document fills the paper.
 
      The invoice sheet is zoomed down on a phone so an A4 layout fits a 390px

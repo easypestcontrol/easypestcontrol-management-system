@@ -114,8 +114,8 @@ export default function PublicReport() {
       </div>
 
       <div style={fit}
-        className="paper bg-white border border-[#e3e6ee] rounded-lg w-[820px] max-w-full mx-auto
-          shadow-sm max-lg:mt-2">
+        className="paper report-doc bg-white border border-[#e3e6ee] rounded-lg w-[820px]
+          max-w-full mx-auto shadow-sm max-lg:mt-2">
         <div className="p-10">
           {/* head */}
           <div className="flex items-start justify-between gap-4">
@@ -258,7 +258,7 @@ export default function PublicReport() {
             <div className="mt-5 grid grid-cols-2 gap-4">
               {[['Before treatment', x.photosBefore] as const, ['After treatment', x.photosAfter] as const]
                 .map(([label, list]) => list.length > 0 && (
-                  <div key={label}>
+                  <div key={label} className="shot">
                     <div className={LABEL + ' mb-1.5'}>{label}</div>
                     <div className="flex flex-wrap gap-2">
                       {list.map((p, i) => (
@@ -286,13 +286,13 @@ export default function PublicReport() {
           <div className="border-t border-[#e3e6ee] my-5 sm:my-6" />
 
           {/* acknowledgement */}
-          <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="ack flex items-center justify-between gap-4 flex-wrap">
             <div>
               <div className={LABEL + ' mb-1'}>Customer acknowledgement</div>
               {x.signatureImage && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={x.signatureImage} alt="Signature"
-                  className="h-[68px] w-[210px] max-w-full object-contain border border-[#e3e6ee]
+                  className="sign h-[68px] w-[210px] max-w-full object-contain border border-[#e3e6ee]
                     rounded bg-white p-1" />
               )}
               <div className="text-[12.5px] font-semibold mt-1">{x.signedBy || doc.client?.contact || '—'}</div>

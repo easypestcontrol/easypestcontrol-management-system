@@ -21,13 +21,20 @@ import { HeroButton } from '@/components/mobile';
 
 interface Note { id: number; at: string; text: string; read: boolean }
 
-/** "2026-09-08 14:12" → "Today, 2:12 pm" / "8 Sep, 2:12 pm". */
-function when(at: string): string {
-  const [d, t] = String(at || '').split(' ');
+/**
+ * "2026-09-08 14:12" or "2026-09-08T14:12" → "Today, 2:12 pm" / "8 Sep, 2:12 pm".
+ *
+ * Both shapes are in the database — most writers use a space, the ones that
+ * went through toISOString use a T — and splitting on the space alone turned
+ * every ISO stamp into "NaN Sep" on the bell.
+ */
+export function notifTime(at: string): string {
+  const [d, t] = String(at || '').split(/[ T]/);
   if (!d) return '';
   const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const p = d.split('-');
+  if (p.length !== 3 || !Number.isFinite(Number(p[2]))) return '';
   const now = new Date();
   const iso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0')
     + '-' + String(now.getDate()).padStart(2, '0');
@@ -65,12 +72,21 @@ export default function NotificationBell() {
   function show() {
     setOpen(true);
     api.get<{ rows: Note[]; unread: number }>('/notifications')
-      .then((n) => setRows(n.rows || []))
+      .then((n) => { setRows(n.rows || []); setUnread(n.unread || 0); })
       .catch(() => {});
-    if (unread > 0) {
-      setUnread(0);
-      api.post('/notifications/read-all', {}).catch(() => {});
-    }
+  }
+
+  /**
+   * Tapping one is reading it — and only it.
+   *
+   * Opening the bell used to mark everything read, so a glance cost you the
+   * six things you had not dealt with yet. Now the one you tap clears itself
+   * and leaves the list; the rest are still there when you come back.
+   */
+  function clear(n: Note) {
+    setRows((list) => (list || []).filter((r) => r.id !== n.id));
+    if (!n.read) setUnread((u) => Math.max(0, u - 1));
+    api.post('/notifications/' + n.id + '/read', {}).catch(() => {});
   }
 
   return (
@@ -113,8 +129,9 @@ export default function NotificationBell() {
                 </div>
               ) : (
                 rows.map((n) => (
-                  <div key={n.id} className="flex items-start gap-3 px-5 py-3.5
-                    border-b border-line-soft last:border-b-0">
+                  <button key={n.id} type="button" onClick={() => clear(n)}
+                    className="w-full text-left flex items-start gap-3 px-5 py-3.5
+                      border-b border-line-soft last:border-b-0 active:bg-wash">
                     <span className={'w-9 h-9 rounded-full shrink-0 flex items-center justify-center '
                       + (n.read ? 'bg-wash text-muted-2' : 'bg-rose text-accent')}>
                       <Icon name="bell" size={16} />
@@ -124,9 +141,10 @@ export default function NotificationBell() {
                         + (n.read ? 'text-ink-2' : 'font-semibold')}>
                         {n.text}
                       </span>
-                      <span className="block text-[12.5px] text-muted-2 mt-0.5">{when(n.at)}</span>
+                      <span className="block text-[12.5px] text-muted-2 mt-0.5">{notifTime(n.at)}</span>
                     </span>
-                  </div>
+                    <Icon name="x" size={14} className="text-muted-2 shrink-0 mt-1" />
+                  </button>
                 ))
               )}
 

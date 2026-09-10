@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard } from '../auth/auth.guard';
 
@@ -16,6 +16,26 @@ export class NotificationsController {
       take: 25,
     });
     return { rows, unread: rows.filter((r) => !r.read).length };
+  }
+
+  /**
+   * One notification, read.
+   *
+   * Opening the bell used to mark the whole list read, which is the wrong
+   * unit: you glance at seven things and act on one, and the six you have not
+   * dealt with should still be waiting for you. Tapping one is the act of
+   * reading it, so that is what clears it.
+   */
+  @Post(':id/read')
+  async readOne(@Param('id') id: string, @Req() req: { user: { sub: string } }) {
+    const n = Number(id);
+    if (!Number.isFinite(n)) throw new BadRequestException('No such notification');
+    await this.prisma.notification.updateMany({
+      // Scoped to what this person is allowed to see — the id alone is not a key.
+      where: { id: n, OR: [{ userId: req.user.sub }, { userId: '' }] },
+      data: { read: true },
+    });
+    return { ok: true };
   }
 
   @Post('read-all')
