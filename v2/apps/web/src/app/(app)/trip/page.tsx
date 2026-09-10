@@ -178,17 +178,18 @@ export default function TripPage() {
 
   return (
     <div className="p-4 lg:p-6 max-w-[860px] max-lg:bg-ground max-lg:min-h-full">
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-[20px] font-semibold">Trips</h1>
-          <p className="text-muted text-[13px] mt-0.5 mb-5">
-            Tap a service to drive to it, or add your own trip — the distance is the road you actually take.
-          </p>
-        </div>
+      {/* The title and the one button, on one line.
+          The paragraph under the heading explained what a trip is to the
+          people who drive them for a living, and it pushed Add trip onto a
+          line of its own — so the screen opened with two rows of words before
+          anything you could act on. */}
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h1 className="text-[20px] font-semibold">Trips</h1>
         {!active && (
           <button onClick={() => setAdding(true)}
-            className="flex items-center gap-1.5 h-11 lg:h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90">
-            <Icon name="plus" size={14} /> Add trip
+            className="flex items-center gap-1.5 h-10 lg:h-9 px-4 rounded-full lg:rounded
+              bg-accent text-white text-[13.5px] font-semibold hover:brightness-90 shrink-0">
+            <Icon name="plus" size={15} /> Add trip
           </button>
         )}
       </div>
@@ -250,12 +251,14 @@ export default function TripPage() {
             <div className="mt-4">
               <TripMap key={mapKey} olaKey={olaKey} path={mapPath} here={here}
                 dest={destLL} route={routeLine} height={400} />
-              <p className="text-[11px] text-muted-2 mt-1.5">
-                Red line: the road to take · navy line: driven so far · red pin: the destination.
-                <button onClick={() => setShowMap(false)} className="ml-2 font-medium text-navy hover:text-accent">
-                  Hide map
-                </button>
-              </p>
+              {/* The legend went: the red line and the navy one are a map, and
+                  a driver reading a sentence about which is which is a driver
+                  not looking at the road. */}
+              <button onClick={() => setShowMap(false)}
+                className="mt-2 h-9 px-4 rounded-full border border-line text-[13px]
+                  font-semibold hover:bg-wash">
+                Hide map
+              </button>
             </div>
           )}
           {navOpen && active.dest && (
@@ -263,12 +266,10 @@ export default function TripPage() {
               onClose={() => setNavOpen(false)} />
           )}
 
-          {!olaOn && (
-            <p className="text-[11.5px] text-muted-2 mt-3">
-              Route and distance are recorded either way. Connect the Ola Maps key in
-              Settings → Integrations and this card also shows the live map.
-            </p>
-          )}
+          {/* The Ola-not-connected notice was an instruction to the office
+              printed on the screen of the person driving, who cannot act on
+              it. The distance is recorded either way; the office sees the
+              missing key in Settings. */}
         </section>
       )}
 
@@ -282,10 +283,10 @@ export default function TripPage() {
             <div key={svc.jobId}
               className="flex items-center gap-3 px-4 py-3 border-b border-line-soft last:border-0">
               <span className="flex-1 min-w-0">
-                <span className="block text-[13.5px] font-semibold truncate">
-                  {svc.client} <span className="text-muted font-normal">· {hhmm(svc.slot)}</span>
+                <span className="block text-[15px] font-bold truncate">
+                  {svc.client} <span className="text-muted font-medium">· {hhmm(svc.slot)}</span>
                 </span>
-                <span className="block text-[12px] text-muted truncate">
+                <span className="block text-[13px] text-muted truncate mt-0.5">
                   {svc.services} · {svc.dest || 'no address on file'}
                 </span>
               </span>
@@ -297,11 +298,6 @@ export default function TripPage() {
             </div>
           ))}
         </section>
-      )}
-      {!active && today && today.length === 0 && (
-        <p className="text-[12.5px] text-muted mb-5">
-          No services scheduled for you today — going somewhere else? Use <b>Add trip</b>.
-        </p>
       )}
 
       {/* --------------------------------------------------------- history */}
@@ -324,15 +320,17 @@ export default function TripPage() {
               No trips yet — the first one starts above.
             </p>
           ) : pg.pageRows.map((t) => (
-            <div key={t.id} className="px-4 py-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[13.5px] font-semibold truncate">{t.purpose}</span>
-                <span className="text-[14px] font-bold text-navy shrink-0">{km(t.distanceM)}</span>
+            <div key={t.id} className="px-4 py-3.5">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[15px] font-bold truncate">{t.purpose}</span>
+                <span className="text-[15px] font-bold tabular-nums shrink-0">{km(t.distanceM)}</span>
               </div>
-              {t.dest && <p className="text-[11.5px] text-muted truncate mt-0.5">→ {t.dest}</p>}
-              <p className="text-[11px] text-muted-2 mt-1">
+              {t.dest && <p className="text-[13px] text-muted truncate mt-0.5">{t.dest}</p>}
+              <p className="text-[12.5px] text-muted-2 mt-1">
                 {all && t.userName ? t.userName + ' · ' : ''}{when(t.startAt)} ·{' '}
-                {t.status === 'active' ? 'live now' : dur(t.mins)}
+                {t.status === 'active'
+                  ? <span className="text-accent font-semibold">live now</span>
+                  : dur(t.mins)}
               </p>
             </div>
           ))}
