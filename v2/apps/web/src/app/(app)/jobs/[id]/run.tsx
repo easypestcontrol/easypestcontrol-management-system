@@ -89,6 +89,7 @@ export default function TechRun({ j, me, reload }: {
   const [signName, setSignName] = useState(x.signedBy || cl?.contact || '');
   const [rating, setRating] = useState(x.rating || 0);
   const [workDone, setWorkDone] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
   const [bill, setBill] = useState<{ amount: number; note: string; mode: string } | null>(null);
   const sigRef = useRef<{ isInked: () => boolean; clear: () => void; data: () => string } | null>(null);
 
@@ -288,15 +289,11 @@ export default function TechRun({ j, me, reload }: {
 
   /* --------------------------------------------------------- the eleven */
 
-  const camOnly = (
-    <p className="text-[12.5px] text-muted mt-2">Taken now with the camera — the gallery is off.</p>
-  );
-
   const steps: Step[] = [
     {
       key: 'travel',
       title: 'On my way',
-      hint: hasTravel ? 'Travel started' : 'Navigate to site and start the trip',
+      hint: hasTravel ? 'Travel started' : undefined,
       done: hasTravel,
       waiting: 'Start the trip first',
       body: hasTravel ? (
@@ -326,7 +323,7 @@ export default function TechRun({ j, me, reload }: {
     {
       key: 'uniform',
       title: 'Photo of you in uniform',
-      hint: myUniform ? 'Taken' : 'Camera only',
+      hint: myUniform ? 'Taken' : undefined,
       done: !!myUniform,
       waiting: 'Take the photo first',
       body: myUniform ? (
@@ -351,14 +348,13 @@ export default function TechRun({ j, me, reload }: {
             <input type="file" accept="image/*" capture="user" hidden disabled={busy}
               onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) addUniform(f); }} />
           </label>
-          {camOnly}
         </>
       ),
     },
     {
       key: 'checkin',
       title: 'Mark location & check in',
-      hint: hasCheckin ? 'Checked in at ' + fmtTime(x.checkinAt) : 'Both together, from the doorstep',
+      hint: hasCheckin ? 'Checked in at ' + fmtTime(x.checkinAt) : undefined,
       done: hasCheckin,
       waiting: 'Check in first',
       body: hasCheckin ? (
@@ -374,18 +370,13 @@ export default function TechRun({ j, me, reload }: {
             <Icon name="branch" size={17} />
             {busy ? 'Getting a fix…' : siteKnown ? 'Check in at this site' : 'Mark location & check in'}
           </button>
-          {siteKnown && (
-            <p className="text-[12.5px] text-muted mt-2">
-              Site already marked — the check-in uses it if the GPS is slow.
-            </p>
-          )}
         </>
       ),
     },
     {
       key: 'before',
       title: 'Before-treatment photos',
-      hint: x.photosBefore.length ? x.photosBefore.length + ' added' : 'Camera or gallery',
+      hint: x.photosBefore.length ? x.photosBefore.length + ' added' : undefined,
       done: hasBefore,
       waiting: 'Add at least one photo',
       body: (
@@ -397,7 +388,7 @@ export default function TechRun({ j, me, reload }: {
     {
       key: 'work',
       title: 'Start the work',
-      hint: hasStart ? 'Clock running since ' + fmtTime(x.startedAt) : 'The clock starts when you tap',
+      hint: hasStart ? 'Clock running since ' + fmtTime(x.startedAt) : undefined,
       done: hasStart && workDone,
       waiting: hasStart ? 'Tap Work complete when you finish' : 'Start the work first',
       body: hasStart ? (
@@ -424,7 +415,7 @@ export default function TechRun({ j, me, reload }: {
     {
       key: 'chem',
       title: 'Chemicals used',
-      hint: x.chemicals.length ? x.chemicals.length + ' recorded' : 'What you used here',
+      hint: x.chemicals.length ? x.chemicals.length + ' recorded' : undefined,
       done: x.chemicals.length > 0,
       body: (
         <ChemBlock j={j} busy={busy}
@@ -436,7 +427,7 @@ export default function TechRun({ j, me, reload }: {
     {
       key: 'areas',
       title: 'What you did, area by area',
-      hint: areas.length ? areas.length + ' area(s)' : 'Kitchen, bathroom, terrace…',
+      hint: areas.length ? areas.length + ' area(s)' : undefined,
       done: areas.length > 0,
       /* Required. This is the only record of what was actually done in the
          property — the report the customer reads is built from these lines,
@@ -447,7 +438,7 @@ export default function TechRun({ j, me, reload }: {
     {
       key: 'after',
       title: 'After-treatment photos',
-      hint: x.photosAfter.length ? x.photosAfter.length + ' added' : 'Camera or gallery',
+      hint: x.photosAfter.length ? x.photosAfter.length + ' added' : undefined,
       done: hasAfter,
       waiting: 'Add at least one photo',
       body: (
@@ -459,7 +450,7 @@ export default function TechRun({ j, me, reload }: {
     {
       key: 'notes',
       title: 'Your notes',
-      hint: notes.trim() ? 'Noted' : 'Anything the office should know',
+      hint: notes.trim() ? 'Noted' : undefined,
       done: !!notes.trim(),
       body: (
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={saveNotes}
@@ -471,7 +462,7 @@ export default function TechRun({ j, me, reload }: {
     {
       key: 'sign',
       title: 'Customer signature',
-      hint: x.signature ? 'Recorded' : 'Hand the phone to the customer',
+      hint: x.signature ? 'Recorded' : undefined,
       done: !!x.signature,
       waiting: 'Get the customer to sign',
       body: x.signature ? (
@@ -519,14 +510,10 @@ export default function TechRun({ j, me, reload }: {
     {
       key: 'finish',
       title: 'Finish & send report',
-      hint: 'The last step',
+      hint: undefined,
       done: false,
       body: (
         <div className="flex flex-col gap-3">
-          <p className="text-[14px] text-ink-2 leading-relaxed">
-            Everything above is recorded. Sending the report closes this service
-            {bill && bill.amount > 0 ? ' and bills ' + money(bill.amount) + '.' : '.'}
-          </p>
           <button type="button" onClick={askFinish} disabled={busy}
             className="h-13 min-h-[52px] rounded-xl bg-accent text-white text-[15.5px] font-bold
               active:brightness-90 disabled:opacity-60">
@@ -586,35 +573,50 @@ export default function TechRun({ j, me, reload }: {
           </span>
           <span className="text-[12px] text-muted-2 font-mono shrink-0">{j.id}</span>
         </div>
-        <p className="text-[18px] font-bold tracking-[-0.01em]">{cl?.name || '—'}</p>
-        <p className="text-[13.5px] text-muted mt-0.5">
-          {j.title}{j.visitNo ? ' · service ' + j.visitNo + ' of ' + j.ofVisits : ''}
-        </p>
-        <p className="text-[13.5px] text-ink-2 mt-2.5">
+        {/* Four lines, not seven bars.
+            Every fact here used to get a full-width row of its own — the money
+            in one, the call in another, the site note in a third — and the card
+            pushed the step you are actually on off the bottom of the screen.
+            The name takes the call button beside it, the facts share a line,
+            and what is worth collecting is a chip, not a banner. */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[18px] font-bold tracking-[-0.01em] truncate">{cl?.name || '—'}</p>
+            <p className="text-[13px] text-muted mt-0.5 truncate">
+              {j.title}{j.visitNo ? ' · ' + j.visitNo + ' of ' + j.ofVisits : ''}
+            </p>
+          </div>
+          {cl?.phone && (
+            <a href={'tel:' + cl.phone} aria-label={'Call ' + firstName(cl.contact)}
+              className="w-11 h-11 rounded-full bg-rose text-accent flex items-center
+                justify-center shrink-0 active:brightness-95">
+              <Icon name="phone" size={18} />
+            </a>
+          )}
+        </div>
+        <p className="text-[13px] text-ink-2 mt-2">
           {fmtTime(j.slot)} · {durationText(j.mins)} · {relDay(j.date)}
+          {(cl?.addr || cl?.city) ? ' · ' + [cl?.addr, cl?.city].filter(Boolean).join(', ') : ''}
         </p>
-        {(cl?.addr || cl?.city) && (
-          <p className="text-[13.5px] text-muted mt-1">
-            {cl?.addr}{cl?.city ? ', ' + cl.city : ''}
-          </p>
-        )}
-        {bill && bill.amount > 0 && (
-          <p className="mt-3 rounded-xl bg-wash px-3.5 py-2.5 text-[13.5px]">
-            <span className="font-bold">Collect {money(bill.amount)}</span>
-            <span className="text-muted"> on site</span>
-          </p>
-        )}
-        {cl?.phone && (
-          <a href={'tel:' + cl.phone}
-            className="mt-3 h-12 rounded-xl border border-line flex items-center justify-center gap-2
-              text-[14.5px] font-semibold active:bg-wash">
-            <Icon name="phone" size={16} /> Call {firstName(cl.contact)}
-          </a>
-        )}
-        {j.notes && (
-          <p className="mt-3 rounded-xl bg-rose px-3.5 py-2.5 text-[13px] text-rose-ink">
-            <span className="font-bold">Site instructions.</span> {j.notes}
-          </p>
+        {(bill && bill.amount > 0) || j.notes ? (
+          <div className="flex flex-wrap gap-2 mt-2.5">
+            {bill && bill.amount > 0 && (
+              <span className="h-7 px-3 rounded-full bg-wash text-[12.5px] font-bold flex items-center">
+                Collect {money(bill.amount)}
+              </span>
+            )}
+            {j.notes && (
+              <button type="button" onClick={() => setNoteOpen((v) => !v)}
+                className="h-7 px-3 rounded-full bg-rose text-rose-ink text-[12.5px] font-bold
+                  flex items-center gap-1.5 max-w-full">
+                <Icon name="alert" size={13} className="shrink-0" />
+                <span className="truncate">{noteOpen ? 'Site instructions' : j.notes}</span>
+              </button>
+            )}
+          </div>
+        ) : null}
+        {j.notes && noteOpen && (
+          <p className="mt-2 text-[13px] text-ink-2 leading-relaxed">{j.notes}</p>
         )}
       </div>
 
@@ -681,16 +683,16 @@ export default function TechRun({ j, me, reload }: {
             active:bg-wash disabled:opacity-40">
           Back
         </button>
+        {/* One word. The button used to wear the reason it was not ready yet
+            — "Write what you did in at least one area" — which wrapped onto two
+            lines, said the same thing as the message above it, and told a
+            technician something he already knows. The reason appears when he
+            taps it, and only until he acts on it. */}
         {i < total - 1 && (
           <button type="button" data-run="next" onClick={next} disabled={busy}
             className={'flex-1 h-12 rounded-xl text-[15px] font-bold active:brightness-90 '
               + (step.done || step.onNext ? 'bg-navy text-white' : 'bg-wash-2 text-muted')}>
-            {step.done || step.onNext
-              ? (step.key === 'work' && !step.done ? 'Work complete' : 'Next')
-              : step.waiting
-                /* A step that is genuinely optional says so. Walking past an
-                   empty one used to read exactly like completing it. */
-                || 'Skip this step'}
+            {step.key === 'work' && !step.done && step.onNext ? 'Work complete' : 'Next'}
           </button>
         )}
       </div>

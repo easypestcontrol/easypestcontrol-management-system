@@ -50,7 +50,7 @@ export default function TechDone({ j }: { j: JobDetail }) {
   const inv = new Map(j.inventory.map((i) => [i.id, i]));
 
   const photos = (list: string[], alt: string) => (
-    <div className="grid grid-cols-2 gap-2.5">
+    <div className="flex flex-col gap-2.5">
       {list.map((p, i) => (
         <button key={i} type="button" onClick={() => setZoom(p)}
           className="rounded-[14px] overflow-hidden border border-line active:brightness-95">
@@ -159,11 +159,26 @@ export default function TechDone({ j }: { j: JobDetail }) {
               </Block>
             )}
 
-            {x.photosBefore.length > 0 && (
-              <Block title="Before treatment">{photos(x.photosBefore, 'Before')}</Block>
-            )}
-            {x.photosAfter.length > 0 && (
-              <Block title="After treatment">{photos(x.photosAfter, 'After')}</Block>
+            {/* One section, two columns: the same room before and after, side
+                by side, which is the comparison anybody looking at this is
+                actually making. Tapping either opens it full screen. */}
+            {(x.photosBefore.length > 0 || x.photosAfter.length > 0) && (
+              <Block title="Photos">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[12.5px] font-bold text-muted mb-2">Before</p>
+                    {x.photosBefore.length
+                      ? photos(x.photosBefore, 'Before')
+                      : <p className="text-[13px] text-muted-2">None</p>}
+                  </div>
+                  <div>
+                    <p className="text-[12.5px] font-bold text-muted mb-2">After</p>
+                    {x.photosAfter.length
+                      ? photos(x.photosAfter, 'After')
+                      : <p className="text-[13px] text-muted-2">None</p>}
+                  </div>
+                </div>
+              </Block>
             )}
 
             {x.chemicals.length > 0 && (

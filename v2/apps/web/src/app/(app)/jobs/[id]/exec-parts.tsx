@@ -290,9 +290,6 @@ export function AreaFindingsBlock({ rows, busy, onChange }: {
           </div>
         );
       })}
-      <p className="text-[11.5px] text-muted">
-        One line per area — kitchen, bathroom, terrace. A new row appears as you fill the last.
-      </p>
     </div>
   );
 }
