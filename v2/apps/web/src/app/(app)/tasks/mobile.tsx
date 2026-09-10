@@ -21,7 +21,7 @@ import { BackBar, Card, Chip, Fab, Screen, SearchBox, type Tone } from '@/compon
 
 export interface TaskRow {
   id: string; title: string; notes: string; assignee: string; branch: string;
-  due: string; dueTime: string; priority: string; status: string;
+  due: string; dueTime: string; priority: string; status: string; doneAt: string;
   imageCount: number; hasVoice: boolean;
   assigneeName: string; assigneeColor: string; createdByName: string;
 }
@@ -64,6 +64,20 @@ function bucketOf(t: TaskRow, today: string): { key: number; label: string } {
   return { key: 3, label: 'Later' };
 }
 
+/** "2026-09-11 14:05" → Today / Yesterday / "9 Sep". */
+function doneDay(stamp: string): string {
+  const d = String(stamp || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return 'Completed';
+  const today = todayISO();
+  if (d === today) return 'Today';
+  const y = new Date(today);
+  y.setDate(y.getDate() - 1);
+  const p = (n: number) => String(n).padStart(2, '0');
+  const yISO = y.getFullYear() + '-' + p(y.getMonth() + 1) + '-' + p(y.getDate());
+  if (d === yISO) return 'Yesterday';
+  return shortDay(d);
+}
+
 const TABS = [
   { key: 'open', label: 'To do' },
   { key: 'today', label: 'Today' },
@@ -81,8 +95,22 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
 }) {
   const [tab, setTab] = useState('open');
   const [q, setQ] = useState('');
+  /* What was just ticked, so it can be put back. A tick target sits under a
+     moving thumb; the cost of hitting the wrong one should be one tap, not a
+     hunt through the Done list. */
+  const [undo, setUndo] = useState<TaskRow | null>(null);
   const today = todayISO();
   const needle = q.trim().toLowerCase();
+
+  function tick(t: TaskRow) {
+    onToggle(t);
+    if (t.status !== 'done') {
+      setUndo(t);
+      window.setTimeout(() => setUndo((u) => (u && u.id === t.id ? null : u)), 6000);
+    } else {
+      setUndo(null);
+    }
+  }
 
   const all = rows || [];
   const shown = all
@@ -108,11 +136,25 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
     }
     groups.sort((a, b) => a.key - b.key);
     for (const g of groups) g.items.sort((a, b) => (a.dueTime || '99').localeCompare(b.dueTime || '99'));
-  } else if (shown.length) {
-    groups.push({ key: 9, label: 'Completed', items: shown });
+  } else {
+    /* Finished work is history, and history is read by day. One flat
+       "Completed" pile told you a thing was done but not when, which is the
+       only question anybody asks of a finished task. */
+    for (const t of shown) {
+      const label = doneDay(t.doneAt);
+      const g = groups.find((x) => x.label === label);
+      if (g) g.items.push(t);
+      else groups.push({ key: groups.length, label, items: t ? [t] : [] });
+    }
   }
 
   const openCount = all.filter((t) => t.status !== 'done').length;
+  /* Everything that was meant to happen today — what is due today plus what
+     was finished today, so ticking one off moves the bar rather than shrinking
+     the total under it. */
+  const todayRows = all.filter((t) => t.due === today || (t.status === 'done' && t.doneAt.slice(0, 10) === today));
+  const todayTotal = todayRows.length;
+  const todayDone = todayRows.filter((t) => t.status === 'done').length;
 
   return (
     <Screen>
@@ -129,6 +171,23 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
           </button>
         ))}
       </div>
+
+      {/* Today, as a line. A to-do list that only ever shows what is left
+          never tells you that you are getting somewhere. */}
+      {rows !== null && todayTotal > 0 && tab !== 'done' && (
+        <div className="mx-4 mt-3 bg-white rounded-[18px] px-4 py-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-[13px] font-bold">Today</p>
+            <p className="text-[13px] font-bold text-mint-ink">
+              {todayDone} of {todayTotal} done
+            </p>
+          </div>
+          <div className="mt-2 h-2 rounded-full bg-line-soft overflow-hidden">
+            <div className="h-full rounded-full bg-mint-ink transition-all duration-500"
+              style={{ width: Math.round((todayDone / todayTotal) * 100) + '%' }} />
+          </div>
+        </div>
+      )}
 
       <div className="px-4 pt-3 flex flex-col gap-3">
         {rows === null ? (
@@ -152,8 +211,11 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
         ) : (
           groups.map((g) => (
             <div key={g.label}>
+              {/* Red is for late, and only for late. Keyed on the label, not
+                  the bucket number — the first pile in the Done list has key 0
+                  too, and "Today · 2" of finished work was coming out red. */}
               <p className={'px-1 pb-1.5 text-[12px] font-bold uppercase tracking-[0.06em] '
-                + (g.key === 0 ? 'text-accent' : 'text-muted')}>
+                + (g.label === 'Overdue' ? 'text-accent' : 'text-muted')}>
                 {g.label} · {g.items.length}
               </p>
               <Card flush>
@@ -165,7 +227,7 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
                     <div key={t.id}
                       className="flex items-start gap-3 px-4 py-3.5 border-b border-line-soft last:border-b-0">
                       {/* The tick, first and biggest — one tap from the list. */}
-                      <button type="button" onClick={() => onToggle(t)}
+                      <button type="button" onClick={() => tick(t)}
                         aria-label={done ? 'Mark not done' : 'Mark done'}
                         className={'w-8 h-8 rounded-full shrink-0 mt-0.5 flex items-center justify-center '
                           + 'border-2 active:brightness-95 '
@@ -176,11 +238,20 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
                       <button type="button" onClick={() => onOpen(t.id)}
                         className="min-w-0 flex-1 text-left">
                         <span className="flex items-baseline justify-between gap-3">
-                          <span className={'text-[15px] font-bold truncate '
-                            + (done ? 'line-through text-muted' : '')}>
+                          {/* Done work is quiet, not struck out. A line through
+                              every finished task makes the Done list unreadable
+                              exactly when somebody is checking what was done. */}
+                          <span className={'text-[15px] truncate '
+                            + (done ? 'font-semibold text-muted' : 'font-bold')}>
                             {t.title}
                           </span>
-                          {(t.due || t.dueTime) && (
+                          {done ? (
+                            t.doneAt && (
+                              <span className="text-[12.5px] font-semibold text-mint-ink shrink-0 whitespace-nowrap">
+                                {clock(t.doneAt.slice(11)) || 'Done'}
+                              </span>
+                            )
+                          ) : (t.due || t.dueTime) && (
                             <span className={'text-[12.5px] font-semibold shrink-0 whitespace-nowrap '
                               + (late ? 'text-accent' : 'text-sky-ink')}>
                               {t.dueTime ? clock(t.dueTime) : shortDay(t.due)}
@@ -223,7 +294,23 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
         )}
       </div>
 
-      {onNew && <Fab onClick={onNew} label="New task" />}
+      {/* One tap back. It sits above the tab bar and goes on its own. */}
+      {undo && (
+        <div className="lg:hidden fixed left-3 right-3 z-40 bg-navy text-white rounded-[18px]
+          px-4 h-14 flex items-center justify-between gap-3 shadow-[0_6px_24px_rgba(20,20,20,0.28)]"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 92px)' }}>
+          <span className="text-[14px] font-semibold truncate">Marked done</span>
+          <button type="button"
+            onClick={() => { const u = undo; setUndo(null); onToggle({ ...u, status: 'done' }); }}
+            className="text-[14px] font-bold text-white underline underline-offset-4 shrink-0">
+            Undo
+          </button>
+        </div>
+      )}
+
+      {/* The red button steps aside while the undo bar is up — they occupy
+          the same corner, and one of them is on a six-second clock. */}
+      {onNew && !undo && <Fab onClick={onNew} label="New task" />}
     </Screen>
   );
 }
