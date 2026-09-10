@@ -42,27 +42,10 @@ const niceDay = (iso: string) => {
   return p.length === 3 ? Number(p[2]) + ' ' + M[Number(p[1]) - 1] + ' ' + p[0] : iso;
 };
 
-/* A cover, from the title. Six covers on a shelf that all look the same are
-   six covers nobody can tell apart at a glance; the same title always gets the
-   same colour, so a lesson keeps its face. */
-const COVERS = [
-  { bg: '#C62828', spine: '#8E1B1B' },
-  { bg: '#1F6F5C', spine: '#14493C' },
-  { bg: '#2D5BA8', spine: '#1D3C6E' },
-  { bg: '#B4622A', spine: '#7C421C' },
-  { bg: '#5A4B9C', spine: '#3C3169' },
-  { bg: '#0F6E7A', spine: '#0A4A52' },
-];
-function coverOf(title: string) {
-  let n = 0;
-  for (const ch of String(title || '')) n = (n * 31 + ch.charCodeAt(0)) >>> 0;
-  return COVERS[n % COVERS.length];
-}
-
 /** What kind of thing this lesson is, in the two words somebody would use. */
-function kindOf(l: Lesson): { label: string; icon: 'play' | 'book'; watch: boolean } {
-  if (l.hasVideo || l.link) return { label: 'Watch', icon: 'play', watch: true };
-  return { label: 'Read', icon: 'book', watch: false };
+function kindOf(l: Lesson): { label: string; icon: 'play' | 'book' } {
+  if (l.hasVideo || l.link) return { label: 'Video', icon: 'play' };
+  return { label: 'Reading', icon: 'book' };
 }
 
 /* ------------------------------------------------------------- the reader */
@@ -152,37 +135,23 @@ export default function TrainingMobile({ rows, onOpen, onNew }: {
             </p>
           </Card>
         ) : (
-          shown.map((l) => {
-            const k = kindOf(l);
-            const c = coverOf(l.title);
-            return (
-              <button key={l.id} type="button" onClick={() => onOpen(l)}
-                className="w-full text-left bg-white rounded-[20px] p-3 active:bg-wash
-                  flex items-center gap-3.5">
-                {/* The cover. There are no cover images to load, so the shelf
-                    makes its own: the lesson's own colour, a spine down the
-                    left, and the mark that says whether it is read or watched. */}
-                <span className="w-[62px] h-[82px] rounded-[10px] shrink-0 relative overflow-hidden
-                  flex items-center justify-center shadow-[0_2px_8px_rgba(20,20,20,0.14)]"
-                  style={{ background: c.bg }}>
-                  <span className="absolute left-0 top-0 bottom-0 w-[7px]"
-                    style={{ background: c.spine }} />
-                  <Icon name={k.icon} size={24} className="text-white/90" />
-                </span>
-
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[16px] font-bold leading-snug line-clamp-2">
-                    {l.title}
+          <Card flush className="mb-4">
+            {shown.map((l) => {
+              const k = kindOf(l);
+              return (
+                <button key={l.id} type="button" onClick={() => onOpen(l)}
+                  className="w-full text-left flex items-center gap-3 px-4 py-4
+                    border-b border-line-soft last:border-b-0 active:bg-wash">
+                  <Icon name={k.icon} size={18} className="text-muted-2 shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15.5px] font-semibold truncate">{l.title}</span>
+                    <span className="block text-[13px] text-muted mt-0.5">{k.label}</span>
                   </span>
-                  <span className="inline-flex items-center gap-1.5 h-9 px-4 mt-2.5 rounded-full
-                    bg-accent text-white text-[13.5px] font-bold">
-                    Explore
-                    <Icon name="chevRight" size={14} />
-                  </span>
-                </span>
-              </button>
-            );
-          })
+                  <Icon name="chevRight" size={16} className="text-muted-2 shrink-0" />
+                </button>
+              );
+            })}
+          </Card>
         )}
       </div>
 
