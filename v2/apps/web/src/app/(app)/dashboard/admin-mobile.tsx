@@ -15,10 +15,11 @@
 import Link from 'next/link';
 import { Icon, type IconName } from '@/components/icons';
 import {
-  Card, Chip, Row, Screen, Stack, Stat, QuickTiles, Hero, HeroStats, HeroButton,
+  Card, Chip, Row, Screen, Stack, Stat, QuickTiles, Hero, HeroStats,
   money, compact, niceDate,
 } from '@/components/mobile';
 import type { DashboardStats, SessionUser } from '@/lib/api';
+import NotificationBell from '@/components/notification-bell';
 
 /* --------------------------------------------------------------- the chart */
 
@@ -120,7 +121,7 @@ export default function AdminMobile({ s, me, actions, branchEl }: {
         right={
           <>
             {branchEl}
-            <HeroButton name="bell" href="/notifications" label="Notifications" />
+            <NotificationBell />
           </>
         }>
         {s && (

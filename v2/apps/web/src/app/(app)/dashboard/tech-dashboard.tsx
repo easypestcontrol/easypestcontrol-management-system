@@ -20,9 +20,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Icon, type IconName } from '@/components/icons';
-import { Hero, HeroStats, HeroButton } from '@/components/mobile';
+import { Hero, HeroStats } from '@/components/mobile';
 import { StatusPill, Stars } from '../jobs/ui';
 import { fmtTime, relDay } from '../jobs/format';
+import NotificationBell from '@/components/notification-bell';
 
 const money = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
@@ -201,7 +202,7 @@ export default function TechDashboard() {
         <Hero
           eyebrow={line}
           title={d.who.name.split(' ')[0] + '’s day'}
-          right={<HeroButton name="bell" href="/tasks" label="Tasks" />}>
+          right={<NotificationBell />}>
           <HeroStats items={[
             { label: 'Wallet', value: money(d.wallet.inHand), icon: 'invoice', href: '/wallet' },
             { label: 'Today', value: d.services.today.length, icon: 'check', href: '/jobs' },
