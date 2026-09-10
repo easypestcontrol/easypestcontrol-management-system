@@ -167,19 +167,17 @@ export default function TechRun({ j, me, reload }: {
         window.dispatchEvent(new Event('trip:changed'));
       } catch { /* a trip already running keeps counting */ }
       await reload();
-      openMaps();
+      /* Our own map, not Google's. The trip is measured on the route Ola
+         gives us — every kilometre of it lands on the technician's trip and
+         his reimbursement, and a route driven inside another app is a
+         distance nobody here can account for. */
+      setMapOpen(true);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Could not start travel');
     }
     setBusy(false);
   }
 
-  /** Google Maps, with the marked doorstep when there is one and the address when not. */
-  function openMaps() {
-    const to = siteKnown ? cl!.siteLat + ',' + cl!.siteLng : destText;
-    if (!to) return;
-    window.open('https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(to), '_blank');
-  }
 
   async function markSite(): Promise<boolean> {
     setBusy(true); setErr('');
@@ -283,13 +281,10 @@ export default function TechRun({ j, me, reload }: {
       body: hasTravel ? (
         <div className="flex flex-col gap-2.5">
           <Ok>On the way — {cl?.contact || 'the customer'} has been told.</Ok>
-          <button type="button" onClick={openMaps}
-            className="h-12 rounded-xl bg-accent text-white text-[15px] font-bold active:brightness-90">
-            Open Google Maps
-          </button>
           <button type="button" onClick={() => setMapOpen(true)}
-            className="h-12 rounded-xl border border-line text-[14.5px] font-semibold active:bg-wash">
-            Show the map here
+            className="h-12 rounded-xl bg-accent text-white text-[15px] font-bold
+              active:brightness-90 flex items-center justify-center gap-2">
+            <Icon name="road" size={18} /> Open the map
           </button>
         </div>
       ) : (
@@ -422,6 +417,10 @@ export default function TechRun({ j, me, reload }: {
       title: 'What you did, area by area',
       hint: areas.length ? areas.length + ' area(s)' : 'Kitchen, bathroom, terrace…',
       done: areas.length > 0,
+      /* Required. This is the only record of what was actually done in the
+         property — the report the customer reads is built from these lines,
+         and an empty one is a service nobody can account for later. */
+      waiting: 'Write what you did in at least one area',
       body: <AreaFindingsBlock rows={areas} busy={busy} onChange={saveAreas} />,
     },
     {
@@ -631,7 +630,7 @@ export default function TechRun({ j, me, reload }: {
             {step.done ? <Icon name="check" size={17} /> : i + 1}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-bold leading-tight">{step.title}</span>
+            <span data-run="step" className="block text-[16px] font-bold leading-tight">{step.title}</span>
             {step.hint && <span className="block text-[12.5px] text-muted mt-0.5">{step.hint}</span>}
           </span>
         </div>
@@ -667,7 +666,10 @@ export default function TechRun({ j, me, reload }: {
               + (step.done || step.onNext ? 'bg-navy text-white' : 'bg-wash-2 text-muted')}>
             {step.done || step.onNext
               ? (step.key === 'work' && !step.done ? 'Work complete' : 'Next')
-              : step.waiting || 'Next'}
+              : step.waiting
+                /* A step that is genuinely optional says so. Walking past an
+                   empty one used to read exactly like completing it. */
+                || 'Skip this step'}
           </button>
         )}
       </div>

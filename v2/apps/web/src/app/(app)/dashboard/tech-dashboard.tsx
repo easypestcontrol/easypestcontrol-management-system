@@ -301,8 +301,13 @@ export default function TechDashboard() {
         sub={d.services.upcoming.length ? 'next ' + d.services.upcoming.length : undefined}
         empty="Nothing further on your list." />
 
-      {/* ------------------------------------------------- the month so far */}
-      <section className="rounded-xl border border-line bg-white shadow-card overflow-hidden">
+      {/* ------------------------------------------------- the month so far
+
+          Desk only. On a phone this is four numbers about last month sitting
+          under the answer to "what am I doing now" — a technician standing in
+          a stairwell is not reading his distance total, and it was the last
+          thing between him and the bottom of the screen. */}
+      <section className="max-lg:hidden rounded-xl border border-line bg-white shadow-card overflow-hidden">
         <header className="px-4 py-3 border-b border-line-soft flex items-baseline justify-between">
           <h2 className="text-[13.5px] font-bold">Your month so far</h2>
           <span className="text-[11.5px] text-muted-2">recorded from your own visits</span>

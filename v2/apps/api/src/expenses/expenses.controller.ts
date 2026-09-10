@@ -236,9 +236,31 @@ export class ExpensesController {
     const branch = await this.myBranch(me);
     if (!branch) throw new BadRequestException('Your account has no branch — ask the office to set it');
 
-    const report = await this.prisma.expenseReport.findUnique({ where: { date_branch: { date, branch } } });
+    /*
+     * The day's folder opens itself.
+     *
+     * This used to refuse the expense and tell the employee to go and find
+     * their branch manager. A technician who paid for petrol at nine at night
+     * is not going to do that — he is going to forget, and the company keeps
+     * the money it owes him by accident. Opening the folder is bookkeeping,
+     * not a decision, so the first expense of the day opens it and says who
+     * it opened for.
+     *
+     * A CLOSED report still refuses: that one IS a decision, made by the
+     * office when the day's money was settled.
+     */
+    let report = await this.prisma.expenseReport.findUnique({ where: { date_branch: { date, branch } } });
     if (!report) {
-      throw new BadRequestException('Expense report for this date has not been opened yet. Please contact your branch manager.');
+      const bn = await this.branchName(branch);
+      report = await this.prisma.expenseReport.create({
+        data: {
+          id: await this.mint('expense-report', 'EXR-'),
+          date, branch,
+          title: `${niceDate(date)} — ${bn}`,
+          createdBy: me,
+          history: [{ at: nowStamp(), text: 'Report opened by the first expense of the day' }] as never,
+        },
+      });
     }
     if (report.status === 'closed') throw new BadRequestException('This report is closed.');
 

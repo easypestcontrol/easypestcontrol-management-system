@@ -783,24 +783,17 @@ export class JobsController {
     const item = await this.prisma.inventoryItem.findUnique({ where: { id: itemId } });
     if (!item) throw new BadRequestException('No such inventory item');
 
-    // Only what is in the recorder's hand can be used — consumption at
-    // finish comes off the head's holding, so the cap is checked against the
-    // same person, counting what this service has already recorded.
-    const who = j.headTechId || req.user?.sub || '';
-    const holding = await this.prisma.techStock.findUnique({
-      where: { userId_itemId: { userId: who, itemId } },
-    });
+    /*
+     * What was used is recorded, whether or not the store logged it out.
+     *
+     * This used to refuse anything beyond the recorder's holding, which does
+     * not stop a technician using a chemical — it stops him telling us he
+     * used it, and the service report is the one place that has to be true.
+     * The shortfall is not lost: the finish still decrements his holding, so
+     * a chemical nobody issued leaves that holding negative, which is exactly
+     * the flag the office needs to go and fix the paperwork.
+     */
     const x = execOf(j);
-    const alreadyRecorded = x.chemicals
-      .filter((c) => c.id === itemId)
-      .reduce((a, c) => a + c.qty, 0);
-    const left = (holding?.qty || 0) - alreadyRecorded;
-    if (qty > left) {
-      throw new BadRequestException(left > 0
-        ? `Only ${left} ${item.unit} of ${item.name} in hand — that is the most that can be recorded`
-        : `${item.name} is not in your hand — the store has to issue it to you first`);
-    }
-
     x.chemicals.push({ id: itemId, qty });
     return this.prisma.job.update({ where: { id }, data: { exec: x as never } });
   }

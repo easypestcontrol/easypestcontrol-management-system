@@ -147,12 +147,21 @@ export function ChemBlock({ j, busy, onAdd, onRemove, onErr }: {
 
   const usedOf = (id: string) => used.filter((c) => c.id === id).reduce((a, c) => a + c.qty, 0);
   const leftOf = (id: string) => ((hold || {})[id] ?? 0) - usedOf(id);
-  const avail = j.inventory.filter((i) => i.cat === 'Chemical' && leftOf(i.id) > 0);
+  /* Every chemical, not only what the store has issued.
+     Refusing to record anything a technician is not carrying on paper does
+     not stop him using it — it stops him TELLING us he used it, which is the
+     one thing the report exists for. What he is carrying is still shown
+     against each name, and anything beyond it is recorded as owed to the
+     store rather than quietly dropped. */
+  const avail = j.inventory.filter((i) => i.cat === 'Chemical');
   const left = sel ? leftOf(sel) : 0;
 
   // Keep the selection on something actually available as holdings change.
   useEffect(() => {
-    if (!avail.some((c) => c.id === sel)) setSel(avail[0]?.id || '');
+    if (!avail.some((c) => c.id === sel)) {
+      // What he is actually carrying first; the rest of the list after it.
+      setSel((avail.find((c) => leftOf(c.id) > 0) || avail[0])?.id || '');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hold, used.length]);
 
@@ -182,9 +191,8 @@ export function ChemBlock({ j, busy, onAdd, onRemove, onErr }: {
         <p className="text-[12.5px] text-muted">Checking what you are carrying…</p>
       ) : avail.length === 0 ? (
         <p className="text-[12.5px] text-muted">
-          {used.length
-            ? 'Everything issued to you is recorded — nothing left in your hand.'
-            : 'Nothing in your hand. Chemicals are issued to you from the store — ask the office or your senior technician.'}
+          No chemicals on this service&rsquo;s list. Ask the office to add them to the
+          service, or leave this step empty.
         </p>
       ) : (
         <>
@@ -192,7 +200,7 @@ export function ChemBlock({ j, busy, onAdd, onRemove, onErr }: {
             <select value={sel} onChange={(e) => setSel(e.target.value)} className={selectCls + ' flex-1'}>
               {avail.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name} — {leftOf(c.id)} {c.unit} with you
+                  {c.name} — {leftOf(c.id) > 0 ? leftOf(c.id) + ' ' + c.unit + ' with you' : 'not issued to you'}
                 </option>
               ))}
             </select>
@@ -203,11 +211,6 @@ export function ChemBlock({ j, busy, onAdd, onRemove, onErr }: {
                 const n = parseFloat(qty) || 0;
                 if (!n) { onErr('Enter a quantity'); return; }
                 if (!sel) { onErr('Pick a chemical'); return; }
-                if (n > left) {
-                  onErr('You only have ' + left + ' ' + (inv.get(sel)?.unit || '') + ' of '
-                    + (inv.get(sel)?.name || 'this') + ' in hand — that is the most you can record.');
-                  return;
-                }
                 onAdd(sel, n);
               }}
               className="h-9 px-3.5 rounded bg-navy text-white flex items-center justify-center hover:brightness-110 disabled:opacity-60">
@@ -215,8 +218,9 @@ export function ChemBlock({ j, busy, onAdd, onRemove, onErr }: {
             </button>
           </div>
           <p className="text-[11.5px] text-muted mt-2">
-            Only what the store issued to you appears here. It comes off your holding when
-            you finish{sel ? ` — ${left} ${inv.get(sel)?.unit || ''} of ${inv.get(sel)?.name || ''} left` : ''}.
+            {left > 0
+              ? `Comes off your holding when you finish — ${left} ${inv.get(sel)?.unit || ''} of ${inv.get(sel)?.name || ''} with you.`
+              : 'You are not carrying this one on paper — record it anyway and it shows against you as owed to the store.'}
           </p>
         </>
       )}

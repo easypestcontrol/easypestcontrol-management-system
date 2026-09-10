@@ -16,6 +16,7 @@ import { Icon } from '@/components/icons';
 import { useBranchFilter } from '@/components/branch-filter';
 import { catIcon, chip } from './ui';
 import AddExpense from './add-expense';
+import MyExpensesMobile from './mobile';
 
 interface ReportRow {
   id: string; title: string; date: string; branch: string; branchName: string; status: string;
@@ -183,7 +184,11 @@ function EmployeeView() {
   const TABS = [['all', 'All'], ['pending', 'Pending'], ['approved', 'Approved'], ['rejected', 'Rejected'], ['reimbursed', 'Reimbursed']];
 
   return (
-    <div className="p-4 lg:p-6 max-w-[720px]">
+    <>
+    {/* The phone gets an app screen, the desk keeps its table. */}
+    <MyExpensesMobile rows={rows} filter={f} onFilter={setF} />
+
+    <div className="max-lg:hidden p-4 lg:p-6 max-w-[720px]">
       <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-[20px] font-semibold">My expenses</h1>
@@ -233,5 +238,6 @@ function EmployeeView() {
 
       {adding && <AddExpense onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} />}
     </div>
+    </>
   );
 }
