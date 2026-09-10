@@ -92,10 +92,13 @@ const GROUPS: Array<{ id: string; label: string; items: NavItem[] }> = [
 const TECH_NAV: NavItem[] = [
   { href: '/dashboard', label: 'Home', icon: 'home' },
   { href: '/jobs', label: 'My Services', icon: 'check' },
-  { href: '/trip', label: 'Trip', icon: 'branch' },
+  /* A road, not a building: 'branch' is a house, and beside Home's house on
+     a five-icon bar the two read as the same thing. */
+  { href: '/trip', label: 'Trip', icon: 'road' },
   { href: '/training', label: 'Training', icon: 'team' },
   { href: '/wallet', label: 'My Wallet', icon: 'invoice' },
-  { href: '/expenses', label: 'Expenses', icon: 'report' },
+  /* What he is actually holding — a receipt, not a bar chart. */
+  { href: '/expenses', label: 'Expenses', icon: 'receipt' },
 ];
 
 const QUICK: Array<{ href: string; label: string; icon: IconName; roles?: string[] }> = [
@@ -505,13 +508,37 @@ export default function Shell({ children }: { children: React.ReactNode }) {
            * day, not alphabetical.
            */
           const PHONE_TABS = ['/dashboard', '/customers', '/invoices', '/jobs'];
+          /*
+           * A technician's four, on the same rule as the office's four: the
+           * screens opened on a working day, in the order of one. His whole
+           * field kit was on the bar — six sections plus More, seven tabs in
+           * 390px, which is 50px each for an icon, a word and a thumb. The
+           * word wrapped, the tap target shrank below what a thumb can hit,
+           * and the bar stopped reading as navigation.
+           *
+           * Training is opened when the office assigns a course, and the
+           * wallet when he is settling up — neither is a working day, so
+           * both move into More with everything else.
+           */
+          const TECH_TABS = ['/dashboard', '/jobs', '/trip', '/expenses'];
+          const techNav = TECH_NAV.filter((n) => allowed(n.href) !== false);
           const primary = isFieldTech(me.role)
-            ? TECH_NAV.filter((n) => allowed(n.href) !== false)
+            ? TECH_TABS
+                .map((h) => techNav.find((n) => n.href === h))
+                .filter((n): n is NavItem => !!n)
+                .slice(0, 4)
             : PHONE_TABS
                 .map((h) => visibleAll.find((n) => n.href === h))
                 .filter((n): n is NavItem => !!n)
                 .slice(0, 4);
-          const rest = visibleAll.filter((n) => !primary.some((x) => x.href === n.href));
+          /* What More holds. For a technician that is his own kit first —
+             Training and the wallet live in TECH_NAV, not in the office's
+             menu, so taking More from visibleAll alone would have dropped
+             them off the phone altogether. */
+          const pool = isFieldTech(me.role)
+            ? [...techNav, ...visibleAll.filter((n) => !techNav.some((t) => t.href === n.href))]
+            : visibleAll;
+          const rest = pool.filter((n) => !primary.some((x) => x.href === n.href));
           const moreActive = rest.some((n) => path === n.href || path.startsWith(n.href + '/'));
           return (
             <>
