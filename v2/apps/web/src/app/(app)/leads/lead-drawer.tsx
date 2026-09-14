@@ -153,6 +153,9 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
   const step = nextStep(l);
   const live = isOpen(l);
   const readyQuotes = l.quotes.filter((q) => q.status === 'approved' || q.status === 'sent');
+  /* Which quotation the contract is drawn from: one both sides have agreed
+     to, else the one that has at least gone out. */
+  const contractFrom = readyQuotes.find((q) => q.status === 'approved') || readyQuotes[0] || null;
 
   /* ------------------------------------------------------------ sop panel */
   function sopPanel() {
@@ -437,17 +440,36 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
         <Sec title="Contract"
           right={<span className="zpill">{l.contracts.length || 'None yet'}</span>}>
           {l.contracts.length === 0 ? (
-            <p className="text-[13px] text-muted">
-              {l.quotes.length === 0
-                ? 'Raise a quotation first — the contract (one-time service or AMC) is generated from it, so the services and their intervals carry straight through.'
-                : readyQuotes.length === 0
-                  ? 'Send the quotation. Once both sides accept it — us and the customer — the contract is drawn up from it.'
-                  : 'No contract yet. Open the accepted quotation and use Move to contract — each quoted service keeps the interval it was priced for.'}
-            </p>
+            /* The section used to end in a sentence telling you to go and do
+               it somewhere else: "open the accepted quotation and use Move to
+               contract". The place that says what to do next is the place the
+               button belongs. */
+            <>
+              <p className="text-[13px] text-muted">
+                {l.quotes.length === 0
+                  ? 'Raise a quotation first — the contract (one-time service or AMC) is generated from it, so the services and their intervals carry straight through.'
+                  : readyQuotes.length === 0
+                    ? 'Send the quotation. Once both sides accept it — us and the customer — the contract is drawn up from it.'
+                    : 'Each quoted service keeps the interval it was priced for.'}
+              </p>
+              {contractFrom && (
+                <button
+                  onClick={() => { onClose(); router.push('/contracts/new?quote=' + contractFrom.id); }}
+                  className="mt-2.5 h-11 lg:h-8 px-4 rounded bg-accent text-white
+                    text-[14px] lg:text-[12.5px] font-semibold hover:brightness-90">
+                  Draw up the contract from {contractFrom.id}
+                </button>
+              )}
+            </>
           ) : (
             <div className="flex flex-col gap-2">
+              {/* And a contract that exists opens — it was a box you could
+                  read and not follow. */}
               {l.contracts.map((c) => (
-                <div key={c.id} className="rounded border border-line px-3 py-2.5">
+                <button key={c.id} type="button"
+                  onClick={() => { onClose(); router.push('/contracts/' + c.id); }}
+                  className="w-full text-left rounded border border-line px-3 py-2.5
+                    hover:border-navy/40 active:bg-wash transition-colors">
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex items-center gap-2">
                       <span className="text-[12.5px] font-semibold">{c.id}</span>
@@ -459,7 +481,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
                     {fmtDate(c.start)} → {fmtDate(c.end)}
                     {c.totalVisits > 0 && <> · {c.totalVisits} visits</>}
                   </p>
-                </div>
+                </button>
               ))}
             </div>
           )}
