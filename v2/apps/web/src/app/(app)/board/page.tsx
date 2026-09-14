@@ -196,6 +196,11 @@ export default function Board() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [filter, setFilter] = useState<{ status: string; prio: boolean }>({ status: '', prio: false });
   const [sel, setSel] = useState<string | null>(null);
+  /* A drag that changed the hour, waiting on an answer. */
+  const [retime, setRetime] = useState<{
+    job: DayJob; ids: string[]; startMin: number; wasAt: number;
+    blockText: string; tech: string;
+  } | null>(null);
   const [q, setQ] = useState('');
   const [pop, setPop] = useState<{ jobId: string; anchor: { top: number; bottom: number; left: number } } | null>(null);
   const [sug, setSug] = useState<{ job: DayJob; rows: SuggestRow[] | null } | null>(null);
@@ -661,23 +666,31 @@ export default function Board() {
      * was happening on a stray horizontal pixel during that same drag,
      * silently. Answering no keeps the hour and still makes the move.
      */
-    let startMin = d.start;
+    const startMin = d.start;
     const wasAt = toMin(d.job.slot);
+
+    /* Changing the hour a customer was given is worth a question, and the
+       browser's confirm() is the wrong one to ask it with: a grey strip
+       pinned to the top of the window with the hostname on it, three
+       paragraphs of text and two buttons called OK and Cancel that say
+       nothing about what they do. This asks in the app, with the two times
+       side by side and buttons that name them. */
     if (d.mode === 'move' && startMin !== wasAt && d.job.techIds.length > 0) {
-      const ok = window.confirm(
-        d.job.id + ' is booked for ' + fmtTime(d.job.slot) + '.\n\n'
-        + 'Move it to ' + fmtTime(toHHMM(startMin)) + '?\n\n'
-        + 'OK changes the time. Cancel keeps ' + fmtTime(d.job.slot) + '.',
-      );
-      if (!ok) startMin = wasAt;
+      setRetime({ job: d.job, ids, startMin, wasAt, blockText: block?.text || '', tech: d.tech });
+      return;
     }
 
-    setSel(d.job.id);
-    doPlace(d.job.id, ids, startMin, {
-      label: d.job.id + ' to ' + techName(d.tech),
-      toastMsg: d.job.id + ' → ' + techName(d.tech),
-      sub: (block ? block.text + ' · ' : '') + fmtTime(toHHMM(startMin)),
-      tone: block ? 'warn' : undefined,
+    place(d.job, ids, startMin, d.tech, block?.text || '');
+  }
+
+  /** The move itself, once the hour is settled. */
+  function place(job: DayJob, ids: string[], startMin: number, tech: string, blockText: string) {
+    setSel(job.id);
+    doPlace(job.id, ids, startMin, {
+      label: job.id + ' to ' + techName(tech),
+      toastMsg: job.id + ' → ' + techName(tech),
+      sub: (blockText ? blockText + ' · ' : '') + fmtTime(toHHMM(startMin)),
+      tone: blockText ? 'warn' : undefined,
     });
   }
 
@@ -863,11 +876,74 @@ export default function Board() {
 
   /* --------------------------------------------------------------- render */
 
+
   return (
     <>
       {/* The TIMELINE needs a mouse. The decision does not: giving a job to a
           technician is a choice between people, and the phone can make it. */}
       <DispatchMobile />
+
+      {retime && (
+        <div className="fixed inset-0 z-[80] bg-navy/45 flex items-center justify-center p-5"
+          onClick={() => setRetime(null)}>
+          <div className="w-full max-w-[420px] bg-white rounded-[22px] p-6 shadow-pop"
+            onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-[17px] font-bold leading-snug">Change the time?</h2>
+            <p className="text-[13.5px] text-muted mt-1">
+              {retime.job.clientName} · {retime.job.id} · {techName(retime.tech)}
+            </p>
+
+            {/* The two hours, side by side. The question is which one the
+                customer is expecting, and that is impossible to read out of a
+                sentence with both of them in it. */}
+            <div className="flex items-center gap-3 mt-4">
+              <div className="flex-1 rounded-xl bg-wash px-3.5 py-3 text-center">
+                <p className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted">Booked</p>
+                <p className="text-[16px] font-bold mt-0.5">{fmtTime(retime.job.slot)}</p>
+              </div>
+              <Icon name="chevRight" size={18} className="text-muted-2 shrink-0" />
+              <div className="flex-1 rounded-xl bg-rose px-3.5 py-3 text-center">
+                <p className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-rose-ink/70">Moving to</p>
+                <p className="text-[16px] font-bold mt-0.5 text-rose-ink">
+                  {fmtTime(toHHMM(retime.startMin))}
+                </p>
+              </div>
+            </div>
+
+            {retime.blockText && (
+              <p className="mt-3 flex items-start gap-2 text-[13px] font-semibold text-accent">
+                <Icon name="alert" size={15} className="shrink-0 mt-0.5" />
+                <span>{retime.blockText}</span>
+              </p>
+            )}
+
+            <div className="mt-5 flex flex-col gap-2.5">
+              <button type="button"
+                onClick={() => {
+                  const r = retime;
+                  setRetime(null);
+                  place(r.job, r.ids, r.startMin, r.tech, r.blockText);
+                }}
+                className="h-12 rounded-xl bg-accent text-white text-[15px] font-bold active:brightness-90">
+                Move to {fmtTime(toHHMM(retime.startMin))}
+              </button>
+              <button type="button"
+                onClick={() => {
+                  const r = retime;
+                  setRetime(null);
+                  place(r.job, r.ids, r.wasAt, r.tech, r.blockText);
+                }}
+                className="h-12 rounded-xl bg-white border border-line text-[15px] font-semibold active:bg-wash">
+                Keep {fmtTime(retime.job.slot)}
+              </button>
+              <button type="button" onClick={() => setRetime(null)}
+                className="h-10 text-[14px] font-semibold text-muted active:text-ink">
+                Leave it where it was
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
       <div className="flex items-center justify-between gap-3 px-6 h-[56px] border-b border-line">
