@@ -23,6 +23,7 @@ import { FormSteps, Step, StepNav, useStepScroll } from '@/components/form-steps
 import { Icon } from '@/components/icons';
 import { addDays, addMonths, cadenceLabel, daysBetween, docTermsFor, docTotals, FREQ_MONTHS, money, type AddressBlock } from 'shared';
 import { QUOTE_STATUS, STATES, fmtDate, lineVisits, todayISO, type QuoteFull } from './lib';
+import SelectSheet from '@/components/select-sheet';
 
 /* ------------------------------------------------------------ local types */
 
@@ -712,11 +713,15 @@ export default function Builder({ edit, presetClient, presetLead }: {
           {(items || []).map((it, i) => (
             <div key={i} className="grid grid-cols-1 lg:grid-cols-[1fr_84px_110px_110px_32px] gap-2 items-start py-3 border-b border-line-soft">
               <div>
-                <select value={it.svId} onChange={(e) => onSvc(i, e.target.value)} className={INP}>
-                  <option value="__unset">Pick a service…</option>
-                  {(boot?.services || []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  <option value="">— Custom item —</option>
-                </select>
+                <SelectSheet value={it.svId} onChange={(v) => onSvc(i, v)} className={INP}
+                  title="Which service?" placeholder="Pick a service…"
+                  options={[
+                    { value: '__unset', label: 'Pick a service…' },
+                    ...(boot?.services || []).map((sv) => ({
+                      value: sv.id, label: sv.name, note: sv.price ? money(sv.price) : '',
+                    })),
+                    { value: '', label: '— Custom item —' },
+                  ]} />
                 <input value={it.desc} onChange={(e) => patchItem(i, { desc: e.target.value })}
                   placeholder="Description shown on the quotation"
                   className="w-full h-8 px-2.5 mt-2 rounded border border-line text-[12.5px] outline-none focus:border-navy bg-white" />
@@ -737,35 +742,55 @@ export default function Builder({ edit, presetClient, presetLead }: {
                   </div>
                 )}
               </div>
-              {/* On a phone the column headings are gone, so each number
-                  carries its own label. Three unlabelled boxes in a row is
-                  the classic way a form becomes a guessing game.
+              {/* Quantity, rate and what it comes to — one line, not three
+                  full-width boxes stacked with a shouting label over each.
+                  Two small numbers and an answer is what this actually is.
                   inputMode="numeric" gets the digit keypad, not the alphabet. */}
-              <label className="lg:contents">
+              <label className="max-lg:hidden lg:contents">
                 <span className="lg:hidden block text-[12px] font-semibold uppercase
                   tracking-[0.06em] text-muted mb-1 mt-2">Quantity</span>
                 <input type="number" inputMode="numeric" min={0} step={1} value={it.qty}
                   onChange={(e) => onQty(i, Number(e.target.value) || 0)}
                   className={INP + ' text-right'} />
               </label>
-              <label className="lg:contents">
+              <label className="max-lg:hidden lg:contents">
                 <span className="lg:hidden block text-[12px] font-semibold uppercase
                   tracking-[0.06em] text-muted mb-1 mt-2">Rate (&#8377;)</span>
                 <input type="number" inputMode="numeric" min={0} step={50} value={it.rate}
                   onChange={(e) => patchItem(i, { rate: Number(e.target.value) || 0 })}
                   className={INP + ' text-right'} />
               </label>
-              <label className="lg:contents">
+              <label className="max-lg:hidden lg:contents">
                 <span className="lg:hidden block text-[12px] font-semibold uppercase
                   tracking-[0.06em] text-muted mb-1 mt-2">Amount</span>
                 <input readOnly value={money(it.qty * it.rate)}
                   className={INP + ' text-right bg-wash'} />
               </label>
+
+              {/* the phone's version of those three */}
+              <div className="lg:hidden flex items-center gap-2 mt-2">
+                <input type="number" inputMode="numeric" min={0} step={1} value={it.qty}
+                  aria-label="Quantity"
+                  onChange={(e) => onQty(i, Number(e.target.value) || 0)}
+                  className="w-[68px] h-11 px-2.5 rounded-lg border border-line text-[15px]
+                    text-center outline-none focus:border-accent bg-white" />
+                <span className="text-[14px] text-muted-2">×</span>
+                <input type="number" inputMode="numeric" min={0} step={50} value={it.rate}
+                  aria-label="Rate"
+                  onChange={(e) => patchItem(i, { rate: Number(e.target.value) || 0 })}
+                  className="flex-1 min-w-0 h-11 px-3 rounded-lg border border-line text-[15px]
+                    text-right outline-none focus:border-accent bg-white" />
+                <span className="text-[15px] font-bold tabular-nums shrink-0 min-w-[68px] text-right">
+                  {money(it.qty * it.rate)}
+                </span>
+              </div>
+
               <button onClick={() => rmItem(i)} title="Remove"
-                className="max-lg:w-full max-lg:h-11 max-lg:mt-2 max-lg:rounded-lg max-lg:bg-wash
-                  max-lg:text-[14px] max-lg:font-semibold
+                className="max-lg:w-full max-lg:h-10 max-lg:mt-2 max-lg:rounded-lg
+                  max-lg:border max-lg:border-line max-lg:text-[13.5px] max-lg:font-semibold
+                  max-lg:text-muted
                   h-9 w-8 flex items-center justify-center gap-1.5 text-muted-2 hover:text-accent">
-                <Icon name="x" size={15} /><span className="lg:hidden">Remove this line</span>
+                <Icon name="x" size={15} /><span className="lg:hidden">Remove</span>
               </button>
             </div>
           ))}
