@@ -52,7 +52,9 @@ const GROUPS: Array<{ id: string; label: string; items: NavItem[] }> = [
     // Trips is its own module now: the office monitors and reimburses every
     // work drive; the field keeps its own "My trips" screen.
     id: 'trips', label: 'Trips', items: [
-      { href: '/trips', label: 'Dashboard', icon: 'board', roles: ['admin', 'ops'] },
+      /* "Dashboard" said nothing about trips and everything about a word —
+         there are five dashboards in this app and only one of them is this. */
+      { href: '/trips', label: 'Trips', icon: 'board', roles: ['admin', 'ops'] },
       { href: '/trips/report', label: 'Daily report', icon: 'report', roles: ['admin', 'ops'] },
       { href: '/trip', label: 'My trips', icon: 'branch', roles: ['admin', 'ops', 'sales', 'accounts'] },
     ],
@@ -632,9 +634,14 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                                 (active ? 'bg-navy text-white' : 'bg-wash text-navy')}>
                                 <Icon name={n.icon} size={19} />
                               </span>
+                              {/* The whole label here. Stripping "My " is a
+                                  five-tab necessity, and in a grid with room
+                                  it turned "My trips" into a lowercase
+                                  "trips" sitting under a row of proper
+                                  names. */}
                               <span className={'text-[10.5px] leading-tight text-center ' +
                                 (active ? 'font-bold text-navy' : 'text-ink-2')}>
-                                {n.label.replace('My ', '')}
+                                {n.label}
                               </span>
                             </button>
                           );
