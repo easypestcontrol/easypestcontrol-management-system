@@ -17,6 +17,7 @@ import { Icon, type IconName } from './icons';
 import { homeFor, isFieldTech } from 'shared';
 import { ensureNotifyReady, localNotify } from '@/lib/local-notify';
 import { initPush, forgetPush } from '@/lib/push';
+import SelectUpgrade from '@/components/select-upgrade';
 
 type NavItem = { href: string; label: string; icon: IconName; roles?: string[] };
 
@@ -492,6 +493,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             single swap is what stops the desktop reading as a document with
             hairlines drawn on it. */}
         <main className="flex-1 overflow-y-auto bg-ground max-lg:pb-20">{children}</main>
+
+        {/* Every <select> in the app becomes our own sheet on a phone — one
+            listener rather than eighty-one rewrites. */}
+        <SelectUpgrade />
 
         {/* ---------------------------------------------- bottom navigation
             The phone's way around the app — replaces the sidebar entirely. */}

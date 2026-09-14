@@ -126,16 +126,19 @@ export function StepNav({ steps, at, onBack, onNext, onSave, saving, saveLabel, 
     <div className="lg:hidden fixed left-0 right-0 z-30 bottom-[calc(max(12px,env(safe-area-inset-bottom))+70px)]
       bg-white border-t border-line px-4 pt-2.5 pb-2.5">
       {err && <p className="text-accent text-[13px] mb-2 leading-snug">{err}</p>}
+      {/* Medium, not monumental. A 52px slab of red with 16px bold on it was
+          shouting the word Next at somebody who had already decided to press
+          it; 44px and a normal label is a button. */}
       <div className="flex gap-2.5">
         {at > 0 && (
           <button type="button" onClick={onBack} disabled={saving}
-            className="h-[52px] px-5 rounded-xl border border-line bg-white font-semibold text-[15px]
+            className="h-11 px-5 rounded-lg border border-line bg-white font-semibold text-[14.5px]
               active:bg-wash disabled:opacity-60">
             Back
           </button>
         )}
         <button type="button" onClick={last ? onSave : onNext} disabled={saving}
-          className="flex-1 h-[52px] rounded-xl bg-accent text-white font-bold text-[16px]
+          className="flex-1 h-11 rounded-lg bg-accent text-white font-semibold text-[14.5px]
             active:brightness-90 disabled:opacity-60">
           {saving ? 'Saving…' : last ? saveLabel : 'Next'}
         </button>
