@@ -162,11 +162,11 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
           <p className="text-[12px] font-semibold text-ink-2 mb-2">Where does this lead go next?</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button onClick={raiseQuote}
-              className="h-8 rounded border border-line text-[12.5px] font-medium hover:bg-wash">
+              className="h-11 lg:h-8 rounded border border-line text-[14px] lg:text-[12.5px] font-medium hover:bg-wash">
               Straight to quotation
             </button>
             <button onClick={() => { setSop('inspection'); setSopDate(l!.followUp || tomorrowISO()); }}
-              className="h-8 rounded border border-line text-[12.5px] font-medium hover:bg-wash">
+              className="h-11 lg:h-8 rounded border border-line text-[14px] lg:text-[12.5px] font-medium hover:bg-wash">
               Book a site visit
             </button>
           </div>
@@ -182,11 +182,11 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
           </p>
           <div className="flex gap-2 flex-wrap">
             <input type="date" value={sopDate} onChange={(e) => setSopDate(e.target.value)}
-              className="h-8 px-2.5 rounded border border-line text-[12.5px] outline-none focus:border-navy" />
-            <TimePicker value={sopTime} onChange={(__t) => setSopTime(__t)} className="h-8 px-2.5 rounded border border-line text-[12.5px] outline-none focus:border-navy" />
+              className="h-11 lg:h-8 px-2.5 rounded border border-line text-[12.5px] outline-none focus:border-navy" />
+            <TimePicker value={sopTime} onChange={(__t) => setSopTime(__t)} className="h-11 lg:h-8 px-2.5 rounded border border-line text-[12.5px] outline-none focus:border-navy" />
             {isInspect && (
               <select value={sopWho} onChange={(e) => setSopWho(e.target.value)}
-                className="h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none min-w-[160px]">
+                className="h-11 lg:h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none min-w-[160px]">
                 <option value="">— nobody yet —</option>
                 {techs.map((t) => <option key={t.id} value={t.id}>{t.name} · {t.role}</option>)}
               </select>
@@ -202,11 +202,11 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
               onClick={() => setStage(isInspect
                 ? { stage: 'inspection', date: sopDate, time: sopTime, who: sopWho }
                 : { stage: 'followup', date: sopDate, time: sopTime })}
-              className="h-8 px-3 rounded bg-accent text-white text-[12.5px] font-semibold hover:brightness-90">
+              className="h-11 lg:h-8 px-3 rounded bg-accent text-white text-[14px] lg:text-[12.5px] font-semibold hover:brightness-90">
               {isInspect ? 'Book inspection' : 'Move to Follow-up'}
             </button>
             <button onClick={() => setSop('')}
-              className="h-8 px-3 rounded border border-line text-[12.5px] font-medium hover:bg-wash">Cancel</button>
+              className="h-11 lg:h-8 px-3 rounded border border-line text-[14px] lg:text-[12.5px] font-medium hover:bg-wash">Cancel</button>
           </div>
         </div>
       );
@@ -225,11 +225,11 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
           </p>
           <div className="flex gap-2 mt-2.5">
             <button onClick={() => setStage({ stage: 'lost', reason: reason.trim() })}
-              className="h-8 px-3 rounded bg-accent text-white text-[12.5px] font-semibold hover:brightness-90">
+              className="h-11 lg:h-8 px-3 rounded bg-accent text-white text-[14px] lg:text-[12.5px] font-semibold hover:brightness-90">
               Move to Lost
             </button>
             <button onClick={() => setSop('')}
-              className="h-8 px-3 rounded border border-line text-[12.5px] font-medium hover:bg-wash">Cancel</button>
+              className="h-11 lg:h-8 px-3 rounded border border-line text-[14px] lg:text-[12.5px] font-medium hover:bg-wash">Cancel</button>
           </div>
         </div>
       );
@@ -256,12 +256,14 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
   const input = (k: string, ph = '') => (
     <input value={form[k] || ''} onChange={(e) => setForm({ ...form, [k]: e.target.value })}
       placeholder={ph}
-      className="w-full h-8 px-2.5 rounded border border-line text-[13px] outline-none focus:border-navy" />
+      className="w-full h-11 lg:h-8 px-2.5 rounded border border-line text-[13px] outline-none focus:border-navy" />
   );
 
   return (
     <div className="fixed inset-0 z-50 bg-navy/30" onClick={onClose}>
-      <div className="absolute right-0 top-0 h-full w-[560px] max-w-full bg-white border-l border-line overflow-y-auto"
+      <div className="absolute right-0 top-0 h-full w-[560px] max-w-full bg-white
+        lg:border-l border-line overflow-y-auto
+        pb-[calc(env(safe-area-inset-bottom)+96px)] lg:pb-0"
         onClick={(e) => e.stopPropagation()}>
 
         {/* ------------------------------------------------------- header */}
@@ -282,7 +284,11 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
           <span className={'zpill ' + (l.stage === 'won' ? 'navy' : l.stage === 'lost' ? '' : 'red')}>
             {stageLabel(l.stage)}
           </span>
-          <span className="zpill outline">{l.source}</span>
+          {/* "Existing customer" is a source AND a badge below; a lead moved
+              over from a customer wore it twice, side by side. */}
+          {l.source && l.source.toLowerCase() !== 'existing customer' && (
+            <span className="zpill outline">{l.source}</span>
+          )}
           {l.value > 0 && <span className="zpill outline">{money(l.value)}</span>}
           {l.clientId && <span className="zpill navy">Existing customer</span>}
         </div>
@@ -295,7 +301,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
             <p className="text-[12px] font-semibold text-ink-2 mb-2.5">What happened on the call?</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button onClick={onInterested}
-                className="h-8 rounded bg-accent text-white text-[12.5px] font-semibold hover:brightness-90">
+                className="h-11 lg:h-8 rounded bg-accent text-white text-[14px] lg:text-[12.5px] font-semibold hover:brightness-90">
                 {step.label}
               </button>
               <button
@@ -303,12 +309,12 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
                   setSop(sop === 'followup' ? '' : 'followup');
                   setSopDate(l.followUp || tomorrowISO());
                 }}
-                className={'h-8 rounded border text-[12.5px] font-medium ' +
+                className={'h-11 lg:h-8 rounded border text-[12.5px] font-medium ' +
                   (sop === 'followup' ? 'border-navy bg-white' : 'border-line bg-white hover:bg-wash')}>
                 Not answered
               </button>
               <button onClick={() => setSop(sop === 'lost' ? '' : 'lost')}
-                className={'h-8 rounded border text-[12.5px] font-medium ' +
+                className={'h-11 lg:h-8 rounded border text-[12.5px] font-medium ' +
                   (sop === 'lost' ? 'border-navy bg-white' : 'border-line bg-white hover:bg-wash')}>
                 Not interested
               </button>
@@ -350,7 +356,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
             <label className="block">
               <span className="block text-[11px] text-muted mb-1">Branch / territory</span>
               <select value={branch} onChange={(e) => setBranch(e.target.value)}
-                className="w-full h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none">
+                className="w-full h-11 lg:h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none">
                 <option value="">— no branch —</option>
                 {boot.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
@@ -358,13 +364,13 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
             <label className="block">
               <span className="block text-[11px] text-muted mb-1">Assigned to</span>
               <select value={owner} onChange={(e) => setOwner(e.target.value)}
-                className="w-full h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none">
+                className="w-full h-11 lg:h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none">
                 {owners.map((u) => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
               </select>
             </label>
           </div>
           <button onClick={() => run(() => api.patch('/leads/' + id, { owner, branch }))}
-            className="mt-2.5 h-8 px-3 rounded bg-accent text-white text-[12.5px] font-semibold hover:brightness-90">
+            className="mt-2.5 h-11 lg:h-8 px-3 rounded bg-accent text-white text-[14px] lg:text-[12.5px] font-semibold hover:brightness-90">
             Save assignment
           </button>
           <p className="text-[11.5px] text-muted-2 mt-1.5">
@@ -488,14 +494,14 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
               <label className="block">
                 <span className="block text-[11px] text-muted mb-1">Property type</span>
                 <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
-                  className="w-full h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none">
+                  className="w-full h-11 lg:h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none">
                   {PROPERTY_TYPES.map((t) => <option key={t}>{t}</option>)}
                 </select>
               </label>
               <label className="block">
                 <span className="block text-[11px] text-muted mb-1">Lead source</span>
                 <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}
-                  className="w-full h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none">
+                  className="w-full h-11 lg:h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none">
                   {LEAD_SOURCES.map((s) => <option key={s}>{s}</option>)}
                 </select>
               </label>
@@ -537,7 +543,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
                   onClick={async () => {
                     if (await run(() => api.patch('/leads/' + id, { ...form, interest }))) setEdit(false);
                   }}
-                  className="h-8 px-3 rounded bg-accent text-white text-[12.5px] font-semibold hover:brightness-90">
+                  className="h-11 lg:h-8 px-3 rounded bg-accent text-white text-[14px] lg:text-[12.5px] font-semibold hover:brightness-90">
                   Save changes
                 </button>
               </div>
@@ -568,13 +574,13 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
                 }
               }}
               placeholder="Add a note to the trail…"
-              className="flex-1 h-8 px-2.5 rounded border border-line text-[13px] outline-none focus:border-navy" />
+              className="flex-1 h-11 lg:h-8 px-2.5 rounded border border-line text-[13px] outline-none focus:border-navy" />
             <button
               onClick={async () => {
                 if (!note.trim()) return;
                 if (await run(() => api.post('/leads/' + id + '/log', { text: note.trim() }))) setNote('');
               }}
-              className="h-8 px-3 rounded border border-line text-[12.5px] font-medium hover:bg-wash shrink-0">
+              className="h-11 lg:h-8 px-3 rounded border border-line text-[14px] lg:text-[12.5px] font-medium hover:bg-wash shrink-0">
               Add
             </button>
           </div>

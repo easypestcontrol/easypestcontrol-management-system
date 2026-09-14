@@ -224,9 +224,15 @@ export default function NewLead({ boot, me, leads, presetClient, onClose, onSave
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-navy/30 flex items-start justify-center overflow-y-auto p-6"
+    /* Full screen on a phone, a dialog at a desk.
+       It was a fixed 680px box on a 390px screen: every field ran off the
+       right-hand edge and the page scrolled sideways to reach the Save
+       button. A lead is captured on a phone more often than anywhere else. */
+    <div className="fixed inset-0 z-50 bg-navy/30 flex items-start justify-center overflow-y-auto
+      max-lg:p-0 lg:p-6"
       onClick={onClose}>
-      <div className="w-[680px] bg-white rounded-md shadow-pop my-4"
+      <div className="w-full lg:w-[680px] min-h-full lg:min-h-0 bg-white
+        max-lg:rounded-none rounded-md shadow-pop lg:my-4"
         onClick={(e) => e.stopPropagation()}>
 
         <div className="flex items-start justify-between px-6 py-4 border-b border-line">
