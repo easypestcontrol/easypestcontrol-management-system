@@ -35,6 +35,10 @@ const PATHS = {
   settings: <><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.14-1.4l2-1.55-2-3.46-2.36.95A7 7 0 0 0 14.07 5l-.36-2.5h-4l-.36 2.5a7 7 0 0 0-2.43 1.4l-2.36-.95-2 3.46 2 1.55a7 7 0 0 0 0 2.8l-2 1.55 2 3.46 2.36-.95a7 7 0 0 0 2.43 1.4l.36 2.5h4l.36-2.5a7 7 0 0 0 2.43-1.4l2.36.95 2-3.46-2-1.55A7 7 0 0 0 19 12z" /></>,
   search: <><circle cx="11" cy="11" r="7" /><path d="m20.5 20.5-4.5-4.5" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
+  /* A pencil. Three screens grew an Edit button on the phone — vendor,
+     service, branch — and the set had no mark for the commonest verb there
+     is, so they were borrowing a spanner. */
+  edit: <><path d="M4 20.2h4.2L19 9.4a2.1 2.1 0 0 0-3-3L5.2 17.2z" /><path d="m14.6 7.8 3 3" /></>,
   bell: <><path d="M18 8.5a6 6 0 0 0-12 0c0 6-2.5 7-2.5 7h17s-2.5-1-2.5-7" /><path d="M10 19.5a2.2 2.2 0 0 0 4 0" /></>,
   chevDown: <path d="m6 9 6 6 6-6" />,
   chevRight: <path d="m9 6 6 6-6 6" />,

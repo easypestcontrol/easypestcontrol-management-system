@@ -72,6 +72,9 @@ export default function PurchaseOrders() {
         back="/dashboard"
         title="Purchase orders"
         loading={!data}
+        search={q}
+        onSearch={setQ}
+        searchPlaceholder="Search an order number, a vendor or a product"
         rows={(data?.rows || []).map((r) => ({
           id: r.id,
           href: '/purchase-orders/' + r.id,

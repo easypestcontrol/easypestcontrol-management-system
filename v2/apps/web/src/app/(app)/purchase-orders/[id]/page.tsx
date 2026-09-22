@@ -37,7 +37,9 @@ interface Po {
     id: string; name: string; gstin: string; contact: string; phone: string;
     email: string; addr: string; city: string; state: string; pincode: string; terms: string;
   };
-  totals: { sub: number; disc: number; gst: number; total: number; tax: { rows: Array<[string, number]> } };
+  /* No totals. A purchase order carries no money by design — see po-doc.tsx —
+     and the API sends none; declaring the field here only taught the phone to
+     read `po.totals.total` off an object that was never there. */
 }
 
 const STATUS: Record<string, { label: string; cls: string }> = {

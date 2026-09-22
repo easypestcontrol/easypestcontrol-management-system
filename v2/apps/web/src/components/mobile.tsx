@@ -187,9 +187,15 @@ export function HeroButton({ name, href, onClick, label, dot }: {
 }
 
 export function Chip({ tone = 'plain', children }: { tone?: Tone; children: React.ReactNode }) {
+  /* `shrink-0 whitespace-nowrap` is not decoration — it is the whole control.
+     A chip sits in a flex line beside the row's detail, and a flex item is
+     allowed to shrink below its content: "Nothing outstanding" was squeezed
+     to half its width, wrapped onto two lines inside a 24px-tall pill and
+     printed straight over the vendor's phone number. A chip is two words; it
+     keeps its width and the text beside it gives way instead. */
   return (
-    <span className={'inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[12px] font-semibold '
-      + TONE[tone]}>
+    <span className={'inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[12px] '
+      + 'font-semibold shrink-0 whitespace-nowrap ' + TONE[tone]}>
       <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
       {children}
     </span>
@@ -226,8 +232,11 @@ function avatarTone(name: string) {
   return AVATAR[n % AVATAR.length];
 }
 
-export function Row({ href, title, amount, meta, chip, right, onMore, avatar, stats, pill }: {
+export function Row({ href, onClick, title, amount, meta, chip, right, onMore, avatar, stats, pill }: {
   href?: string;
+  /** For a record that opens where it stands, in a sheet, rather than at a
+      route of its own. */
+  onClick?: () => void;
   title: string;
   amount?: string;
   meta?: string;
@@ -303,9 +312,13 @@ export function Row({ href, title, amount, meta, chip, right, onMore, avatar, st
      the gap between one customer and the next. */
   const cls = 'block px-4 border-b border-line-soft last:border-b-0 active:bg-wash '
     + (stats ? 'py-4' : 'py-5');
-  return href
-    ? <Link href={href} className={cls}>{body}</Link>
-    : <div className={cls}>{body}</div>;
+  if (href) return <Link href={href} className={cls}>{body}</Link>;
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cls + ' w-full text-left'}>{body}</button>
+    );
+  }
+  return <div className={cls}>{body}</div>;
 }
 
 /* ------------------------------------------------------------------- card */
@@ -612,6 +625,83 @@ export function Fab({ href, onClick, label = 'New' }: {
     : <button onClick={onClick} aria-label={label} className={cls}>{inner}</button>;
 }
 
+/* ------------------------------------------------------------------ sheet */
+
+/**
+ * A record, opened where it stands.
+ *
+ * Vendors, services and branches are lists you keep and occasionally look
+ * inside — and on the phone they did nothing at all when touched, so the
+ * catalogue was a price list you could read and never a thing you could use.
+ * A whole route each would mean a page to build, a back button to press and
+ * the scroll position lost on the way home. This is the record on top of the
+ * list you were already reading, and the list is still there when it closes.
+ *
+ * The buttons sit in a bar of their own: what you can DO with the thing does
+ * not scroll away with what the thing is.
+ */
+export function Sheet({ title, sub, onClose, children, actions }: {
+  title: string;
+  sub?: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  /** The action bar. Stays put while the body scrolls. */
+  actions?: React.ReactNode;
+}) {
+  return (
+    <div className="lg:hidden fixed inset-0 z-[70] bg-navy/45 flex items-end" onClick={onClose}>
+      <div className="w-full bg-white text-ink rounded-t-[24px] pt-2 max-h-[88vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}>
+        <span className="block w-10 h-1 rounded-full bg-line mx-auto mb-1 shrink-0" />
+        <div className="px-5 py-2.5 flex items-start justify-between gap-3 shrink-0">
+          <span className="min-w-0">
+            <span className="block text-[18px] font-bold tracking-[-0.01em]">{title}</span>
+            {sub && <span className="block text-[13px] text-muted mt-0.5">{sub}</span>}
+          </span>
+          <button type="button" onClick={onClose} aria-label="Close"
+            className="w-9 h-9 -mr-1.5 rounded-full flex items-center justify-center
+              text-muted-2 active:bg-wash shrink-0">
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+        <div className="overflow-y-auto px-5 pb-4 flex-1 min-h-0">{children}</div>
+        {actions && (
+          <div className="shrink-0 border-t border-line px-4 pt-3 flex gap-2
+            pb-[calc(env(safe-area-inset-bottom)+12px)]">
+            {actions}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The lines inside a record: what it is called on the left, what it says on
+ * the right. Anything blank is left out rather than printed as an em dash —
+ * a column of dashes is a list of things the screen does not know.
+ */
+export function Facts({ rows }: { rows: Array<[string, React.ReactNode]> }) {
+  const shown = rows.filter(([, v]) => v !== '' && v !== null && v !== undefined && v !== 0);
+  if (!shown.length) return null;
+  return (
+    <dl className="rounded-[16px] bg-ground px-4 divide-y divide-line-soft">
+      {shown.map(([k, v]) => (
+        <div key={k} className="flex items-baseline justify-between gap-4 py-2.5">
+          <dt className="text-[13.5px] text-muted shrink-0">{k}</dt>
+          <dd className="text-[14.5px] font-semibold text-right min-w-0 break-words">{v}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** The two button shapes an action bar uses, so every sheet wears the same. */
+export const btnPrimary = 'flex-1 h-12 rounded-xl bg-accent text-white font-bold text-[15px] '
+  + 'flex items-center justify-center gap-2 active:brightness-90';
+export const btnQuiet = 'flex-1 h-12 rounded-xl bg-wash text-ink font-bold text-[15px] '
+  + 'flex items-center justify-center gap-2 active:brightness-95';
+
 /** A red banner for the one thing on a screen that needs a person. */
 export function Alert({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -629,6 +719,8 @@ export function Alert({ href, children }: { href: string; children: React.ReactN
 export interface ListRow {
   id: string;
   href?: string;
+  /** Opens the record in a sheet instead of at a route of its own. */
+  onClick?: () => void;
   title: string;
   amount?: string;
   right?: string;
@@ -739,7 +831,7 @@ export function ListScreen({
         ) : (
           <Card flush className="mb-4">
             {rows.map((r) => (
-              <Row key={r.id} href={r.href} avatar={r.avatar}
+              <Row key={r.id} href={r.href} onClick={r.onClick} avatar={r.avatar}
                 stats={r.stats} pill={r.pill}
                 title={r.title} amount={r.amount} right={r.right} meta={r.meta}
                 chip={r.state ? <Chip tone={r.tone || 'plain'}>{r.state}</Chip> : undefined} />

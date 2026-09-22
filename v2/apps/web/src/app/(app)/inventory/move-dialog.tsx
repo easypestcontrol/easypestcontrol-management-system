@@ -9,14 +9,35 @@ import { api, type Bootstrap } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { isFieldTech } from 'shared';
 
+export interface Shelf {
+  branchId: string; qty: number; reorder: number;
+  /** Only the item endpoint resolves the name. */
+  branchName?: string;
+}
+
 export interface Item {
   id: string; name: string; cat: string; unit: string;
-  /** Total across every branch. `branches` is the split behind it. */
+  /** Total across every branch. The shelves are the split behind it. */
   stock: number; reorder: number; note: string;
   onOrder: number;
-  branches: Array<{ branchId: string; qty: number; reorder: number }>;
+  /* The same list under two names. `GET /inventory` calls it `branches`;
+     `GET /inventory/:id` calls it `shelves` and includes every branch, even
+     the ones at zero, with its name resolved. Read it through `shelvesOf`. */
+  branches?: Shelf[];
+  shelves?: Shelf[];
   lastRate: number; lastPackUnit: string; lastPackSize: number;
 }
+
+/**
+ * Where the stock physically is.
+ *
+ * Every caller used to read `item.branches`, which the item endpoint does not
+ * send — so on the item page the split was `undefined`, the phone crashed on
+ * `.length`, and the two dialogs behind it quietly reported nought on every
+ * shelf: "0 g here — transfer some in, or order more" while 1,173 g sat in
+ * Chennai, and a transfer out of it refused with "Only 0 g there".
+ */
+export const shelvesOf = (i: Item): Shelf[] => i.shelves || i.branches || [];
 
 export interface Move {
   id: number; itemId: string; date: string; qty: number;
@@ -106,7 +127,7 @@ export function MoveDialog({ item, onClose, onDone }: {
       .catch(() => {});
   }, []);
 
-  const onShelf = item.branches?.find((b) => b.branchId === branchId)?.qty ?? 0;
+  const onShelf = shelvesOf(item).find((b) => b.branchId === branchId)?.qty ?? 0;
   const elsewhere = item.stock - onShelf;
 
   async function save() {
@@ -160,7 +181,7 @@ export function MoveDialog({ item, onClose, onDone }: {
           <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className={inputCls}>
             <option value="">Choose a branch…</option>
             {branches.map((b) => {
-              const q = item.branches?.find((x) => x.branchId === b.id)?.qty ?? 0;
+              const q = shelvesOf(item).find((x) => x.branchId === b.id)?.qty ?? 0;
               return (
                 <option key={b.id} value={b.id}>
                   {b.name} — {q.toLocaleString('en-IN')} {item.unit}
@@ -223,14 +244,14 @@ export function TransferDialog({ item, onClose, onDone }: {
       .then((b) => {
         setBranches(b);
         // Default to moving out of wherever most of it is sitting.
-        const fullest = [...(item.branches || [])].sort((x, y) => y.qty - x.qty)[0];
+        const fullest = [...shelvesOf(item)].sort((x, y) => y.qty - x.qty)[0];
         setFrom(fullest?.branchId || b[0]?.id || '');
         setTo(b.find((x) => x.id !== (fullest?.branchId || b[0]?.id))?.id || '');
       })
       .catch(() => {});
-  }, [item.branches]);
+  }, [item]);
 
-  const on = (id: string) => item.branches?.find((b) => b.branchId === id)?.qty ?? 0;
+  const on = (id: string) => shelvesOf(item).find((b) => b.branchId === id)?.qty ?? 0;
   const n = Math.round(parseFloat(qty) || 0);
 
   async function save() {

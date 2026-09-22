@@ -11,17 +11,16 @@
    ========================================================================== */
 
 import { BackBar, Card, Chip, Screen, niceDate, type Tone } from '@/components/mobile';
+import { shelvesOf, type Item as StockItem } from '../move-dialog';
 
 interface Move {
   id: number; date: string; qty: number; dir: string;
   jobId: string; note: string; branchName?: string; vendor?: string;
 }
-interface Item {
-  id: string; name: string; cat: string; unit: string;
-  stock: number; reorder: number; note: string; onOrder: number;
-  branches: Array<{ branchId: string; qty: number; reorder: number }>;
-  moves: Move[];
-}
+/* The item endpoint's payload. The shelves come back under `shelves`, not
+   `branches` — reading the wrong one is what turned every tap on this screen
+   into "Application error: a client-side exception has occurred". */
+type Item = StockItem & { moves: Move[] };
 
 function stockState(i: Item): { tone: Tone; label: string } {
   if (i.stock <= 0) return { tone: 'bad', label: 'Out of stock' };
@@ -44,6 +43,14 @@ export default function ItemMobile({ item, branchName, onIssue, onMove, canManag
   canManage: boolean;
 }) {
   const st = stockState(item);
+  const shelves = shelvesOf(item);
+  /* The branches that actually hold some. The endpoint returns every branch
+     including the empty ones, which on a 393px screen is four rows of nought
+     between you and the one row you came to read; the empty ones get a single
+     line underneath instead. */
+  const holding = shelves.filter((b) => b.qty > 0);
+  const empty = shelves.filter((b) => b.qty <= 0)
+    .map((b) => b.branchName || branchName(b.branchId) || b.branchId);
 
   return (
     <Screen>
@@ -51,10 +58,20 @@ export default function ItemMobile({ item, branchName, onIssue, onMove, canManag
       <div className="bg-white px-4 pt-3 pb-5 text-center">
         <p className="text-[12px] font-bold uppercase tracking-[0.09em] text-muted">On the shelf</p>
         <p className="text-[38px] font-bold tracking-[-0.03em] tabular-nums mt-1">
-          {item.stock}<span className="text-[22px] text-muted-2 font-semibold"> {item.unit}</span>
+          {item.stock.toLocaleString('en-IN')}
+          <span className="text-[22px] text-muted-2 font-semibold"> {item.unit}</span>
         </p>
+        {/* The name and category are already in the bar above; this line does
+            the one bit of arithmetic nobody wants to do standing up — how far
+            above or below the reorder mark the shelf is. */}
         <p className="text-[13.5px] text-muted mt-1">
-          {item.name} · {item.cat}
+          {item.reorder > 0
+            ? (item.stock >= item.reorder
+              ? (item.stock - item.reorder).toLocaleString('en-IN') + ' ' + item.unit
+                + ' above the reorder mark'
+              : (item.reorder - item.stock).toLocaleString('en-IN') + ' ' + item.unit
+                + ' short of the reorder mark')
+            : 'No reorder level set'}
         </p>
         <div className="mt-2.5 flex items-center justify-center gap-2">
           <Chip tone={st.tone}>{st.label}</Chip>
@@ -64,17 +81,30 @@ export default function ItemMobile({ item, branchName, onIssue, onMove, canManag
 
       <div className="px-4 pt-3 flex flex-col gap-3">
         {/* Twelve litres is useless if all twelve are in another city. */}
-        {item.branches.length > 0 && (
+        {shelves.length > 0 && (
           <Card title="Where it is" flush>
-            {item.branches.map((b) => (
+            {holding.map((b) => (
               <div key={b.branchId}
                 className="flex items-center justify-between px-4 py-3 border-b border-line-soft last:border-b-0">
-                <span className="text-[14.5px]">{branchName(b.branchId) || b.branchId}</span>
+                <span className="text-[14.5px]">
+                  {b.branchName || branchName(b.branchId) || b.branchId}
+                </span>
                 <span className="text-[15px] font-bold tabular-nums">
-                  {b.qty} <span className="text-[13px] text-muted font-normal">{item.unit}</span>
+                  {b.qty.toLocaleString('en-IN')}{' '}
+                  <span className="text-[13px] text-muted font-normal">{item.unit}</span>
                 </span>
               </div>
             ))}
+            {holding.length === 0 && (
+              <p className="px-4 py-3.5 text-[14.5px] text-muted">
+                None on any shelf right now.
+              </p>
+            )}
+            {empty.length > 0 && holding.length > 0 && (
+              <p className="px-4 py-3 text-[13px] text-muted-2 border-t border-line-soft">
+                Nothing at {empty.join(', ')}.
+              </p>
+            )}
           </Card>
         )}
 

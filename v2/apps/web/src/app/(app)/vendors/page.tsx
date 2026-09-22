@@ -17,7 +17,7 @@ import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { usePager } from '@/components/pager';
 import { Modal, Field, inputCls, selectCls } from '../jobs/ui';
-import { ListScreen, money } from '@/components/mobile';
+import { Facts, ListScreen, Sheet, btnPrimary, btnQuiet } from '@/components/mobile';
 
 interface Vendor {
   id: string; name: string; gstin: string; contact: string; phone: string;
@@ -54,6 +54,8 @@ export default function Vendors() {
   const [editing, setEditing] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  /** The vendor being looked at on the phone. */
+  const [open, setOpen] = useState<Vendor | null>(null);
 
   const load = useCallback(() => {
     api.get<Vendor[]>('/vendors' + (q ? '?q=' + encodeURIComponent(q) : ''))
@@ -93,19 +95,76 @@ export default function Vendors() {
         back="/dashboard"
         title="Vendors"
         loading={!rows}
+        search={q}
+        onSearch={setQ}
+        searchPlaceholder="Search a name, a city or a contact"
         rows={(rows || []).map((v) => ({
           id: v.id,
+          onClick: () => setOpen(v),
           title: v.name,
-          meta: [v.contact, v.phone, v.city].filter(Boolean).join(' \u00b7 ') || v.id,
-          amount: v.open ? money(v.open) : undefined,
+          /* The contact and the city. The phone number was in this line too
+             and pushed both off the end of a 390px screen — it is a button in
+             the sheet now, which is what a number is for. */
+          meta: [v.contact, v.city].filter(Boolean).join(' \u00b7 ') || v.id,
+          /* Not `money(v.open)`. `open` counts PACKS on order, and printing
+             it with a rupee sign said a ten-pack delivery was worth \u20b910. */
+          right: v.open > 0 ? v.open + ' on order' : undefined,
           tone: (v.open > 0 ? 'warn' : 'plain') as 'warn' | 'plain',
-          state: v.open > 0 ? v.orders + ' open orders' : 'Nothing outstanding',
+          state: v.open > 0
+            ? v.orders + (v.orders === 1 ? ' open order' : ' open orders')
+            : 'Nothing outstanding',
         }))}
         empty="No vendors yet"
         emptyHint="Add the ones you buy chemicals from."
         fabOnClick={() => { setDraft(toDraft(null)); setEditing(''); }}
         fabLabel="Add vendor"
       />
+
+      {/* Tapping a vendor opens them. The three things anybody wants from this
+          screen are at the bottom: ring them, buy from them, correct them. */}
+      {open && (
+        <Sheet title={open.name} sub={[open.city, open.cat].filter(Boolean).join(' \u00b7 ')}
+          onClose={() => setOpen(null)}
+          actions={
+            <>
+              {open.phone && (
+                <a href={'tel:' + open.phone} className={btnQuiet}>
+                  <Icon name="phone" size={17} /> Call
+                </a>
+              )}
+              <button onClick={() => { const v = open; setOpen(null); router.push('/purchase-orders/new?vendor=' + v.id); }}
+                className={btnPrimary}>
+                <Icon name="plus" size={17} /> New order
+              </button>
+            </>
+          }>
+          <Facts rows={[
+            ['Contact', open.contact],
+            ['Phone', open.phone],
+            ['Email', open.email],
+            ['GSTIN', open.gstin ? <span className="font-mono text-[13px]">{open.gstin}</span> : ''],
+            ['Payment terms', open.terms],
+            ['They supply', open.cat],
+            ['Address', [open.addr, open.city, open.state, open.pincode].filter(Boolean).join(', ')],
+            ['Packs received', open.received],
+            ['On order', open.open > 0 ? open.open + ' packs' : ''],
+            ['Orders raised', open.orders],
+            ['Still buying', open.active ? 'Yes' : 'No'],
+          ]} />
+
+          {open.note && (
+            <p className="mt-3 text-[14px] leading-relaxed text-ink-2">{open.note}</p>
+          )}
+
+          {/* Edit is a full-width row of its own rather than a third button
+              squeezed into the bar — it is the thing people come back for. */}
+          <button onClick={() => { setDraft(toDraft(open)); setEditing(open.id); setOpen(null); }}
+            className="mt-3 w-full h-12 rounded-xl border border-line flex items-center
+              justify-center gap-2 text-[15px] font-bold active:bg-wash">
+            <Icon name="edit" size={16} /> Edit vendor
+          </button>
+        </Sheet>
+      )}
     <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-4 lg:px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">

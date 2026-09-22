@@ -13,7 +13,7 @@ import {
   MoveDialog, isLow, moveLabel, stockPct,
   type Item, type Move,
 } from './move-dialog';
-import { ListScreen } from '@/components/mobile';
+import { Alert, ListScreen } from '@/components/mobile';
 
 type Tab = 'Chemical' | 'Equipment' | 'Consumable' | 'moves';
 
@@ -65,28 +65,54 @@ export default function Inventory() {
 
   return (
     <>
-      {/* Stock is counted at the store. On the road this is a lookup: have we got any, and is more coming. */}
+      {/* Stock is counted at the store. On the road this is a lookup: have we
+          got any, and is more coming. */}
       <ListScreen
         back="/dashboard"
         title="Inventory"
         loading={!items}
         search={q}
         onSearch={setQ}
-        rows={(items || []).map((i) => ({
+        searchPlaceholder="Search a chemical or a piece of kit"
+        /* The same three tabs the desk has. Without them the phone showed
+           chemicals, sprayers and gloves in one undivided list. */
+        filters={TABS.filter((t) => t.id !== 'moves')
+          .map((t) => ({ key: t.id, label: t.label }))}
+        filter={tab}
+        onFilter={(v) => setTab(v as Tab)}
+        /* `rows`, not `items`. The search box was wired to `q` and the list
+           underneath it was built from every item in the store, so typing
+           filtered nothing at all and the field read as broken. */
+        rows={rows.map((i) => ({
           id: i.id,
           href: '/inventory/' + i.id,
           title: i.name,
-          right: i.stock + ' ' + i.unit,
-          meta: [i.cat, i.onOrder ? i.onOrder + ' on order' : ''].filter(Boolean).join(' \u00b7 '),
+          /* The quantity as the row's figure rather than its right-hand
+             label: a stock level is a number you read, not a place name. */
+          amount: i.stock + ' ' + i.unit,
+          meta: i.onOrder
+            ? i.onOrder + ' ' + i.unit + ' on order'
+            : 'Reorder at ' + i.reorder + ' ' + i.unit,
           tone: (i.stock <= 0 ? 'bad' : i.stock < i.reorder ? 'warn' : 'good') as 'bad' | 'warn' | 'good',
           state: i.stock <= 0 ? 'Out of stock'
             : i.stock < i.reorder ? 'Below reorder level' : 'In stock',
         }))}
-        empty="Nothing in stock yet"
-        emptyHint="Stock arrives by receiving a purchase order."
+        empty={needle ? 'Nothing matches' : 'Nothing in stock yet'}
+        emptyHint={needle
+          ? 'Try part of the product name.'
+          : 'Stock arrives by receiving a purchase order.'}
         fabHref="/purchase-orders/new"
         fabLabel="Order stock"
-      />
+      >
+        {/* What is about to run out, before the list of what has not. */}
+        {items && low.length > 0 && (
+          <Alert href="/purchase-orders/new">
+            {low.length === 1
+              ? low[0].name + ' is below its reorder level'
+              : low.length + ' items are below their reorder level'}
+          </Alert>
+        )}
+      </ListScreen>
     <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">

@@ -13,7 +13,8 @@ import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { usePager } from '@/components/pager';
 import { money } from 'shared';
-import { ListScreen } from '@/components/mobile';
+import Confirm, { type ConfirmSpec } from '@/components/confirm';
+import { Facts, ListScreen, Sheet, btnPrimary } from '@/components/mobile';
 
 const CATS = ['All', 'Residential', 'Commercial', 'Industrial', 'Specialised'];
 const MAX_PDF_KB = 1500; // v1 services.js:14
@@ -49,8 +50,10 @@ function durationText(mins: number) {
   return h + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : '');
 }
 
+/* 44px under a thumb, 36px under a mouse. */
 const inputCls =
-  'w-full h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy bg-white';
+  'w-full h-11 lg:h-9 px-3 rounded border border-line text-[15px] lg:text-[13.5px] '
+  + 'outline-none focus:border-navy bg-white';
 const labelCls = 'block text-[12px] font-semibold text-ink-2 mb-1.5';
 
 export default function Services() {
@@ -64,6 +67,9 @@ export default function Services() {
   const [editingId, setEditingId] = useState('');
   const [err, setErr] = useState('');
   const [saving, setSaving] = useState(false);
+  /** The service being read on the phone, before any decision to change it. */
+  const [preview, setPreview] = useState<Service | null>(null);
+  const [ask, setAsk] = useState<ConfirmSpec | null>(null);
 
   const load = useCallback(() => {
     api.get<Service[]>('/services').then(setRows).catch(() => setRows([]));
@@ -134,12 +140,24 @@ export default function Services() {
     }
   }
 
+  /* Asked by the app, not by the browser. window.confirm() is a grey strip
+     with the hostname on it and two buttons called OK and Cancel — on a phone
+     it is the one thing on the screen that is not this app. */
+  function askRemove() {
+    const s = rows?.find((x) => x.id === editingId);
+    setAsk({
+      title: 'Remove ' + (s?.name || editingId) + '?',
+      body: 'It disappears from the catalogue and from quotation line items.'
+        + (s?.pdf ? ' Its information sheet goes with it.' : ''),
+      confirmLabel: 'Remove service',
+      cancelLabel: 'Keep it',
+      danger: true,
+      onConfirm: remove,
+    });
+  }
+
   async function remove() {
     if (!editingId) return;
-    const s = rows?.find((x) => x.id === editingId);
-    if (!window.confirm(
-      `Remove ${s?.name || editingId}? It disappears from the catalogue and from quotation line items.` +
-      (s?.pdf ? ' Its information sheet is deleted too.' : ''))) return;
     setErr('');
     try {
       await api.del('/services/' + editingId);
@@ -160,12 +178,21 @@ export default function Services() {
         loading={!rows}
         search={q}
         onSearch={setQ}
-        rows={(rows || []).map((sv) => ({
+        searchPlaceholder="Search a treatment or a code"
+        /* `visible`, not `rows`. The phone had a search box wired to `q` and a
+           list built from the unfiltered array underneath it, so typing
+           narrowed nothing and the field read as broken. The category chips
+           are the same list the desk filters by. */
+        filters={CATS.map((c) => ({ key: c, label: c }))}
+        filter={cat}
+        onFilter={setCat}
+        rows={visible.map((sv) => ({
           id: sv.id,
+          onClick: () => setPreview(sv),
           title: sv.name,
           amount: sv.price ? money(sv.price) : undefined,
-          meta: [sv.code, sv.cat, sv.mins ? sv.mins + ' min' : ''].filter(Boolean).join(' \u00b7 '),
-          tone: 'plain' as const,
+          meta: [sv.code, sv.cat, durationText(sv.mins)].filter(Boolean).join(' \u00b7 '),
+          tone: (sv.used ? 'good' : 'plain') as 'good' | 'plain',
           state: sv.used ? sv.used + ' on contracts' : 'Not used yet',
         }))}
         empty="Nothing in the catalogue"
@@ -173,6 +200,68 @@ export default function Services() {
         fabOnClick={() => open(null)}
         fabLabel="Add service"
       />
+
+      {/* Tap a service and you get the whole of it: what it costs, how long it
+          takes, what is guaranteed, what goes on the wall. Then Edit. */}
+      {preview && (
+        <Sheet title={preview.name}
+          sub={[preview.code, preview.cat].filter(Boolean).join(' \u00b7 ')}
+          onClose={() => setPreview(null)}
+          actions={
+            <button className={btnPrimary}
+              onClick={() => { const s = preview; setPreview(null); open(s); }}>
+              <Icon name="edit" size={17} /> Edit service
+            </button>
+          }>
+          {/* The rate, in the size the question deserves — "what does it
+              cost?" is why anybody opens the catalogue on a phone. */}
+          <div className="rounded-[16px] bg-rose px-4 py-3.5 text-center">
+            <p className="text-[27px] font-bold tracking-[-0.02em] leading-none text-rose-ink">
+              {money(preview.price)}
+            </p>
+            <p className="text-[13px] text-rose-ink/80 mt-1">{preview.unit || 'per visit'}</p>
+          </div>
+
+          <div className="mt-3">
+            <Facts rows={[
+              ['Takes', durationText(preview.mins)],
+              ['Warranty', preview.warranty],
+              ['Category', preview.cat],
+              ['Code', preview.code],
+              ['On contracts', preview.used ? preview.used + ' jobs' : 'Not used yet'],
+              ['Information sheet', preview.pdf ? 'PDF attached' : ''],
+            ]} />
+          </div>
+
+          {preview.desc && (
+            <>
+              <p className="mt-4 text-[12px] font-bold uppercase tracking-[0.06em] text-muted">
+                What it covers
+              </p>
+              <p className="mt-1.5 text-[14.5px] leading-relaxed text-ink-2">{preview.desc}</p>
+            </>
+          )}
+
+          {/* Chemicals by name. The record holds ids, and "IN01, IN03" tells
+              the person standing in front of the customer nothing. */}
+          {preview.chem.length > 0 && (
+            <>
+              <p className="mt-4 text-[12px] font-bold uppercase tracking-[0.06em] text-muted">
+                Chemicals used
+              </p>
+              <div className="mt-2 flex gap-1.5 flex-wrap">
+                {preview.chem.map((id) => (
+                  <span key={id}
+                    className="h-8 px-3 rounded-full bg-ground text-[13.5px] font-semibold
+                      inline-flex items-center">
+                    {chems.find((c) => c.id === id)?.name || id}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+        </Sheet>
+      )}
     <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
@@ -248,18 +337,28 @@ export default function Services() {
 
       {/* ------------------------------------------------------------ editor */}
     </div>
+      {/* A sheet rising from the bottom on a phone, the same dialog as before
+          at a desk. The editor is long — eight fields, a chemical picker and a
+          file — so on a phone the header and the buttons are pinned and only
+          the middle scrolls, rather than the whole overlay drifting. */}
       {draft && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-navy/40 overflow-y-auto py-10"
+        <div className="fixed inset-0 z-50 flex items-end lg:items-start justify-center
+          bg-navy/40 lg:overflow-y-auto lg:py-10"
           onClick={(e) => { if (e.target === e.currentTarget) setDraft(null); }}>
-          <div className="w-[640px] max-w-[94vw] bg-white rounded-md shadow-pop border border-line">
-            <div className="flex items-center justify-between px-5 h-[52px] border-b border-line">
-              <h2 className="text-[15px] font-semibold">{editingId ? 'Edit service' : 'Add service'}</h2>
-              <button onClick={() => setDraft(null)} className="text-muted hover:text-navy">
+          <div className="w-full lg:w-[640px] lg:max-w-[94vw] bg-white rounded-t-[24px] lg:rounded-md
+            shadow-pop lg:border border-line max-h-[92vh] lg:max-h-none flex flex-col lg:block">
+            <div className="flex items-center justify-between px-5 h-[56px] lg:h-[52px]
+              border-b border-line shrink-0">
+              <h2 className="text-[16px] lg:text-[15px] font-bold lg:font-semibold">
+                {editingId ? 'Edit service' : 'Add service'}
+              </h2>
+              <button onClick={() => setDraft(null)} aria-label="Close"
+                className="w-9 h-9 -mr-2 flex items-center justify-center text-muted hover:text-navy">
                 <Icon name="x" size={16} />
               </button>
             </div>
 
-            <div className="p-5">
+            <div className="p-5 overflow-y-auto lg:overflow-visible flex-1 min-h-0">
               {err && (
                 <div className="mb-4 px-4 py-2.5 rounded border border-red-line bg-red-wash text-[13px] text-accent font-medium">
                   {err}
@@ -362,31 +461,48 @@ export default function Services() {
                   </p>
                 </div>
               )}
+              {/* Removal lives at the bottom of the form on a phone. The desk
+                  keeps it in the footer; a phone footer holds Cancel and Save,
+                  and a third button there is the one a thumb finds by accident. */}
+              {editingId && (
+                <button onClick={askRemove}
+                  className="lg:hidden mt-6 w-full h-12 rounded-xl border border-accent
+                    text-accent text-[15px] font-bold active:bg-red-wash">
+                  Remove service
+                </button>
+              )}
             </div>
 
-            <div className="flex items-center justify-between px-5 h-[60px] border-t border-line">
-              <div>
+            <div className="flex items-center justify-between gap-2 px-4 lg:px-5 pt-3 pb-3
+              lg:h-[60px] lg:py-0 border-t border-line shrink-0
+              pb-[calc(env(safe-area-inset-bottom)+12px)] lg:pb-0">
+              <div className="max-lg:hidden">
                 {editingId && (
-                  <button onClick={remove}
+                  <button onClick={askRemove}
                     className="h-9 px-4 rounded border border-line text-[13px] font-medium text-accent hover:bg-red-wash">
                     Remove service
                   </button>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 max-lg:w-full">
                 <button onClick={() => setDraft(null)}
-                  className="h-9 px-4 rounded border border-line text-[13px] font-medium hover:bg-wash">
+                  className="max-lg:flex-1 h-12 lg:h-9 px-4 rounded-xl lg:rounded border border-line
+                    text-[15px] lg:text-[13px] font-bold lg:font-medium hover:bg-wash">
                   Cancel
                 </button>
                 <button onClick={save} disabled={saving}
-                  className="flex items-center gap-1.5 h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-60">
-                  <Icon name="check" size={14} /> Save
+                  className="max-lg:flex-1 flex items-center justify-center gap-1.5 h-12 lg:h-9 px-4
+                    rounded-xl lg:rounded bg-accent text-white text-[15px] lg:text-[13px] font-bold
+                    lg:font-semibold hover:brightness-90 disabled:opacity-60">
+                  <Icon name="check" size={15} /> {saving ? 'Saving…' : 'Save'}
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      <Confirm spec={ask} onClose={() => setAsk(null)} />
     </>
   );
 }
