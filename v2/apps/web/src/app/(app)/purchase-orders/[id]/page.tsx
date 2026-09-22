@@ -22,6 +22,7 @@ import PoBuilder, { type PoDraft } from '../builder';
 import PoDoc from '../po-doc';
 import type { DocCompany } from '../../quotations/lib';
 import PoMobile from './mobile';
+import { DocSheet } from '@/components/mobile';
 
 interface Line {
   id: number; itemId: string; name: string; cat: string; baseUnit: string;
@@ -58,6 +59,8 @@ export default function PurchaseOrderPage() {
   const [co, setCo] = useState<DocCompany | null>(null);
   const [editing, setEditing] = useState(false);
   const [receiving, setReceiving] = useState(false);
+  /** The document, shown over the phone's summary. */
+  const [doc, setDoc] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -112,7 +115,20 @@ export default function PurchaseOrderPage() {
       {/* Opened standing at a delivery: does what arrived match what was
           ordered. Counts lead; nobody argues about a rate while the driver
           waits. */}
-      <PoMobile po={po} canReceive={canReceive} onReceive={() => setReceiving(true)} />
+      <PoMobile po={po} canReceive={canReceive} onReceive={() => setReceiving(true)}
+        onPreview={() => setDoc(true)} />
+
+      {/* The same sheet the desk prints, scaled to the screen in hand — not a
+          second, phone-shaped rendering of it. One document, one house style;
+          a vendor holding the paper and a storekeeper holding a phone are
+          looking at the same thing. */}
+      {doc && co && (
+        <DocSheet title={po.id} sub={po.vendor?.name || undefined}
+          onClose={() => setDoc(false)}>
+          <PoDoc po={po} company={co} branchName={branchName}
+            branchAddr={branches.find((b) => b.id === po.branch)?.addr} />
+        </DocSheet>
+      )}
 
     <div className="max-lg:hidden">
       <div className="flex items-center gap-3 px-4 lg:px-6 h-[56px] border-b border-line">

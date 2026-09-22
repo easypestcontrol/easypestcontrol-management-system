@@ -10,6 +10,7 @@
    a question asked after the fact.
    ========================================================================== */
 
+import { Icon } from '@/components/icons';
 import { BackBar, Card, Chip, Screen, niceDate, type Tone } from '@/components/mobile';
 import { shelvesOf, type Item as StockItem } from '../move-dialog';
 
@@ -35,11 +36,13 @@ function moveWords(m: Move): { tone: Tone; label: string } {
   return { tone: 'info', label: 'Moved between branches' };
 }
 
-export default function ItemMobile({ item, branchName, onIssue, onMove, canManage }: {
+export default function ItemMobile({ item, branchName, onIssue, onMove, onEdit, canManage }: {
   item: Item;
   branchName: (id: string) => string;
   onIssue: () => void;
   onMove: () => void;
+  /** Correct what the chemical IS — its name, category, reorder level. */
+  onEdit: () => void;
   canManage: boolean;
 }) {
   const st = stockState(item);
@@ -54,7 +57,17 @@ export default function ItemMobile({ item, branchName, onIssue, onMove, canManag
 
   return (
     <Screen>
-      <BackBar title={item.name} fallback={'/inventory'} sub={item.cat || undefined} />
+      {/* Edit sits in the bar, not in the action strip at the foot: that strip
+          is for moving stock, and correcting a name is a different kind of
+          verb from issuing three litres of it. */}
+      <BackBar title={item.name} fallback={'/inventory'} sub={item.cat || undefined}
+        right={canManage ? (
+          <button type="button" onClick={onEdit} aria-label="Edit this chemical"
+            className="h-9 px-3.5 rounded-full border border-line text-[13px] font-semibold
+              inline-flex items-center gap-1.5 active:bg-wash">
+            <Icon name="edit" size={14} /> Edit
+          </button>
+        ) : undefined} />
       <div className="bg-white px-4 pt-3 pb-5 text-center">
         <p className="text-[12px] font-bold uppercase tracking-[0.09em] text-muted">On the shelf</p>
         <p className="text-[38px] font-bold tracking-[-0.03em] tabular-nums mt-1">

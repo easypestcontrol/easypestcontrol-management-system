@@ -13,6 +13,7 @@ import {
   type Item, type Move,
 } from '../move-dialog';
 import ItemMobile from './mobile';
+import ItemEditor from '../item-editor';
 
 type ItemDetail = Item & { moves: Move[] };
 
@@ -23,6 +24,8 @@ export default function InventoryItem({ params }: { params: Promise<{ id: string
   const [missing, setMissing] = useState(false);
   const [issuing, setIssuing] = useState(false);
   const [moving, setMoving] = useState(false);
+  /** Correcting what the thing IS — never what is on the shelf. */
+  const [editing, setEditing] = useState(false);
   const [flash, setFlash] = useState('');
   // The per-branch split is meaningless as ids: twelve litres in BR-02 tells
   // nobody anything. One small read gives it names.
@@ -77,7 +80,17 @@ export default function InventoryItem({ params }: { params: Promise<{ id: string
       {/* How much is left, where it is, and is more coming. */}
       <ItemMobile item={item} canManage
         branchName={(bid) => branches.find((b) => b.id === bid)?.name || bid}
-        onIssue={() => setIssuing(true)} onMove={() => setMoving(true)} />
+        onIssue={() => setIssuing(true)} onMove={() => setMoving(true)}
+        onEdit={() => setEditing(true)} />
+
+      {/* One editor, both screens. What a chemical is called, counts as and is
+          reordered at is master data somebody fixes the moment they notice it
+          is wrong — which is usually while holding the tin, not the laptop. */}
+      {editing && (
+        <ItemEditor item={item} moved={item.moves.length > 0}
+          onClose={() => setEditing(false)}
+          onSaved={() => { setEditing(false); reload(); }} />
+      )}
 
     <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
@@ -93,6 +106,10 @@ export default function InventoryItem({ params }: { params: Promise<{ id: string
         </div>
         <div className="flex items-center gap-3">
           {flash && <span className="text-muted text-[12.5px]">{flash}</span>}
+          <button onClick={() => setEditing(true)}
+            className="flex items-center gap-1.5 h-10 lg:h-8 px-3.5 rounded border border-line text-[13px] font-medium hover:bg-wash">
+            <Icon name="edit" size={14} /> Edit
+          </button>
           <button onClick={() => setMoving(true)}
             className="flex items-center gap-1.5 h-10 lg:h-8 px-3.5 rounded border border-line text-[13px] font-medium hover:bg-wash">
             <Icon name="branch" size={14} /> Transfer

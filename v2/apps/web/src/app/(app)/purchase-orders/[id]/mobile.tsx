@@ -53,8 +53,10 @@ function stateOf(po: Po): { tone: Tone; label: string } {
   return { tone: 'info', label: 'Nothing received yet' };
 }
 
-export default function PoMobile({ po, onReceive, canReceive }: {
+export default function PoMobile({ po, onReceive, canReceive, onPreview }: {
   po: Po; onReceive: () => void; canReceive: boolean;
+  /** Show the order as the document the vendor gets. */
+  onPreview: () => void;
 }) {
   const st = stateOf(po);
   const ordered = po.items.reduce((a, l) => a + l.qty, 0);
@@ -98,6 +100,25 @@ export default function PoMobile({ po, onReceive, canReceive }: {
             </div>
           </Card>
         )}
+
+        {/* The paper itself. The desk has had the document all along and the
+            phone only ever had this summary, so the one screen that could
+            settle an argument with a vendor — what we actually sent them —
+            was the one screen you could not get to standing at the gate. */}
+        <button onClick={onPreview}
+          className="w-full bg-white rounded-[20px] px-4 py-4 flex items-center gap-3
+            active:bg-wash">
+          <span className="w-10 h-10 rounded-full bg-rose flex items-center justify-center shrink-0">
+            <Icon name="quote" size={18} className="text-rose-ink" />
+          </span>
+          <span className="min-w-0 flex-1 text-left">
+            <span className="block text-[15px] font-bold">View the order</span>
+            <span className="block text-[13px] text-muted mt-0.5">
+              The document as the vendor has it
+            </span>
+          </span>
+          <Icon name="chevRight" size={16} className="text-muted-2 shrink-0" />
+        </button>
 
         {/* Line by line, because a delivery is checked line by line. */}
         <Card title="What was ordered" flush className="mb-4">

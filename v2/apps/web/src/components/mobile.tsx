@@ -16,7 +16,7 @@
      · nothing is smaller than 12px
    ========================================================================== */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon, type IconName } from '@/components/icons';
@@ -693,6 +693,65 @@ export function Facts({ rows }: { rows: Array<[string, React.ReactNode]> }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+/**
+ * A document, on a phone.
+ *
+ * The invoice, the quotation, the service report and the purchase order are
+ * all the same 820px sheet — one house style, so a vendor and a customer
+ * recognise the same paper. A phone is 393px, and the answer the public
+ * invoice already settled on is `zoom`: the sheet keeps its proportions and
+ * is scaled by whatever the viewport can give it. It has to be `zoom` rather
+ * than `transform: scale`, because zoom reflows the height around the sheet
+ * and scale leaves a page-length hole under a shrunken document.
+ *
+ * Full screen and on top: a document is read, not skimmed past, and the tab
+ * bar underneath is not part of the paper.
+ */
+export function DocSheet({ title, sub, onClose, children, actions }: {
+  title: string;
+  sub?: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  /** Print, Share — whatever this particular document can do. */
+  actions?: React.ReactNode;
+}) {
+  const [fit, setFit] = useState<{ zoom?: number }>({});
+  useEffect(() => {
+    const size = () => {
+      const room = window.innerWidth - 16;
+      setFit(room < 820 ? { zoom: Math.max(0.34, room / 820) } : {});
+    };
+    size();
+    window.addEventListener('resize', size);
+    return () => window.removeEventListener('resize', size);
+  }, []);
+
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', esc);
+    return () => document.removeEventListener('keydown', esc);
+  }, [onClose]);
+
+  return (
+    <div className="lg:hidden fixed inset-0 z-[85] bg-ground flex flex-col">
+      <div className="shrink-0 bg-white border-b border-line flex items-center gap-2 px-2 h-[56px]">
+        <button type="button" onClick={onClose} aria-label="Close"
+          className="w-10 h-10 rounded-full flex items-center justify-center active:bg-wash shrink-0">
+          <Icon name="x" size={18} />
+        </button>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15.5px] font-bold truncate leading-tight">{title}</span>
+          {sub && <span className="block text-[12.5px] text-muted truncate">{sub}</span>}
+        </span>
+        {actions && <span className="flex items-center gap-1 shrink-0">{actions}</span>}
+      </div>
+      <div className="flex-1 overflow-auto p-2 pb-[calc(env(safe-area-inset-bottom)+16px)]">
+        <div style={fit}>{children}</div>
+      </div>
+    </div>
   );
 }
 
