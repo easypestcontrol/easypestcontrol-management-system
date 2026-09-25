@@ -581,6 +581,7 @@ model Expense {
   status       String        @default("pending") // pending|approved|rejected|processing|reimbursed|payment_failed
   rejectReason String        @default("")
   approvedBy   String        @default("")
+  rejectedBy   String        @default("") // who turned it down - the employee sees the name
   paidAt       String        @default("")
   payMode      String        @default("") // razorpayx | manual
   payoutId     String        @default("")

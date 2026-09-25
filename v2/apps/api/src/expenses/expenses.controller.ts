@@ -38,6 +38,8 @@ export const DEFAULT_CATEGORIES = [
     or a payout that bounced and wants another go. */
 const PAYABLE = ['approved', 'partial', 'payment_failed'];
 
+interface Actors { approvedBy?: string; rejectedBy?: string; payments?: unknown }
+
 interface Summary {
   count: number; employees: number; total: number;
   pending: number; approved: number; partial: number; reimbursed: number; rejected: number;
@@ -144,7 +146,29 @@ export class ExpensesController {
       images: undefined, hasReceipt: Array.isArray(e.images) && e.images.length > 0,
       employeeName: uOf.get(e.userId)?.name || 'Former staff',
       employeeColor: uOf.get(e.userId)?.color || '#888',
+      ...this.actors(e as unknown as Actors, uOf),
     };
+  }
+
+  /** Who approved, rejected and paid - by name, for the person who raised it
+      and for the office. A payment's payer is whoever made the last one. */
+  private actors(e: Actors, uOf: Map<string, { name: string }>) {
+    const name = (id?: string) => (id ? uOf.get(id)?.name || 'The office' : '');
+    const pays = Array.isArray(e.payments) ? (e.payments as Array<{ by?: string }>) : [];
+    return {
+      approvedByName: name(e.approvedBy),
+      rejectedByName: name(e.rejectedBy),
+      paidByName: pays.length ? name(pays[pays.length - 1].by) : '',
+    };
+  }
+
+  private async userMap() {
+    const users = await this.prisma.user.findMany({ select: { id: true, name: true, color: true } });
+    return new Map(users.map((u) => [u.id, u]));
+  }
+
+  private async nameOf(id: string) {
+    return (await this.prisma.user.findUnique({ where: { id }, select: { name: true } }))?.name || 'The office';
   }
 
   /* ============================================================== CATEGORIES */
@@ -410,9 +434,10 @@ export class ExpensesController {
       throw new BadRequestException(targets.length
         ? 'That report is closed - reopen it to approve' : 'Nothing pending to approve');
     }
+    const who = await this.nameOf(me);
     await this.prisma.expense.updateMany({
       where: { id: { in: ok.map((e) => e.id) } },
-      data: { status: 'approved', approvedBy: me, rejectReason: '' },
+      data: { status: 'approved', approvedBy: me, rejectedBy: '', rejectReason: '' },
     });
     const byReport = new Map<string, number>();
     const byUser = new Map<string, { n: number; sum: number }>();
@@ -421,8 +446,12 @@ export class ExpensesController {
       const u = byUser.get(e.userId) || { n: 0, sum: 0 };
       byUser.set(e.userId, { n: u.n + 1, sum: u.sum + e.amount });
     }
-    for (const [rid, n] of byReport) await this.hist(rid, `${n} expense(s) approved together`);
-    for (const [uid, x] of byUser) await this.notify(uid, `${x.n} expense(s) approved: ${rupees(x.sum)}.`);
+    for (const [rid, n] of byReport) await this.hist(rid, `${n} expense(s) approved together by ${who}`);
+    for (const [uid, x] of byUser) {
+      await this.notify(uid, x.n === 1
+        ? `${who} approved your expense: ${rupees(x.sum)}.`
+        : `${who} approved ${x.n} of your expenses: ${rupees(x.sum)}.`);
+    }
     return { approved: ok.length, amount: ok.reduce((a, e) => a + e.amount, 0), skipped: targets.length - ok.length };
   }
 
@@ -535,12 +564,14 @@ export class ExpensesController {
       orderBy: [{ date: 'desc' }, { id: 'desc' }],
       take: 300,
     });
+    const uOf = await this.userMap();
     return {
       rows: rows.map((e) => ({
         id: e.id, date: e.date, category: e.category, merchant: e.merchant, note: e.note,
         amount: e.amount, paidAmount: e.paidAmount, status: e.status, source: e.source, tripId: e.tripId,
         rejectReason: e.rejectReason, hasReceipt: Array.isArray(e.images) && e.images.length > 0,
         km: e.km, rate: e.rate,
+        ...this.actors(e, uOf),
       })),
     };
   }
@@ -573,6 +604,7 @@ export class ExpensesController {
         employeeName: uOf.get(e.userId)?.name || 'Former staff',
         employeeColor: uOf.get(e.userId)?.color || '#888',
         hasReceipt: Array.isArray(e.images) && e.images.length > 0,
+        ...this.actors(e, uOf),
       })),
     };
   }
@@ -596,6 +628,7 @@ export class ExpensesController {
     return {
       ...e,
       employeeName: u?.name || 'Former staff', employeeColor: u?.color || '#888',
+      ...this.actors(e, await this.userMap()),
       reportTitle: report?.title || '', branchName: await this.branchName(e.branch),
       images: (Array.isArray(e.images) ? e.images : []) as string[],
       canManage: this.manage(req.user?.role) && !mine,
@@ -648,16 +681,19 @@ export class ExpensesController {
     const approve = !!body.approve;
     const reason = String(body.reason || '').trim();
     if (!approve && !reason) throw new BadRequestException('Give a reason for rejecting');
+    const me = req.user?.sub || '';
+    const who = await this.nameOf(me);
     await this.prisma.expense.update({
       where: { id },
       data: approve
-        ? { status: 'approved', approvedBy: req.user?.sub || '', rejectReason: '' }
-        : { status: 'rejected', rejectReason: reason },
+        ? { status: 'approved', approvedBy: me, rejectedBy: '', rejectReason: '' }
+        : { status: 'rejected', rejectedBy: me, rejectReason: reason },
     });
-    await this.hist(e.reportId, `${e.id} ${approve ? 'approved' : 'rejected: ' + reason}`);
+    await this.hist(e.reportId, `${e.id} ${approve ? 'approved' : 'rejected'} by ${who}${approve ? '' : ': ' + reason}`);
+    // The employee hears WHO decided, not just what - the name is the point.
     await this.notify(e.userId, approve
-      ? `Expense approved: ${e.category} ${rupees(e.amount)}. (${e.id})`
-      : `Expense rejected: ${e.category} ${rupees(e.amount)} — ${reason}. (${e.id})`);
+      ? `${who} approved your expense: ${e.category} ${rupees(e.amount)}. (${e.id})`
+      : `${who} rejected your expense: ${e.category} ${rupees(e.amount)} — ${reason}. (${e.id})`);
     return { ok: true };
   }
 
@@ -707,6 +743,7 @@ export class ExpensesController {
       byUser.get(e.userId)!.push(e);
     }
 
+    const who = await this.nameOf(me);
     const results: Array<{ userId: string; amount: number; ok: boolean; payoutId?: string; error?: string }> = [];
     for (const [userId, list] of byUser) {
       const pays = list.map((e) => ({ e, pay: part || (e.amount - e.paidAmount) })).filter((x) => x.pay > 0);
@@ -732,8 +769,8 @@ export class ExpensesController {
           });
         }
         const partly = pays.some(({ e, pay }) => e.paidAmount + pay < e.amount);
-        await this.notify(userId, `${partly ? 'Part payment' : 'Reimbursed'} ${rupees(sum)} for ${pays.length} expense(s)` +
-          (mode === 'razorpayx' ? ' via RazorpayX.' : ' (paid by hand).'));
+        await this.notify(userId, `${who} ${partly ? 'part-paid' : 'paid'} you ${rupees(sum)} for ${pays.length} expense(s)` +
+          (mode === 'razorpayx' ? ' via RazorpayX.' : ' (by hand).'));
         results.push({ userId, amount: sum, ok: true, payoutId });
       } catch (err) {
         await this.prisma.expense.updateMany({ where: { id: { in: idList } }, data: { status: 'payment_failed' } });

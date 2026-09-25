@@ -18,11 +18,12 @@ import { useState } from 'react';
 import { money } from 'shared';
 import { Icon } from '@/components/icons';
 import { Card, Chip, Fab, Filters, Screen, ScreenTitle, SearchBox, type Tone } from '@/components/mobile';
-import { catIcon } from './ui';
+import { catIcon, whoSentence } from './ui';
 
 export interface MineRow {
   id: string; date: string; category: string; merchant: string; note: string; amount: number;
   paidAmount: number; status: string; source: string; tripId: string; rejectReason: string; hasReceipt: boolean;
+  approvedByName?: string; rejectedByName?: string; paidByName?: string;
 }
 
 /** 2026-09-07 → "7 Sep". */
@@ -135,8 +136,10 @@ export default function MyExpensesMobile({ rows, filter, onFilter }: {
                     {e.source === 'auto_trip' && (
                       <span className="block text-[12px] text-muted-2 mt-1">From your trip</span>
                     )}
-                    {e.status === 'rejected' && e.rejectReason && (
-                      <span className="block text-[12.5px] text-accent mt-1">Reason: {e.rejectReason}</span>
+                    {whoSentence(e, money) && (
+                      <span className={'block text-[13px] mt-1.5 font-medium ' + (e.status === 'rejected' ? 'text-accent' : e.status === 'reimbursed' ? 'text-mint-ink' : 'text-ink-2')}>
+                        {whoSentence(e, money)}
+                      </span>
                     )}
                   </span>
                 </div>

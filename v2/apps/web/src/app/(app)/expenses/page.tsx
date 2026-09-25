@@ -19,7 +19,7 @@ import { money } from 'shared';
 import { api, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { useBranchFilter } from '@/components/branch-filter';
-import { catIcon, chip, niceDate, niceMonth, shiftMonth, todayISO, type Summary } from './ui';
+import { catIcon, chip, niceDate, niceMonth, shiftMonth, todayISO, whoSentence, type Summary } from './ui';
 import MonthGrid, { type DayCell } from './calendar';
 import OpenReport from './open-report';
 import AddExpense from './add-expense';
@@ -34,6 +34,7 @@ interface MonthData { ym: string; totals: Summary; days: DayCell[]; recent: Rece
 interface MineRow {
   id: string; date: string; category: string; merchant: string; note: string; amount: number; paidAmount: number;
   status: string; source: string; tripId: string; rejectReason: string; hasReceipt: boolean;
+  approvedByName?: string; rejectedByName?: string; paidByName?: string;
 }
 
 export default function ExpensesPage() {
@@ -206,8 +207,10 @@ function EmployeeView() {
                       {e.source === 'auto_trip' && <span className="ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded bg-wash text-muted border border-line align-middle whitespace-nowrap">AUTO · TRIP</span>}
                     </span>
                     <span className="block text-[11.5px] text-muted">{niceDate(e.date)}{e.merchant ? ' · ' + e.merchant : ''}{e.note ? ' · ' + e.note : ''}</span>
-                    {e.status === 'rejected' && e.rejectReason && (
-                      <span className="block text-[11.5px] text-accent mt-1">Reason: {e.rejectReason}</span>
+                    {whoSentence(e, money) && (
+                      <span className={'block text-[12px] mt-1 font-medium ' + (e.status === 'rejected' ? 'text-accent' : e.status === 'reimbursed' ? 'text-mint-ink' : 'text-ink-2')}>
+                        {whoSentence(e, money)}
+                      </span>
                     )}
                   </span>
                   <span className="text-right shrink-0">

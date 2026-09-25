@@ -14,7 +14,7 @@ import Link from 'next/link';
 import { money } from 'shared';
 import { Icon } from '@/components/icons';
 import { initials } from '../contracts/lib';
-import { PAYABLE, catIcon, chip, type Exp } from './ui';
+import { PAYABLE, catIcon, chip, whoLine, type Exp } from './ui';
 
 export function ExpenseRow({ e, busy, locked, onApprove, onReject, onPay, onReceipt }: {
   e: Exp;
@@ -47,8 +47,8 @@ export function ExpenseRow({ e, busy, locked, onApprove, onReject, onPay, onRece
           {[e.merchant, e.note && e.source !== 'auto_trip' ? e.note : '',
             e.source === 'auto_trip' ? e.km + ' km × ' + money(e.rate) + '/km' : ''].filter(Boolean).join(' · ')}
         </span>
-        {e.status === 'rejected' && e.rejectReason && (
-          <span className="block text-[11.5px] text-accent mt-1">Reason: {e.rejectReason}</span>
+        {whoLine(e) && (
+          <span className={'block text-[11.5px] mt-1 ' + (e.status === 'rejected' ? 'text-accent' : 'text-muted')}>{whoLine(e)}</span>
         )}
         {e.hasReceipt && (
           <button onClick={() => onReceipt(e)}

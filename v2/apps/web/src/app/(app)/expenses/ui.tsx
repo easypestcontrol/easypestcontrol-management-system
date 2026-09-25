@@ -47,6 +47,45 @@ export interface Exp {
   date: string; category: string; merchant: string; note: string; amount: number; paidAmount: number;
   status: string; source: string; tripId: string; rejectReason: string; hasReceipt: boolean;
   km: number; rate: number;
+  approvedByName?: string; rejectedByName?: string; paidByName?: string;
+}
+
+/** The minimum any screen needs to say who did what to an expense. */
+export interface Acted {
+  status: string; amount: number; paidAmount?: number; rejectReason?: string;
+  approvedByName?: string; rejectedByName?: string; paidByName?: string;
+}
+
+/**
+ * Who did what, for the OFFICE's row: "Rejected by Munishwaran — no bill",
+ * "Approved by Munishwaran · Paid by Rajesh Kumar". Empty while pending.
+ */
+export function whoLine(e: Acted): string {
+  if (e.status === 'rejected') {
+    return 'Rejected by ' + (e.rejectedByName || 'the office') + (e.rejectReason ? ' — ' + e.rejectReason : '');
+  }
+  if (e.status === 'pending') return '';
+  const bits = [e.approvedByName ? 'Approved by ' + e.approvedByName : ''];
+  if (e.paidByName) bits.push((e.status === 'partial' ? 'Part paid by ' : e.status === 'payment_failed' ? 'Payment attempted by ' : 'Paid by ') + e.paidByName);
+  return bits.filter(Boolean).join(' · ');
+}
+
+/**
+ * The same facts as a sentence to the PERSON who raised it:
+ * "Munishwaran rejected your expense — no bill", "Munishwaran approved your
+ * expense", "Rajesh Kumar paid you ₹2,000". Empty while pending.
+ */
+export function whoSentence(e: Acted, money: (n: number) => string): string {
+  const a = e.approvedByName || 'The office';
+  switch (e.status) {
+    case 'rejected': return (e.rejectedByName || 'The office') + ' rejected your expense' + (e.rejectReason ? ' — ' + e.rejectReason : '');
+    case 'approved': return a + ' approved your expense · payment to follow';
+    case 'processing': return a + ' approved your expense · payment in progress';
+    case 'partial': return a + ' approved · ' + (e.paidByName || 'the office') + ' paid you ' + money(e.paidAmount || 0) + ' so far';
+    case 'reimbursed': return (e.paidByName || a) + ' paid you ' + money(e.amount);
+    case 'payment_failed': return a + ' approved · the payment failed and will be retried';
+    default: return '';
+  }
 }
 
 export interface Category { id: string; name: string; active: boolean }
