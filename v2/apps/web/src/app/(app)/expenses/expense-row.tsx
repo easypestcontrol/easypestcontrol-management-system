@@ -26,8 +26,11 @@ export function ExpenseRow({ e, busy, locked, onApprove, onReject, onPay, onRece
   onPay: (e: Exp) => void;
   onReceipt: (e: Exp) => void;
 }) {
-  const c = chip(e.status);
   const due = e.amount - (e.paidAmount || 0);
+  // A Rs 0 line (a trip that never moved) is approved and owes nothing: it
+  // must never say "to pay" or offer a Pay button.
+  const nothingOwed = PAYABLE.includes(e.status) && due <= 0;
+  const c = nothingOwed ? { label: 'APPROVED · NOTHING OWED', cls: chip('approved').cls } : chip(e.status);
   return (
     <div className="flex items-start gap-3 px-4 py-3 border-b border-line-soft last:border-0">
       <span className="w-9 h-9 rounded-lg bg-rose text-rose-ink flex items-center justify-center shrink-0 mt-0.5">
@@ -71,7 +74,7 @@ export function ExpenseRow({ e, busy, locked, onApprove, onReject, onPay, onRece
               className="h-7 px-2.5 rounded border border-red-line text-accent text-[11.5px] font-semibold hover:bg-rose">Reject</button>
           </span>
         )}
-        {!locked && PAYABLE.includes(e.status) && (
+        {!locked && PAYABLE.includes(e.status) && due > 0 && (
           <button disabled={busy} onClick={() => onPay(e)}
             className="h-7 px-2.5 rounded bg-accent text-white text-[11.5px] font-semibold hover:brightness-90">
             {e.status === 'payment_failed' ? 'Retry payment' : e.status === 'partial' ? 'Pay the rest' : 'Pay'}

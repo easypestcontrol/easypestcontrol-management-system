@@ -92,7 +92,7 @@ export function whoSentence(e: Acted, money: (n: number) => string): string {
   const a = e.approvedByName || 'The office';
   switch (e.status) {
     case 'rejected': return (e.rejectedByName || 'The office') + ' rejected your expense' + on(e.reviewedAt) + (e.rejectReason ? ' — ' + e.rejectReason : '');
-    case 'approved': return a + ' approved your expense' + on(e.reviewedAt) + ' · payment to follow';
+    case 'approved': return a + ' approved your expense' + on(e.reviewedAt) + (e.amount > 0 ? ' · payment to follow' : ' · nothing owed');
     case 'processing': return a + ' approved your expense' + on(e.reviewedAt) + ' · payment in progress';
     case 'partial': return a + ' approved' + on(e.reviewedAt) + ' · ' + (e.paidByName || 'the office') + ' paid you ' + money(e.paidAmount || 0) + on(e.paidAt) + ' so far';
     case 'reimbursed': return (e.paidByName || a) + ' paid you ' + money(e.amount) + on(e.paidAt);
