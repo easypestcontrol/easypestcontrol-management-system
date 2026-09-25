@@ -21,7 +21,6 @@ import { Icon } from '@/components/icons';
 import { niceDate, shiftDay, todayISO, type Exp, type Summary } from '../../ui';
 import { PersonGroup, ReceiptModal, groupByPerson, type Group } from '../../expense-row';
 import PayDialog, { type PayTarget } from '../../pay-dialog';
-import OpenReport from '../../open-report';
 
 interface Report {
   id: string; title: string; branch: string; branchName: string; status: string;
@@ -38,7 +37,6 @@ export default function DayPage() {
   const [err, setErr] = useState('');
   const [note, setNote] = useState('');
   const [pay, setPay] = useState<PayTarget | null>(null);
-  const [opening, setOpening] = useState(false);
   const [receipt, setReceipt] = useState<{ title: string; images: string[] } | null>(null);
 
   const load = useCallback(() => {
@@ -74,6 +72,15 @@ export default function DayPage() {
     approveMany({ ids: pending.map((e) => e.id) }, 'of ' + g.name, pending.reduce((a, e) => a + e.amount, 0));
   const payPerson = (g: Group, payable: Exp[], due: number) =>
     setPay({ ids: payable.map((e) => e.id), title: g.name + ' · ' + niceDate(date), due });
+  /* The whole day at once: the office settles a day, not a branch at a time.
+     Reopening is the same single click the other way. */
+  const closeDay = (reopen: boolean, n: number) => act(async () => {
+    const out = await api.post<{ changed: number; pulled: number }>('/expenses/day/' + date + '/close', { reopen });
+    setNote((reopen ? out.changed + ' report(s) reopened' : out.changed + ' report(s) closed')
+      + (out.pulled ? ' · ' + out.pulled + ' trip expense(s) came in' : ''));
+  }, reopen
+    ? 'Reopen all ' + n + ' report(s) for ' + niceDate(date) + '? Their people can add and change expenses again.'
+    : 'Close all ' + n + ' report(s) for ' + niceDate(date) + '? Nothing can be added, changed, approved or paid until they are reopened.');
   const toggleClose = (r: Report) => act(async () => {
     const out = await api.post<{ status: string; pulled: number }>('/expenses/reports/' + r.id + '/close', {});
     if (out.status === 'open' && out.pulled) setNote(out.pulled + ' trip expense(s) came in when the report reopened.');
@@ -88,6 +95,7 @@ export default function DayPage() {
   if (!d) return <div className="p-6 text-muted text-[13px]">Loading…</div>;
   const S = d.summary;
   const openReports = d.reports.filter((r) => r.status !== 'closed');
+  const allClosed = d.reports.length > 0 && openReports.length === 0;
   const pendingOpen = openReports.reduce((a, r) => a + r.summary.pending, 0);
   const dueOpen = openReports.reduce((a, r) => a + r.summary.due, 0);
   const tiles = [
@@ -115,7 +123,17 @@ export default function DayPage() {
           <Icon name="chevRight" size={16} />
         </button>
         <span className="flex-1" />
-        <button onClick={() => setOpening(true)} className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">Open a report for this day</button>
+        {d.reports.length > 0 && (allClosed ? (
+          <button disabled={busy} onClick={() => closeDay(true, d.reports.length)}
+            className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">
+            Reopen all reports
+          </button>
+        ) : (
+          <button disabled={busy} onClick={() => closeDay(false, openReports.length)}
+            className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">
+            Close all reports{d.reports.length > 1 ? ' (' + openReports.length + ')' : ''}
+          </button>
+        ))}
       </div>
       {err && <p className="text-[12.5px] text-accent mb-3">{err}</p>}
       {note && <p className="text-[12.5px] text-mint-ink font-medium mb-3">{note}</p>}
@@ -154,7 +172,7 @@ export default function DayPage() {
 
       {d.reports.length === 0 ? (
         <div className="card p-10 text-center text-muted text-[13px]">
-          No expenses on this day. Open a report for a branch and its people can add theirs.
+          No expenses on this day. A branch&rsquo;s report opens by itself with the first expense or trip.
         </div>
       ) : (
         <>
@@ -235,7 +253,6 @@ export default function DayPage() {
 
       {pay && <PayDialog target={pay} onClose={() => setPay(null)}
         onDone={(out) => { setPay(null); setNote(out.paid + ' paid' + (out.failed ? ', ' + out.failed + ' failed — see the line' : '')); load(); }} />}
-      {opening && <OpenReport date={date} onClose={() => setOpening(false)} onDone={() => { setOpening(false); load(); }} />}
       {receipt && <ReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />}
     </div>
   );

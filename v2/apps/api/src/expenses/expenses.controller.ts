@@ -409,6 +409,36 @@ export class ExpensesController {
   }
 
   /**
+   * Close every branch's report for a day in one go - or reopen them all.
+   * The office settles a day once, not once per branch. Reopening pulls in
+   * any trip that finished that day while the folders were shut, the same
+   * as reopening one report does.
+   */
+  @Post('day/:date/close')
+  @Roles('admin', 'ops')
+  async closeDay(@Param('date') date: string, @Body() body: Record<string, unknown>, @Req() req: AuthedReq) {
+    const d = String(date || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new BadRequestException('Pick a valid date');
+    const reopen = !!body.reopen;
+    const scope = clampScope(await branchScope(this.prisma, req.user), undefined);
+    const reports = await this.prisma.expenseReport.findMany({ where: { ...branchWhere(scope), date: d } as never });
+    const who = await this.nameOf(req.user?.sub || '');
+    let changed = 0, pulled = 0;
+    for (const r of reports) {
+      const want = reopen ? 'open' : 'closed';
+      if (r.status === want) continue;
+      await this.prisma.expenseReport.update({ where: { id: r.id }, data: { status: want } });
+      await this.hist(r.id, (reopen ? 'Report reopened' : 'Report closed') + ' by ' + who + ' (whole day)');
+      changed += 1;
+      if (reopen) {
+        const n = await this.trips.sweepIntoReport(r.date, r.branch).catch(() => 0);
+        if (n) { pulled += n; await this.hist(r.id, `${n} trip expense(s) pulled in on reopening`); }
+      }
+    }
+    return { reports: reports.length, changed, pulled, status: reopen ? 'open' : 'closed' };
+  }
+
+  /**
    * Approve every pending expense in a day, in one branch's report, or in a
    * list - the office verifying a whole day at once. A closed report is
    * skipped and said so: it has to be reopened first.
