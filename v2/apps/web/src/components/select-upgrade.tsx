@@ -13,8 +13,8 @@
    of risk for one behaviour. So this is one listener instead: on a phone it
    catches the tap BEFORE the operating system opens its list, reads the
    options straight out of the <select> that was tapped, and shows them as our
-   own sheet. Choosing one writes the value back through React's own setter
-   and fires the change event, so every form keeps working exactly as it did —
+   own sheet. A tap, not a touch: a finger that lands on a select on its way
+   to scrolling the form opens nothing. Choosing one writes the value back through React's own setter and fires the change event, so every form keeps working exactly as it did —
    no props, no rewrites, and a <select> added tomorrow is upgraded too.
 
    A desk keeps the real control: a mouse and a keyboard are what it was
@@ -22,7 +22,7 @@
    `data-native`.
    ========================================================================== */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from '@/components/icons';
 
 interface Opt { value: string; label: string; group: string; disabled: boolean }
@@ -58,40 +58,53 @@ export default function SelectUpgrade() {
   const [el, setEl] = useState<HTMLSelectElement | null>(null);
   const [opts, setOpts] = useState<Opt[]>([]);
   const [q, setQ] = useState('');
-  /* When the sheet opened. The tap that opens it fires a trailing `click`
-     AFTER the sheet has rendered, which lands on the fresh backdrop and would
-     dismiss it on the same tap — the sheet flashes open and shuts. We ignore
-     any backdrop dismiss within a moment of opening. */
-  const openedAt = useRef(0);
 
   useEffect(() => {
     const phone = () => window.matchMedia('(max-width: 1023px)').matches;
 
-    const grab = (e: Event) => {
-      if (!phone()) return;
+    /** The <select> this event is about, if it is one we take over. */
+    const selectOf = (e: Event) => {
+      if (!phone()) return null;
       const t = e.target as HTMLElement | null;
       const sel = t?.closest?.('select') as HTMLSelectElement | null;
-      if (!sel || sel.disabled || sel.multiple || sel.dataset.native !== undefined) return;
-      const list = optionsOf(sel);
-      if (!list.length) return;
-      // Before the operating system gets it.
+      if (!sel || sel.disabled || sel.multiple || sel.dataset.native !== undefined) return null;
+      if (!sel.options.length) return null;
+      return sel;
+    };
+
+    /* A finger landing on a select is not yet a choice: on a form with thirty
+       fields it is usually the start of a scroll. So nothing opens on the
+       touch. What we cancel is the mousedown — from a mouse, or the one a
+       tap synthesises after the finger lifts — because that is the event the
+       operating system's own list (and the field's focus) hang off. A scroll
+       never synthesises one, and cancelling it leaves nothing behind; cancelling
+       pointerdown instead leaves Chromium's touch state stale after a scroll
+       ends in pointercancel, and the next tap's click never arrives. */
+    const arm = (e: Event) => {
+      if (selectOf(e)) e.preventDefault();
+    };
+
+    /* The tap. A browser makes a click out of a touch only when the finger
+       stayed put — a scroll, or a touch that stops one mid-flight, never
+       produces one. That is exactly the "did they mean this field" judgement
+       we need, and the browser has already made it, so this is the one place
+       the sheet opens. Being the click that opens it, there is no trailing
+       click left over to land on the backdrop and shut it again. */
+    const open = (e: Event) => {
+      const sel = selectOf(e);
+      if (!sel) return;
       e.preventDefault();
       e.stopPropagation();
       setQ('');
-      setOpts(list);
+      setOpts(optionsOf(sel));
       setEl(sel);
-      openedAt.current = Date.now();
     };
 
-    // pointerdown is where the native picker starts; click catches anything
-    // that gets past it (a keyboard "click", a synthetic one).
-    document.addEventListener('pointerdown', grab, true);
-    document.addEventListener('mousedown', grab, true);
-    document.addEventListener('click', grab, true);
+    document.addEventListener('mousedown', arm, true);
+    document.addEventListener('click', open, true);
     return () => {
-      document.removeEventListener('pointerdown', grab, true);
-      document.removeEventListener('mousedown', grab, true);
-      document.removeEventListener('click', grab, true);
+      document.removeEventListener('mousedown', arm, true);
+      document.removeEventListener('click', open, true);
     };
   }, []);
 
@@ -121,7 +134,7 @@ export default function SelectUpgrade() {
 
   return (
     <div className="lg:hidden fixed inset-0 z-[90] bg-navy/45 flex items-end"
-      onClick={() => { if (Date.now() - openedAt.current < 350) return; setEl(null); }}>
+      onClick={() => setEl(null)}>
       <div className="w-full bg-white text-ink rounded-t-[24px] pt-2 max-h-[78vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}>
         <span className="block w-10 h-1 rounded-full bg-line mx-auto mb-1 shrink-0" />
