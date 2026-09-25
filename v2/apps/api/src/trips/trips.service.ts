@@ -102,10 +102,30 @@ export class TripsService {
     if (existing) return 'exists';
     const rate = await this.kmRate();
     if (!rate) return 'skip';
-    const d = new Date(t.startAt);
+    // The day the trip FINISHED is the day its money belongs to - that is
+    // the folder the office reviews it in. And the folder opens itself, the
+    // way a manual expense opens it: bookkeeping is not a decision. Only a
+    // closed folder refuses; reopening it pulls the trip in (sweepIntoReport).
+    const d = new Date(t.endAt || t.startAt);
     const date = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
-    const report = await this.prisma.expenseReport.findUnique({ where: { date_branch: { date, branch: t.branch } } });
-    if (!report || report.status === 'closed') return 'no-report';
+    let report = await this.prisma.expenseReport.findUnique({ where: { date_branch: { date, branch: t.branch } } });
+    if (!report) {
+      if (!t.branch) return 'no-report';
+      const b = await this.prisma.branch.findUnique({ where: { id: t.branch }, select: { name: true } });
+      const rseq = await this.prisma.seq.upsert({
+        where: { key: 'expense-report' }, create: { key: 'expense-report', value: 1 }, update: { value: { increment: 1 } },
+      });
+      const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      report = await this.prisma.expenseReport.create({
+        data: {
+          id: 'EXR-' + rseq.value, date, branch: t.branch,
+          title: `${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()} \u2014 ${b?.name || t.branch}`,
+          createdBy: t.userId,
+          history: [{ at: nowStamp(), text: 'Report opened by trip ' + t.id }] as never,
+        },
+      });
+    }
+    if (report.status === 'closed') return 'no-report';
 
     const km = +(t.distanceM / 1000).toFixed(1);
     const eseq = await this.prisma.seq.upsert({
@@ -131,5 +151,26 @@ export class TripsService {
     await this.notify(t.userId, 'Trip allowance added to your expenses: ' + km + ' km \u00d7 \u20b9' + rate +
       ' = \u20b9' + Math.round(km * rate).toLocaleString('en-IN') + '. (' + expId + ')');
     return 'created';
+  }
+
+  /**
+   * Every finished, unrejected trip of a branch that ended on a day and has
+   * no expense yet - the ones a closed folder turned away. Called when the
+   * folder reopens. Returns how many got in.
+   */
+  async sweepIntoReport(date: string, branch: string): Promise<number> {
+    const trips = await this.prisma.trip.findMany({
+      where: { branch, status: 'done', claimId: '', review: { in: ['auto', 'approved'] } },
+      select: { id: true, endAt: true, startAt: true },
+      orderBy: { startAt: 'desc' }, take: 300,
+    });
+    let n = 0;
+    for (const t of trips) {
+      const d = new Date(t.endAt || t.startAt);
+      const day = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+      if (day !== date) continue;
+      if ((await this.autoExpenseForTrip(t.id).catch(() => 'skip')) === 'created') n += 1;
+    }
+    return n;
   }
 }

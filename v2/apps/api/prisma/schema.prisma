@@ -522,6 +522,17 @@ model Payment {
   settled   Boolean @default(false) // cash: true once deposited at the office
 }
 
+/// Expense categories are master data. Seeded with the ten the app shipped
+/// with; "Others" on the form adds what the office types, so the list grows
+/// with the business instead of everything landing in Miscellaneous.
+model ExpenseCategory {
+  id        String   @id // EXC-1
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdBy String   @default("")
+  createdAt DateTime @default(now())
+}
+
 /// A day's expense folder — the Zoho-style "report" the client asked for.
 /// Expenses are recorded INSIDE a folder and the folder travels as one unit:
 /// open → submitted → approved | rejected → paid. Approval and payment are
@@ -573,6 +584,8 @@ model Expense {
   paidAt       String        @default("")
   payMode      String        @default("") // razorpayx | manual
   payoutId     String        @default("")
+  paidAmount   Int           @default(0) // rupees paid so far; under `amount` = partially reimbursed
+  payments     Json          @default("[]") // [{at, amount, mode, payoutId, by}] - every payout behind paidAmount
   images       Json          @default("[]") // receipt photos, data URLs
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt

@@ -83,6 +83,7 @@ const GROUPS: Array<{ id: string; label: string; items: NavItem[] }> = [
       { href: '/chemicals', label: 'Chemicals', icon: 'inventory', roles: ['admin', 'ops'] },
       { href: '/services', label: 'Service Catalogue', icon: 'service', roles: ['admin', 'ops'] },
       { href: '/branches', label: 'Branches', icon: 'branch', roles: ['admin', 'ops'] },
+      { href: '/expense-categories', label: 'Expense categories', icon: 'receipt', roles: ['admin', 'ops'] },
       { href: '/team', label: 'Team', icon: 'team', roles: ['admin', 'ops'] },
       { href: '/training', label: 'Training', icon: 'team', roles: ['admin', 'ops'] },
     ],

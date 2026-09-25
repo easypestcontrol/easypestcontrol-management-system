@@ -22,7 +22,7 @@ import { catIcon } from './ui';
 
 export interface MineRow {
   id: string; date: string; category: string; merchant: string; note: string; amount: number;
-  status: string; source: string; tripId: string; rejectReason: string; hasReceipt: boolean;
+  paidAmount: number; status: string; source: string; tripId: string; rejectReason: string; hasReceipt: boolean;
 }
 
 /** 2026-09-07 → "7 Sep". */
@@ -32,15 +32,16 @@ const niceDate = (iso: string) => {
   return p.length === 3 ? Number(p[2]) + ' ' + M[Number(p[1]) - 1] : iso;
 };
 
-/* Where a claim stands, in the four words a person actually uses. Amber while
-   somebody has to look at it, navy once the money is moving, red if it was
-   turned down. */
+/* Where a claim stands, in the words a person actually uses. Red until
+   somebody has verified it, amber once it is approved and the money is still
+   owed (in part or in full), green when it has been paid. */
 const STATE: Record<string, { label: string; tone: Tone }> = {
-  pending: { label: 'Waiting', tone: 'warn' },
-  approved: { label: 'Approved', tone: 'info' },
+  pending: { label: 'Waiting', tone: 'bad' },
+  approved: { label: 'Approved · to pay', tone: 'warn' },
+  partial: { label: 'Partly paid', tone: 'warn' },
   processing: { label: 'Paying', tone: 'warn' },
   reimbursed: { label: 'Paid', tone: 'good' },
-  rejected: { label: 'Rejected', tone: 'bad' },
+  rejected: { label: 'Rejected', tone: 'plain' },
   payment_failed: { label: 'Payment failed', tone: 'bad' },
 };
 const stateOf = (s: string) => STATE[s] || STATE.pending;
@@ -49,6 +50,7 @@ const TABS = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Waiting' },
   { key: 'approved', label: 'Approved' },
+  { key: 'partial', label: 'Partly paid' },
   { key: 'reimbursed', label: 'Paid' },
   { key: 'rejected', label: 'Rejected' },
 ];
@@ -69,9 +71,9 @@ export default function MyExpensesMobile({ rows, filter, onFilter }: {
     .filter((r) => !needle || [r.category, r.merchant, r.note, r.date, String(r.amount)]
       .filter(Boolean).join(' ').toLowerCase().includes(needle));
   const owed = all
-    .filter((r) => r.status === 'pending' || r.status === 'approved' || r.status === 'processing')
-    .reduce((a, r) => a + r.amount, 0);
-  const paid = all.filter((r) => r.status === 'reimbursed').reduce((a, r) => a + r.amount, 0);
+    .filter((r) => ['pending', 'approved', 'partial', 'processing', 'payment_failed'].includes(r.status))
+    .reduce((a, r) => a + r.amount - (r.paidAmount || 0), 0);
+  const paid = all.reduce((a, r) => a + (r.paidAmount || 0), 0);
 
   return (
     <Screen>

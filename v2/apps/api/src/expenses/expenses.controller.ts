@@ -21,17 +21,28 @@ import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { branchScope, branchWhere, clampScope, inScope } from '../branch.util';
 import { open, seal } from '../secrets.util';
+import { TripsService } from '../trips/trips.service';
 
 interface AuthedReq { user?: { sub?: string; role?: string } }
 
 const MAX_IMAGES = 4;
 const MAX_IMAGE_B = 900 * 1024;
 
-export const CATEGORIES = [
+/** The categories the app shipped with. They seed the master-data table on
+    first use; after that the table is the truth and this list is history. */
+export const DEFAULT_CATEGORIES = [
   'Trip / Travel', 'Petrol / Fuel', 'Materials', 'Parking', 'Toll',
   'Vehicle Maintenance', 'Food', 'Tools / Equipment', 'Office', 'Miscellaneous',
 ];
-const LOCKED = ['approved', 'processing', 'reimbursed', 'payment_failed'];
+/** Money that is still owed on an expense: approved and unpaid, part paid,
+    or a payout that bounced and wants another go. */
+const PAYABLE = ['approved', 'partial', 'payment_failed'];
+
+interface Summary {
+  count: number; employees: number; total: number;
+  pending: number; approved: number; partial: number; reimbursed: number; rejected: number;
+  paid: number; due: number;
+}
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const todayISO = () => {
@@ -59,7 +70,7 @@ function cleanImages(raw: unknown): string[] {
 @Controller('expenses')
 @UseGuards(AuthGuard)
 export class ExpensesController {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private trips: TripsService) {}
 
   private manage(role?: string) { return role === 'admin' || role === 'ops'; }
 
@@ -73,6 +84,13 @@ export class ExpensesController {
   private async notify(userId: string, text: string) {
     if (!userId) return;
     await this.prisma.notification.create({ data: { userId, at: nowStamp(), text } }).catch(() => {});
+  }
+
+  /** Closed means closed: nothing is added, changed, approved or paid until
+      the office reopens it. The same sentence everywhere it applies. */
+  private async mustBeOpen(reportId: string) {
+    const r = await this.prisma.expenseReport.findUnique({ where: { id: reportId }, select: { status: true } });
+    if (r?.status === 'closed') throw new BadRequestException('This report is closed - reopen it first');
   }
 
   /** A line into a report's audit diary. */
@@ -101,7 +119,7 @@ export class ExpensesController {
     return u?.branches[0] || '';
   }
 
-  private summarise(expenses: Array<{ userId: string; amount: number; status: string }>) {
+  private summarise(expenses: Array<{ userId: string; amount: number; status: string; paidAmount?: number }>): Summary {
     const by = (s: string) => expenses.filter((e) => e.status === s).reduce((a, e) => a + e.amount, 0);
     return {
       count: expenses.length,
@@ -109,9 +127,97 @@ export class ExpensesController {
       total: expenses.reduce((a, e) => a + e.amount, 0),
       pending: by('pending'),
       approved: by('approved'),
+      partial: by('partial'),
       reimbursed: by('reimbursed'),
       rejected: by('rejected'),
+      // Rupees actually paid out, and rupees still owed - the two numbers the
+      // office wants at a glance, whatever the statuses underneath.
+      paid: expenses.reduce((a, e) => a + (e.paidAmount || 0), 0),
+      due: expenses.filter((e) => PAYABLE.includes(e.status)).reduce((a, e) => a + e.amount - (e.paidAmount || 0), 0),
     };
+  }
+
+  /** An expense the way a screen shows it: names on, receipt bytes off. */
+  private shape<T extends { userId: string; images: unknown }>(e: T, uOf: Map<string, { name: string; color: string }>) {
+    return {
+      ...e,
+      images: undefined, hasReceipt: Array.isArray(e.images) && e.images.length > 0,
+      employeeName: uOf.get(e.userId)?.name || 'Former staff',
+      employeeColor: uOf.get(e.userId)?.color || '#888',
+    };
+  }
+
+  /* ============================================================== CATEGORIES */
+
+  private async seedCategories() {
+    if (await this.prisma.expenseCategory.count()) return;
+    let i = 0;
+    for (const name of DEFAULT_CATEGORIES) {
+      i += 1;
+      await this.prisma.expenseCategory.create({ data: { id: 'EXC-' + i, name } }).catch(() => {});
+    }
+    await this.prisma.seq.upsert({
+      where: { key: 'expense-category' },
+      create: { key: 'expense-category', value: i }, update: { value: i },
+    });
+  }
+
+  /**
+   * The category as master data knows it - or, typed under "Others", as it
+   * is from now on. Matching ignores case and spacing, so "petrol" is the
+   * Petrol / Fuel that already exists and not a second one.
+   */
+  private async category(raw: unknown, by: string): Promise<string> {
+    await this.seedCategories();
+    const name = String(raw || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    if (!name) return 'Miscellaneous';
+    const key = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const all = await this.prisma.expenseCategory.findMany();
+    const hit = all.find((c) => key(c.name) === key(name));
+    if (hit) return hit.name;
+    const id = await this.mint('expense-category', 'EXC-');
+    await this.prisma.expenseCategory.create({ data: { id, name, createdBy: by } });
+    return name;
+  }
+
+  /** The list the form offers. Everyone sees it; only the office edits it. */
+  @Get('categories')
+  async listCategories() {
+    await this.seedCategories();
+    const rows = await this.prisma.expenseCategory.findMany({ orderBy: { name: 'asc' } });
+    return { rows: rows.map((c) => ({ id: c.id, name: c.name, active: c.active })) };
+  }
+
+  @Post('categories')
+  @Roles('admin', 'ops')
+  async addCategory(@Body() body: Record<string, unknown>, @Req() req: AuthedReq) {
+    const name = await this.category(body.name, req.user?.sub || '');
+    const c = await this.prisma.expenseCategory.findUnique({ where: { name } });
+    if (c && !c.active) await this.prisma.expenseCategory.update({ where: { name }, data: { active: true } });
+    return { name };
+  }
+
+  /** Rename a category (its expenses follow) or take it off the form. */
+  @Patch('categories/:id')
+  @Roles('admin', 'ops')
+  async editCategory(@Param('id') id: string, @Body() body: Record<string, unknown>) {
+    const c = await this.prisma.expenseCategory.findUnique({ where: { id } });
+    if (!c) throw new NotFoundException('No such category');
+    const data: Record<string, unknown> = {};
+    if ('active' in body) data.active = !!body.active;
+    if ('name' in body) {
+      const name = String(body.name || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+      if (!name) throw new BadRequestException('Give it a name');
+      const clash = await this.prisma.expenseCategory.findUnique({ where: { name } });
+      if (clash && clash.id !== id) throw new BadRequestException('There is already a category called ' + name);
+      if (name !== c.name) {
+        await this.prisma.expense.updateMany({ where: { category: c.name }, data: { category: name } });
+        data.name = name;
+      }
+    }
+    if (!Object.keys(data).length) throw new BadRequestException('Nothing to change');
+    await this.prisma.expenseCategory.update({ where: { id }, data });
+    return { ok: true };
   }
 
   /* ================================================================= REPORTS */
@@ -152,7 +258,7 @@ export class ExpensesController {
     const reports = await this.prisma.expenseReport.findMany({
       where: branchWhere(scope) as never,
       orderBy: [{ date: 'desc' }, { branch: 'asc' }],
-      include: { expenses: { select: { userId: true, amount: true, status: true } } },
+      include: { expenses: { select: { userId: true, amount: true, status: true, paidAmount: true } } },
       take: 200,
     });
     const branches = await this.prisma.branch.findMany({ select: { id: true, name: true } });
@@ -183,13 +289,141 @@ export class ExpensesController {
       description: r.description, createdBy: r.createdBy,
       history: r.history, rate: await this.kmRate(),
       summary: this.summarise(r.expenses),
-      expenses: r.expenses.map((e) => ({
-        ...e,
-        images: undefined, hasReceipt: Array.isArray(e.images) && e.images.length > 0,
-        employeeName: uOf.get(e.userId)?.name || 'Former staff',
-        employeeColor: uOf.get(e.userId)?.color || '#888',
+      expenses: r.expenses.map((e) => this.shape(e, uOf)),
+    };
+  }
+
+  /* ========================================================= THE CALENDAR */
+
+  /**
+   * A month, day by day: what each day cost and how much of it is paid, plus
+   * the latest expenses - the office's first page. One number per day is
+   * enough to see where the money is; the day itself is a tap away.
+   */
+  @Get('month')
+  @Roles('admin', 'ops')
+  async month(@Req() req: AuthedReq, @Query('ym') ym?: string, @Query('branch') branch?: string) {
+    const m = /^\d{4}-\d{2}$/.test(String(ym || '')) ? String(ym) : todayISO().slice(0, 7);
+    const scope = clampScope(await branchScope(this.prisma, req.user), branch);
+    const [reports, branches, users] = await Promise.all([
+      this.prisma.expenseReport.findMany({
+        where: { ...branchWhere(scope), date: { startsWith: m } } as never,
+        include: { expenses: { select: { userId: true, amount: true, status: true, paidAmount: true } } },
+        orderBy: [{ date: 'asc' }, { branch: 'asc' }],
+      }),
+      this.prisma.branch.findMany({ select: { id: true, name: true } }),
+      this.prisma.user.findMany({ select: { id: true, name: true, color: true } }),
+    ]);
+    const bn = new Map(branches.map((b) => [b.id, b.name]));
+    const uOf = new Map(users.map((u) => [u.id, u]));
+    type Day = Summary & {
+      date: string; reports: Array<{ id: string; branch: string; branchName: string; status: string; total: number; pending: number; due: number; paid: number; count: number }>;
+    };
+    const days = new Map<string, Day>();
+    const everything: Array<{ userId: string; amount: number; status: string; paidAmount?: number }> = [];
+    for (const r of reports) {
+      everything.push(...r.expenses);
+      const s = this.summarise(r.expenses);
+      const d = days.get(r.date) || { ...this.summarise([]), date: r.date, reports: [] };
+      d.reports.push({ id: r.id, branch: r.branch, branchName: bn.get(r.branch) || r.branch, status: r.status, total: s.total, pending: s.pending, due: s.due, paid: s.paid, count: s.count });
+      days.set(r.date, d);
+    }
+    // Each day's numbers are the sum over its branches, computed once from
+    // the expenses themselves rather than by adding summaries.
+    for (const d of days.values()) {
+      const ex = reports.filter((r) => r.date === d.date).flatMap((r) => r.expenses);
+      Object.assign(d, this.summarise(ex));
+    }
+    const recent = await this.prisma.expense.findMany({
+      where: { ...branchWhere(scope), date: { startsWith: m } } as never,
+      orderBy: [{ date: 'desc' }, { id: 'desc' }], take: 12,
+    });
+    return {
+      ym: m,
+      totals: this.summarise(everything),
+      days: [...days.values()].sort((a, b) => a.date.localeCompare(b.date)),
+      recent: recent.map((e) => ({
+        id: e.id, date: e.date, category: e.category, merchant: e.merchant, amount: e.amount,
+        paidAmount: e.paidAmount, status: e.status, source: e.source, branch: e.branch,
+        branchName: bn.get(e.branch) || e.branch, reportId: e.reportId,
+        employeeName: uOf.get(e.userId)?.name || 'Former staff', employeeColor: uOf.get(e.userId)?.color || '#888',
       })),
     };
+  }
+
+  /**
+   * One day across every branch: each branch's report with its expenses,
+   * so the office can approve the whole day, one branch, or one line.
+   */
+  @Get('day/:date')
+  @Roles('admin', 'ops')
+  async day(@Param('date') date: string, @Req() req: AuthedReq, @Query('branch') branch?: string) {
+    const d = String(date || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new BadRequestException('Pick a valid date');
+    const scope = clampScope(await branchScope(this.prisma, req.user), branch);
+    const [reports, branches, users, rate] = await Promise.all([
+      this.prisma.expenseReport.findMany({
+        where: { ...branchWhere(scope), date: d } as never,
+        include: { expenses: { orderBy: [{ userId: 'asc' }, { id: 'asc' }] } },
+        orderBy: { branch: 'asc' },
+      }),
+      this.prisma.branch.findMany({ select: { id: true, name: true } }),
+      this.prisma.user.findMany({ select: { id: true, name: true, color: true } }),
+      this.kmRate(),
+    ]);
+    const bn = new Map(branches.map((b) => [b.id, b.name]));
+    const uOf = new Map(users.map((u) => [u.id, u]));
+    return {
+      date: d, rate,
+      summary: this.summarise(reports.flatMap((r) => r.expenses)),
+      reports: reports.map((r) => ({
+        id: r.id, title: r.title, branch: r.branch, branchName: bn.get(r.branch) || r.branch, status: r.status,
+        summary: this.summarise(r.expenses),
+        expenses: r.expenses.map((e) => this.shape(e, uOf)),
+      })),
+    };
+  }
+
+  /**
+   * Approve every pending expense in a day, in one branch's report, or in a
+   * list - the office verifying a whole day at once. A closed report is
+   * skipped and said so: it has to be reopened first.
+   */
+  @Post('approve')
+  @Roles('admin', 'ops')
+  async approveMany(@Body() body: Record<string, unknown>, @Req() req: AuthedReq) {
+    const me = req.user?.sub || '';
+    const reportId = String(body.reportId || '');
+    const date = String(body.date || '').slice(0, 10);
+    const ids = Array.isArray(body.ids) ? (body.ids as unknown[]).map(String) : [];
+    if (!reportId && !date && !ids.length) throw new BadRequestException('Say what to approve');
+    const scope = await branchScope(this.prisma, req.user);
+    const targets = await this.prisma.expense.findMany({
+      where: {
+        status: 'pending',
+        ...(reportId ? { reportId } : {}), ...(date ? { date } : {}), ...(ids.length ? { id: { in: ids } } : {}),
+      },
+      include: { report: { select: { status: true } } },
+    });
+    const ok = targets.filter((e) => inScope(scope, e.branch) && e.report.status !== 'closed');
+    if (!ok.length) {
+      throw new BadRequestException(targets.length
+        ? 'That report is closed - reopen it to approve' : 'Nothing pending to approve');
+    }
+    await this.prisma.expense.updateMany({
+      where: { id: { in: ok.map((e) => e.id) } },
+      data: { status: 'approved', approvedBy: me, rejectReason: '' },
+    });
+    const byReport = new Map<string, number>();
+    const byUser = new Map<string, { n: number; sum: number }>();
+    for (const e of ok) {
+      byReport.set(e.reportId, (byReport.get(e.reportId) || 0) + 1);
+      const u = byUser.get(e.userId) || { n: 0, sum: 0 };
+      byUser.set(e.userId, { n: u.n + 1, sum: u.sum + e.amount });
+    }
+    for (const [rid, n] of byReport) await this.hist(rid, `${n} expense(s) approved together`);
+    for (const [uid, x] of byUser) await this.notify(uid, `${x.n} expense(s) approved: ${rupees(x.sum)}.`);
+    return { approved: ok.length, amount: ok.reduce((a, e) => a + e.amount, 0), skipped: targets.length - ok.length };
   }
 
   @Post('reports/:id/close')
@@ -198,9 +432,14 @@ export class ExpensesController {
     const r = await this.prisma.expenseReport.findUnique({ where: { id } });
     if (!r) throw new NotFoundException('No such report');
     if (!inScope(await branchScope(this.prisma, req.user), r.branch)) throw new NotFoundException('No such report');
-    await this.prisma.expenseReport.update({ where: { id }, data: { status: r.status === 'closed' ? 'open' : 'closed' } });
-    await this.hist(id, r.status === 'closed' ? 'Report reopened' : 'Report closed');
-    return { status: r.status === 'closed' ? 'open' : 'closed' };
+    const reopening = r.status === 'closed';
+    await this.prisma.expenseReport.update({ where: { id }, data: { status: reopening ? 'open' : 'closed' } });
+    await this.hist(id, reopening ? 'Report reopened' : 'Report closed');
+    // A trip that finished while the folder was shut had nowhere to go.
+    // Reopening is the moment it gets in.
+    const pulled = reopening ? await this.trips.sweepIntoReport(r.date, r.branch).catch(() => 0) : 0;
+    if (pulled) await this.hist(id, `${pulled} trip expense(s) pulled in on reopening`);
+    return { status: reopening ? 'open' : 'closed', pulled };
   }
 
   /** A report is deletable only while empty — money is never casually removed. */
@@ -266,8 +505,7 @@ export class ExpensesController {
 
     const amount = Math.round(Number(body.amount) || 0);
     if (amount <= 0) throw new BadRequestException('Enter the amount');
-    let category = String(body.category || '').trim();
-    if (!CATEGORIES.includes(category)) category = 'Miscellaneous';
+    const category = await this.category(body.category, me);
 
     const id = await this.mint('expense', 'EXP-');
     await this.prisma.expense.create({
@@ -300,7 +538,7 @@ export class ExpensesController {
     return {
       rows: rows.map((e) => ({
         id: e.id, date: e.date, category: e.category, merchant: e.merchant, note: e.note,
-        amount: e.amount, status: e.status, source: e.source, tripId: e.tripId,
+        amount: e.amount, paidAmount: e.paidAmount, status: e.status, source: e.source, tripId: e.tripId,
         rejectReason: e.rejectReason, hasReceipt: Array.isArray(e.images) && e.images.length > 0,
         km: e.km, rate: e.rate,
       })),
@@ -330,7 +568,7 @@ export class ExpensesController {
     const uOf = new Map(users.map((u) => [u.id, u]));
     return {
       rows: rows.map((e) => ({
-        id: e.id, date: e.date, category: e.category, amount: e.amount, status: e.status,
+        id: e.id, date: e.date, category: e.category, amount: e.amount, paidAmount: e.paidAmount, status: e.status,
         source: e.source, branch: e.branch, reportId: e.reportId, tripId: e.tripId,
         employeeName: uOf.get(e.userId)?.name || 'Former staff',
         employeeColor: uOf.get(e.userId)?.color || '#888',
@@ -372,9 +610,10 @@ export class ExpensesController {
     if (!e) throw new NotFoundException('No such expense');
     if (e.userId !== (req.user?.sub || '')) throw new ForbiddenException('Not your expense');
     if (e.status !== 'pending') throw new BadRequestException('Only a pending expense can be changed');
+    await this.mustBeOpen(e.reportId);
     const data: Record<string, unknown> = {};
     if ('amount' in body) { const a = Math.round(Number(body.amount) || 0); if (a <= 0) throw new BadRequestException('Enter the amount'); data.amount = a; }
-    if ('category' in body) data.category = CATEGORIES.includes(String(body.category)) ? String(body.category) : 'Miscellaneous';
+    if ('category' in body) data.category = await this.category(body.category, e.userId);
     if ('merchant' in body) data.merchant = String(body.merchant || '').trim();
     if ('note' in body) data.note = String(body.note || '').trim();
     if ('images' in body) data.images = cleanImages(body.images) as never;
@@ -391,6 +630,7 @@ export class ExpensesController {
     if (e.userId !== (req.user?.sub || '')) throw new ForbiddenException('Not your expense');
     if (e.status !== 'pending') throw new BadRequestException('Only a pending expense can be withdrawn');
     if (e.source === 'auto_trip') throw new BadRequestException('A trip expense is withdrawn by rejecting the trip');
+    await this.mustBeOpen(e.reportId);
     await this.prisma.expense.delete({ where: { id } });
     await this.hist(e.reportId, e.id + ' withdrawn by the employee');
     return { ok: true };
@@ -404,6 +644,7 @@ export class ExpensesController {
     if (!e) throw new NotFoundException('No such expense');
     if (!inScope(await branchScope(this.prisma, req.user), e.branch)) throw new NotFoundException('No such expense');
     if (e.status !== 'pending') throw new BadRequestException('This expense is not pending');
+    await this.mustBeOpen(e.reportId);
     const approve = !!body.approve;
     const reason = String(body.reason || '').trim();
     if (!approve && !reason) throw new BadRequestException('Give a reason for rejecting');
@@ -421,28 +662,44 @@ export class ExpensesController {
   }
 
   /**
-   * Reimburse a report's approved expenses, grouped per employee. Each person
-   * gets one payout for the sum of their approved expenses — RazorpayX to
-   * their bank, or marked paid by hand. A failure lands the person's expenses
-   * on payment_failed so they can be retried; it never blocks the others.
+   * Pay what is owed - a whole day, one branch's report, a list, or one
+   * expense, in part or in full. Grouped per employee so each person gets one
+   * payout (RazorpayX to their bank, or marked paid by hand). What a person is
+   * owed is amount minus what they have already had; a part payment on one
+   * expense leaves it "partially reimbursed" until the rest arrives, and the
+   * status is arithmetic, never a hand-set flag. A bounced payout lands on
+   * payment_failed and is picked up by the next run; it never blocks others.
    */
   @Post('reimburse')
   @Roles('admin', 'ops')
   async reimburse(@Body() body: Record<string, unknown>, @Req() req: AuthedReq) {
+    const me = req.user?.sub || '';
     const mode = body.mode === 'razorpayx' ? 'razorpayx' : 'manual';
     const reportId = String(body.reportId || '');
+    const date = String(body.date || '').slice(0, 10);
     const ids = Array.isArray(body.ids) ? (body.ids as unknown[]).map(String) : [];
+    const part = body.amount != null && body.amount !== '' ? Math.round(Number(body.amount) || 0) : 0;
+    if (!reportId && !date && !ids.length) throw new BadRequestException('Say what to pay');
 
     let targets = await this.prisma.expense.findMany({
       where: {
-        status: 'approved',
-        ...(reportId ? { reportId } : {}),
-        ...(ids.length ? { id: { in: ids } } : {}),
+        status: { in: PAYABLE },
+        ...(reportId ? { reportId } : {}), ...(date ? { date } : {}), ...(ids.length ? { id: { in: ids } } : {}),
       },
+      include: { report: { select: { status: true } } },
     });
     const scope = await branchScope(this.prisma, req.user);
     targets = targets.filter((e) => inScope(scope, e.branch));
-    if (!targets.length) throw new BadRequestException('No approved expenses to reimburse');
+    if (!targets.length) throw new BadRequestException('Nothing approved and unpaid here');
+    if (targets.some((e) => e.report.status === 'closed')) {
+      throw new BadRequestException('That report is closed - reopen it to pay');
+    }
+    // A part payment is one expense at a time: "pay Rs 500 of this Rs 2,000".
+    if (part) {
+      if (targets.length !== 1) throw new BadRequestException('A part payment is for one expense at a time');
+      const due = targets[0].amount - targets[0].paidAmount;
+      if (part > due) throw new BadRequestException('That is more than the ' + rupees(due) + ' still owed');
+    }
 
     const byUser = new Map<string, typeof targets>();
     for (const e of targets) {
@@ -452,17 +709,30 @@ export class ExpensesController {
 
     const results: Array<{ userId: string; amount: number; ok: boolean; payoutId?: string; error?: string }> = [];
     for (const [userId, list] of byUser) {
-      const sum = list.reduce((a, e) => a + e.amount, 0);
-      const idList = list.map((e) => e.id);
+      const pays = list.map((e) => ({ e, pay: part || (e.amount - e.paidAmount) })).filter((x) => x.pay > 0);
+      const sum = pays.reduce((a, x) => a + x.pay, 0);
+      if (!sum) continue;
+      const idList = pays.map((x) => x.e.id);
       await this.prisma.expense.updateMany({ where: { id: { in: idList } }, data: { status: 'processing' } });
       try {
         let payoutId = '';
-        if (mode === 'razorpayx') payoutId = await this.razorpayxPayout(userId, sum, reportId || idList[0]);
-        await this.prisma.expense.updateMany({
-          where: { id: { in: idList } },
-          data: { status: 'reimbursed', paidAt: nowStamp(), payMode: mode, payoutId },
-        });
-        await this.notify(userId, `Reimbursed ${rupees(sum)} for ${list.length} expense(s)` +
+        if (mode === 'razorpayx') payoutId = await this.razorpayxPayout(userId, sum, reportId || date || idList[0]);
+        const at = nowStamp();
+        for (const { e, pay } of pays) {
+          const paidAmount = e.paidAmount + pay;
+          const history = Array.isArray(e.payments) ? (e.payments as unknown[]) : [];
+          await this.prisma.expense.update({
+            where: { id: e.id },
+            data: {
+              paidAmount,
+              status: paidAmount >= e.amount ? 'reimbursed' : 'partial',
+              paidAt: at, payMode: mode, payoutId,
+              payments: [...history, { at, amount: pay, mode, payoutId, by: me }] as never,
+            },
+          });
+        }
+        const partly = pays.some(({ e, pay }) => e.paidAmount + pay < e.amount);
+        await this.notify(userId, `${partly ? 'Part payment' : 'Reimbursed'} ${rupees(sum)} for ${pays.length} expense(s)` +
           (mode === 'razorpayx' ? ' via RazorpayX.' : ' (paid by hand).'));
         results.push({ userId, amount: sum, ok: true, payoutId });
       } catch (err) {
@@ -470,8 +740,10 @@ export class ExpensesController {
         results.push({ userId, amount: sum, ok: false, error: err instanceof Error ? err.message : 'Payment failed' });
       }
     }
-    if (reportId) {
-      await this.hist(reportId, `Reimbursement run (${mode}): ${results.filter((r) => r.ok).length}/${results.length} employees paid`);
+    const touched = new Set(targets.map((e) => e.reportId));
+    for (const rid of touched) {
+      await this.hist(rid, `Payment run (${mode}): ${results.filter((r) => r.ok).length}/${results.length} employee(s) paid` +
+        (part ? `, part payment ${rupees(part)}` : ''));
     }
     return { results, paid: results.filter((r) => r.ok).length, failed: results.filter((r) => !r.ok).length };
   }

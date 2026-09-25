@@ -4,17 +4,19 @@
    branch+date report for the logged-in user, and the expense drops in. If no
    report is open for that day the server opens one — an employee who has paid
    for petrol should never be held up by whether the office has started the
-   day's folder. Employee and branch are set by the server from the token. */
+   day's folder. Employee and branch are set by the server from the token.
+
+   The category list is master data, not a constant: it comes from the
+   server, and "Others…" lets the person type what it actually was. What they
+   type is saved on the expense AND joins the list, so the next person finds
+   it in the dropdown. */
 
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
-import { CATEGORIES, catIcon } from './ui';
+import { inputCls, todayISO, type Category } from './ui';
 
-const todayISO = () => {
-  const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-};
+const OTHER = '__other__';
 
 export default function AddExpense({ onClose, onDone, page }: {
   onClose: () => void;
@@ -25,7 +27,9 @@ export default function AddExpense({ onClose, onDone, page }: {
 }) {
   const [date, setDate] = useState(todayISO());
   const [report, setReport] = useState<{ found: boolean; title?: string; closed?: boolean } | null>(null);
-  const [category, setCategory] = useState(CATEGORIES[1]); // Petrol / Fuel
+  const [cats, setCats] = useState<Category[]>([]);
+  const [category, setCategory] = useState('');
+  const [other, setOther] = useState('');
   const [amount, setAmount] = useState('');
   const [merchant, setMerchant] = useState('');
   const [note, setNote] = useState('');
@@ -33,6 +37,14 @@ export default function AddExpense({ onClose, onDone, page }: {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const file = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    api.get<{ rows: Category[] }>('/expenses/categories').then((r) => {
+      const live = r.rows.filter((c) => c.active);
+      setCats(live);
+      setCategory((c) => c || (live.find((x) => x.name === 'Petrol / Fuel') || live[0])?.name || OTHER);
+    }).catch(() => setCategory(OTHER));
+  }, []);
 
   useEffect(() => {
     setReport(null);
@@ -54,22 +66,20 @@ export default function AddExpense({ onClose, onDone, page }: {
     img.src = URL.createObjectURL(fl);
   }
 
+  const finalCategory = category === OTHER ? other.trim() : category;
   // Only a closed folder stops a claim; a missing one opens itself server-side.
-  const canAdd = !report?.closed && Number(amount) > 0;
+  const canAdd = !report?.closed && Number(amount) > 0 && !!finalCategory;
 
   async function submit() {
     if (busy || !canAdd) return;
     setBusy(true); setErr('');
     try {
-      await api.post('/expenses', { date, category, amount: Number(amount), merchant, note, images });
+      await api.post('/expenses', { date, category: finalCategory, amount: Number(amount), merchant, note, images });
       onDone();
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not add the expense'); setBusy(false); }
   }
 
-  /* Thumb-sized on a phone, compact at a desk. A 40px field with 13px type is
-     a form on a laptop; on a phone it is a target people miss. */
-  const input = 'w-full h-12 lg:h-10 px-3.5 lg:px-3 rounded-xl lg:rounded-lg border border-line '
-    + 'text-[15px] lg:text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
+  const input = inputCls;
 
   return (
     <div className={page
@@ -103,9 +113,9 @@ export default function AddExpense({ onClose, onDone, page }: {
 
           {/* the branch+date report the system found for me */}
           {report && (report.found
-            ? <div className={'rounded-lg border px-3 py-2 text-[12.5px] ' + (report.closed ? 'border-red-line bg-red-wash text-accent' : 'border-navy/25 bg-wash')}>
+            ? <div className={'rounded-lg border px-3 py-2 text-[12.5px] ' + (report.closed ? 'border-red-line bg-rose text-accent' : 'border-navy/25 bg-wash')}>
                 {report.closed
-                  ? <>This report is closed — no new expenses.</>
+                  ? <>This report is closed — no new expenses until the office reopens it.</>
                   : <>Adding to <b>{report.title}</b></>}
               </div>
             : <div className="rounded-lg border border-line bg-wash px-3 py-2 text-[12.5px] text-muted">
@@ -116,9 +126,18 @@ export default function AddExpense({ onClose, onDone, page }: {
             <label className="block col-span-2">
               <span className="block text-[12px] font-semibold text-ink-2 mb-1">Category</span>
               <select value={category} onChange={(e) => setCategory(e.target.value)} className={input}>
-                {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                {cats.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                <option value={OTHER}>Others…</option>
               </select>
             </label>
+            {category === OTHER && (
+              <label className="block col-span-2">
+                <span className="block text-[12px] font-semibold text-ink-2 mb-1">What was it?</span>
+                <input value={other} onChange={(e) => setOther(e.target.value)} autoFocus maxLength={40}
+                  placeholder="e.g. Cab fare, Printing, Courier" className={input} />
+                <span className="block text-[11.5px] text-muted mt-1">Saved on this expense and added to the category list for next time.</span>
+              </label>
+            )}
             <label className="block">
               <span className="block text-[12px] font-semibold text-ink-2 mb-1">Amount (₹)</span>
               <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" className={input} />
@@ -141,7 +160,7 @@ export default function AddExpense({ onClose, onDone, page }: {
                 <span key={i} className="relative">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={img} alt="" className="w-14 h-14 rounded object-cover border border-line" />
-                  <button onClick={() => setImages((xs) => xs.filter((_, k) => k !== i))}
+                  <button onClick={() => setImages((xs) => xs.filter((_, k) => k !== i))} aria-label="Remove photo"
                     className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-navy text-white flex items-center justify-center"><Icon name="x" size={10} /></button>
                 </span>
               ))}
