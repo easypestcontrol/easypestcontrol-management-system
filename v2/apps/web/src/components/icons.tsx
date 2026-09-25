@@ -53,6 +53,8 @@ const PATHS = {
   file: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></>,
   x: <path d="M18 6 6 18M6 6l12 12" />,
   check: <path d="M20 6 9 17l-5-5" />,
+  // A clock face: a task handed in and waiting for the office to check it.
+  clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3.5 2" /></>,
   play: <><circle cx="12" cy="12" r="9" /><path d="M10.2 8.8 15.4 12l-5.2 3.2z" /></>,
   book: <><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H19v15.5H5.5A1.5 1.5 0 0 0 4 20z" /><path d="M4 20a1.5 1.5 0 0 1 1.5-1.5H19V21H5.5A1.5 1.5 0 0 1 4 19.5z" /></>,
   // ---- expense categories ----

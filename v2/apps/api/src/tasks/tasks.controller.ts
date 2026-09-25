@@ -6,9 +6,16 @@
    Who sees what:
      admin / ops     — every task in their branch scope (+ the ?branch filter)
      everyone else   — the tasks assigned to them, nothing more
-   Assignees may only tick a task done; shaping the task is the scheduler's.
-   The assignee hears about a new task through the bell/push; the scheduler
-   hears when it is done.
+
+   The life of a task:
+     open  ->  submitted  ->  done
+     The assignee does the work, then SUBMITS it with proof — a note, photos,
+     a file or a voice memo. That does not close the task; it parks it for the
+     office to check. A manager APPROVES (it goes done) or SENDS IT BACK (open
+     again, with a reason). A manager may also complete a task outright.
+   Everyone hears the parts that concern them through the bell / push: the
+   assignee when a task is raised, approved or sent back; the office when one
+   is submitted for checking.
    ========================================================================== */
 import {
   BadRequestException, Body, Controller, Delete, ForbiddenException, Get,
@@ -44,10 +51,11 @@ function cleanVoice(raw: unknown): string {
   return v;
 }
 
-/** Any other document on a task: a PDF, a spreadsheet, a signed letter.
-    Photos keep their own list because they are shown, not just kept. A file
-    goes to storage (R2, or inline where R2 is not configured) and the task
-    keeps its name, type, size and where it went. */
+/** Any other document on a task: a PDF, a spreadsheet, a signed letter, or —
+    on a completion — a short video of the work. Photos keep their own list
+    because they are shown, not just kept. A file goes to storage (R2, or
+    inline where R2 is not configured) and the task keeps its name, type, size
+    and where it went. */
 const MAX_FILES = 10;
 const MAX_FILE_B = 15 * 1024 * 1024;
 /** Types a browser would run rather than show. Kept, but never under a type
@@ -88,7 +96,9 @@ function cleanFiles(raw: unknown): FileIn[] {
   return out;
 }
 
-const filesOf = (t: { files?: unknown }): TaskFile[] => (Array.isArray(t.files) ? t.files as TaskFile[] : []);
+const asFiles = (raw: unknown): TaskFile[] => (Array.isArray(raw) ? raw as TaskFile[] : []);
+const filesOf = (t: { files?: unknown }): TaskFile[] => asFiles(t.files);
+const doneFilesOf = (t: { doneFiles?: unknown }): TaskFile[] => asFiles(t.doneFiles);
 /** Files the way the wire carries them: a URL a browser can fetch, never a key. */
 const filesOut = (list: TaskFile[]) =>
   list.map((f) => ({ name: f.name, type: f.type, size: f.size, url: StorageService.url(f.ref) }));
@@ -108,13 +118,14 @@ export class TasksController {
    * Put new files away and keep the ones that stayed. A kept file is matched
    * by the URL it was served with, recomputed here and never trusted from
    * the body, so a form cannot point a task at somebody else's object. What
-   * was dropped is deleted from storage.
+   * was dropped is deleted from storage. `seg` separates the two piles that
+   * live under one task — the brief ('') and the completion proof ('/done').
    */
-  private async storeFiles(incoming: FileIn[], id: string, existing: TaskFile[]): Promise<TaskFile[]> {
+  private async storeFiles(incoming: FileIn[], id: string, existing: TaskFile[], seg = ''): Promise<TaskFile[]> {
     const kept: TaskFile[] = [];
     for (const f of incoming) {
       if (f.data) {
-        kept.push({ name: f.name, type: f.type, size: f.size, ref: await this.storage.put(f.data, 'tasks/' + id) });
+        kept.push({ name: f.name, type: f.type, size: f.size, ref: await this.storage.put(f.data, 'tasks/' + id + seg) });
       } else if (f.url) {
         const was = existing.find((e) => StorageService.url(e.ref) === f.url);
         if (was && !kept.includes(was)) kept.push(was);
@@ -134,6 +145,26 @@ export class TasksController {
       update: { value: { increment: 1 } },
     });
     return 'TSK-' + seq.value;
+  }
+
+  /** Who should hear that a task in this branch needs checking: the office.
+      Admins see everything; a scoped ops manager only their own branches. */
+  private async approvers(branch: string, exclude: string): Promise<string[]> {
+    const office = await this.prisma.user.findMany({
+      where: { role: { in: ['admin', 'ops'] } },
+      select: { id: true, role: true, branches: true },
+    });
+    return office
+      .filter((u) => u.id && u.id !== exclude
+        && (u.role === 'admin' || u.branches.includes('') || u.branches.includes(branch)))
+      .map((u) => u.id);
+  }
+
+  private async notify(userIds: string[], text: string) {
+    const ids = [...new Set(userIds.filter(Boolean))];
+    if (!ids.length) return;
+    const at = nowStamp();
+    await this.prisma.notification.createMany({ data: ids.map((userId) => ({ userId, at, text })) });
   }
 
   @Get()
@@ -161,14 +192,19 @@ export class TasksController {
     const uOf = new Map(users.map((u) => [u.id, u]));
     return {
       // The list stays lean: attachment FLAGS ride here, the payloads come
-      // from the detail endpoint when a task is opened.
+      // from the detail endpoint when a task is opened. The completion stamps
+      // (submitted / done / created) travel too — the list shows "time taken".
       rows: rows.map((t) => {
-        const { images, voice, files, ...lean } = t;
+        const { images, voice, files, doneImages, doneVoice, doneFiles, doneNotes, reviewNote, ...lean } = t;
         return {
           ...lean,
+          createdAt: t.createdAt,
           imageCount: Array.isArray(images) ? images.length : 0,
           hasVoice: !!voice,
           fileCount: filesOf({ files }).length,
+          proofCount: (Array.isArray(doneImages) ? doneImages.length : 0)
+            + doneFilesOf({ doneFiles }).length + (doneVoice ? 1 : 0),
+          hasProofNote: !!String(doneNotes || '').trim(),
           assigneeName: uOf.get(t.assignee)?.name || t.assignee || '—',
           assigneeColor: uOf.get(t.assignee)?.color || '#141414',
           createdByName: uOf.get(t.createdBy)?.name || t.createdBy || '—',
@@ -178,7 +214,8 @@ export class TasksController {
     };
   }
 
-  /** One task in full — attachments included. Scope: manager, or its assignee. */
+  /** One task in full — the brief AND the completion proof. Scope: a manager
+      in range, or the task's own assignee. */
   @Get(':id')
   async one(@Param('id') id: string, @Req() req: AuthedReq) {
     const t = await this.prisma.task.findUnique({ where: { id } });
@@ -191,16 +228,19 @@ export class TasksController {
       throw new NotFoundException('No such task');
     }
     const users = await this.prisma.user.findMany({
-      where: { id: { in: [t.assignee, t.createdBy].filter(Boolean) } },
+      where: { id: { in: [t.assignee, t.createdBy, t.submittedBy, t.approvedBy].filter(Boolean) } },
       select: { id: true, name: true, color: true },
     });
     const uOf = new Map(users.map((u) => [u.id, u]));
     return {
       ...t,
       files: filesOut(filesOf(t)),
+      doneFiles: filesOut(doneFilesOf(t)),
       assigneeName: uOf.get(t.assignee)?.name || t.assignee || '—',
       assigneeColor: uOf.get(t.assignee)?.color || '#141414',
       createdByName: uOf.get(t.createdBy)?.name || t.createdBy || '—',
+      submittedByName: uOf.get(t.submittedBy)?.name || '',
+      approvedByName: uOf.get(t.approvedBy)?.name || '',
     };
   }
 
@@ -215,10 +255,11 @@ export class TasksController {
     if (!person) throw new BadRequestException('No such person');
 
     // The branch leads: it is picked first and the person must belong to it.
+    // Where a task is raised across branches, each person's row is filed under
+    // a branch that is truly theirs — a mismatch falls back rather than fails.
     let branch = String(body.branch || '').trim();
-    if (!branch) branch = person.branches[0] || '';
-    if (branch && person.branches.length && !person.branches.includes(branch)) {
-      throw new BadRequestException(person.name + ' is not in that branch');
+    if (!branch || (person.branches.length && !person.branches.includes(branch))) {
+      branch = person.branches[0] || branch;
     }
     // A scoped scheduler cannot plant tasks in another branch.
     if (!inScope(await branchScope(this.prisma, req.user), branch)) {
@@ -244,14 +285,10 @@ export class TasksController {
     });
 
     // The person hears about it — bell now, phone push when FCM is live.
-    await this.prisma.notification.create({
-      data: {
-        userId: assignee, at: nowStamp(),
-        text: `New task: ${title}` +
-          (t.due ? ` — due ${t.due}${t.dueTime ? ' ' + t.dueTime : ''}` : '') +
-          `. (${t.id})`,
-      },
-    });
+    await this.notify([assignee],
+      `New task: ${title}`
+      + (t.due ? ` — due ${t.due}${t.dueTime ? ' ' + t.dueTime : ''}` : '')
+      + `. (${t.id})`);
     return { id: t.id };
   }
 
@@ -261,23 +298,78 @@ export class TasksController {
     if (!t) throw new NotFoundException('No such task');
     const me = req.user?.sub || '';
     const manage = this.canManage(req.user?.role);
+    const mine = t.assignee === me;
 
     if (manage) {
       if (!inScope(await branchScope(this.prisma, req.user), t.branch)) {
         throw new NotFoundException('No such task');
       }
-    } else if (t.assignee !== me) {
+    } else if (!mine) {
       throw new ForbiddenException('Not your task');
     }
 
-    const data: Record<string, unknown> = {};
-    // The assignee's only verb is done / not done. The shape is the scheduler's.
-    if ('status' in body) {
-      const done = String(body.status) === 'done';
-      data.status = done ? 'done' : 'open';
-      data.doneAt = done ? nowStamp() : '';
+    // A plain { status } from an older client maps onto the new verbs: a
+    // manager ticking means "approve/complete", anyone else means "submit".
+    let action = String(body.action || '');
+    if (!action && 'status' in body) {
+      const s = String(body.status);
+      action = s === 'done' ? (manage ? 'approve' : 'submit') : 'reopen';
     }
-    if (manage) {
+
+    const data: Record<string, unknown> = {};
+    const notes: Array<{ to: string[]; text: string }> = [];
+    const whoName = async () =>
+      (await this.prisma.user.findUnique({ where: { id: me }, select: { name: true } }))?.name || me;
+
+    if (action === 'submit') {
+      // The assignee (or a manager on their behalf) hands the work in.
+      data.status = 'submitted';
+      data.submittedAt = nowStamp();
+      data.submittedBy = me;
+      data.doneAt = '';
+      data.approvedBy = '';
+      data.reviewNote = '';
+      if ('doneNotes' in body) data.doneNotes = String(body.doneNotes || '').trim();
+      if ('doneImages' in body) data.doneImages = cleanImages(body.doneImages);
+      if ('doneVoice' in body) data.doneVoice = cleanVoice(body.doneVoice);
+      if ('doneFiles' in body) {
+        data.doneFiles = await this.storeFiles(cleanFiles(body.doneFiles), id, doneFilesOf(t), '/done');
+      }
+      const to = [...new Set([t.createdBy, ...(await this.approvers(t.branch, me))].filter((x) => x && x !== me))];
+      notes.push({ to, text: `Task ready to check: ${t.title} — ${await whoName()} finished it. (${t.id})` });
+    } else if (action === 'approve') {
+      if (!manage) throw new ForbiddenException('Only the office can approve');
+      data.status = 'done';
+      data.doneAt = nowStamp();
+      data.approvedBy = me;
+      if (!t.submittedAt) { data.submittedAt = nowStamp(); data.submittedBy = t.assignee; }
+      if ('reviewNote' in body) data.reviewNote = String(body.reviewNote || '').trim();
+      const to = [...new Set([t.submittedBy || t.assignee, t.assignee].filter((x) => x && x !== me))];
+      notes.push({ to, text: `Task approved: ${t.title}. (${t.id})` });
+    } else if (action === 'reject') {
+      if (!manage) throw new ForbiddenException('Only the office can send a task back');
+      data.status = 'open';
+      data.doneAt = '';
+      data.submittedAt = '';
+      data.approvedBy = '';
+      data.reviewNote = String(body.reviewNote || '').trim();
+      const to = [...new Set([t.submittedBy || t.assignee].filter((x) => x && x !== me))];
+      const tail = data.reviewNote ? ` — ${data.reviewNote as string}` : '';
+      notes.push({ to, text: `Task sent back: ${t.title}${tail} (${t.id})` });
+    } else if (action === 'reopen') {
+      // Un-submit (the assignee, before it is checked) or reopen a done one
+      // (the office). Either way the proof stays put for the next round.
+      if (!manage && !(mine && t.status === 'submitted')) {
+        throw new ForbiddenException('Not your task');
+      }
+      data.status = 'open';
+      data.doneAt = '';
+      data.approvedBy = '';
+      if (manage && t.status === 'submitted') data.submittedAt = '';
+    }
+
+    // Field edits are the scheduler's alone, and never mixed with a verb.
+    if (manage && !action) {
       for (const k of ['title', 'notes', 'due', 'dueTime', 'branch'] as const) {
         if (k in body) data[k] = String(body[k] ?? '').trim();
       }
@@ -295,20 +387,12 @@ export class TasksController {
         data.assignee = a;
       }
     }
+
     if (!Object.keys(data).length) throw new BadRequestException('Nothing to change');
     const up = await this.prisma.task.update({ where: { id }, data: data as never });
 
-    // Ticking it done tells whoever scheduled it.
-    if (data.status === 'done' && t.createdBy && t.createdBy !== me) {
-      const who = await this.prisma.user.findUnique({ where: { id: me } });
-      await this.prisma.notification.create({
-        data: {
-          userId: t.createdBy, at: nowStamp(),
-          text: `Task done: ${t.title} — by ${who?.name || me}. (${t.id})`,
-        },
-      });
-    }
-    return { ...up, files: filesOut(filesOf(up)) };
+    for (const n of notes) await this.notify(n.to, n.text);
+    return { ...up, files: filesOut(filesOf(up)), doneFiles: filesOut(doneFilesOf(up)) };
   }
 
   @Delete(':id')
@@ -319,8 +403,9 @@ export class TasksController {
     if (!inScope(await branchScope(this.prisma, req.user), t.branch)) {
       throw new NotFoundException('No such task');
     }
-    // Its documents go with it; storage is not a place things are forgotten.
-    for (const f of filesOf(t)) await this.storage.remove(f.ref);
+    // Its documents go with it, brief and proof alike; storage is not a place
+    // things are forgotten.
+    for (const f of [...filesOf(t), ...doneFilesOf(t)]) await this.storage.remove(f.ref);
     await this.prisma.task.delete({ where: { id } });
     return { ok: true };
   }

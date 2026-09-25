@@ -3,16 +3,16 @@
 /* ============================================================================
    Tasks, on a phone.
 
-   The list showed a title, a name and a date, and did nothing at all when you
-   touched it — you could see your work but not open it, and not tick it off,
-   which is the only verb a to-do list really has.
+   The tick is the first thing on every row and it works from the list. But a
+   task is not finished by ticking it any more — tapping the ring opens the
+   completion sheet, where the person hands in proof (a note, photos, a file,
+   a voice memo). That parks it in Approval for the office; a manager approves
+   it from here with one tap, or opens it to send it back.
 
-   So the tick is the first thing on every row and it works from the list: one
-   tap, done, no screen in between. The rest of the row opens the task, because
-   what has to be done is usually in the note or the photograph rather than the
-   title. And the tasks sit under when they are due — Overdue first, then
-   Today — because a to-do list sorted by nothing in particular is a list you
-   read from the top every time.
+   The tabs are the workflow: To do, Overdue, Approval (the office only), Done.
+   Inside To do the piles sort themselves — Overdue first, then Today — because
+   a to-do list sorted by nothing in particular is a list you read from the top
+   every time.
    ========================================================================== */
 
 import { useState } from 'react';
@@ -22,7 +22,9 @@ import { BackBar, Card, Chip, Fab, Screen, SearchBox, type Tone } from '@/compon
 export interface TaskRow {
   id: string; title: string; notes: string; assignee: string; branch: string;
   due: string; dueTime: string; priority: string; status: string; doneAt: string;
+  submittedAt: string; createdAt: string;
   imageCount: number; hasVoice: boolean; fileCount: number;
+  proofCount: number; hasProofNote: boolean;
   assigneeName: string; assigneeColor: string; createdByName: string;
 }
 
@@ -78,45 +80,42 @@ function doneDay(stamp: string): string {
   return shortDay(d);
 }
 
-const TABS = [
-  { key: 'open', label: 'To do' },
-  { key: 'today', label: 'Today' },
-  { key: 'overdue', label: 'Overdue' },
-  { key: 'done', label: 'Done' },
-];
-
-export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }: {
+export default function TasksMobile({ rows, canManage, meId, onOpen, onTick, onNew }: {
   rows: TaskRow[] | null;
   canManage: boolean;
+  meId: string;
   onOpen: (id: string) => void;
-  /** Ticking one off from the list — the whole point of the screen. */
-  onToggle: (t: TaskRow) => void;
+  /** The ring: completes an open task (opens the proof sheet), approves a
+      submitted one for the office, reopens a done one. Routed in the page. */
+  onTick: (t: TaskRow) => void;
   onNew?: () => void;
 }) {
   const [tab, setTab] = useState('open');
   const [q, setQ] = useState('');
-  /* What was just ticked, so it can be put back. A tick target sits under a
-     moving thumb; the cost of hitting the wrong one should be one tap, not a
-     hunt through the Done list. */
-  const [undo, setUndo] = useState<TaskRow | null>(null);
   const today = todayISO();
   const needle = q.trim().toLowerCase();
 
-  function tick(t: TaskRow) {
-    onToggle(t);
-    if (t.status !== 'done') {
-      setUndo(t);
-      window.setTimeout(() => setUndo((u) => (u && u.id === t.id ? null : u)), 6000);
-    } else {
-      setUndo(null);
-    }
-  }
-
   const all = rows || [];
+  const openCount = all.filter((t) => t.status === 'open').length;
+  const overdueCount = all.filter((t) => t.status === 'open' && !!t.due && t.due < today).length;
+  const approvalCount = all.filter((t) => t.status === 'submitted').length;
+
+  const TABS = [
+    { key: 'open', label: 'To do', n: openCount },
+    { key: 'overdue', label: 'Overdue', n: overdueCount },
+    // Managers check here; a worker sees their own handed-in tasks so nothing
+    // they submit disappears while it waits.
+    { key: 'approval', label: canManage ? 'Approval' : 'Submitted', n: approvalCount },
+    { key: 'done', label: 'Done', n: 0 },
+  ];
+
   const shown = all
     .filter((t) => {
       if (tab === 'done') return t.status === 'done';
-      if (t.status === 'done') return false;
+      if (tab === 'approval') return t.status === 'submitted';
+      // The active piles are open work only — submitted ones are handed in and
+      // wait in Approval, done ones are history.
+      if (t.status !== 'open') return false;
       if (tab === 'today') return t.due === today;
       if (tab === 'overdue') return !!t.due && t.due < today;
       return true;
@@ -124,10 +123,20 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
     .filter((t) => !needle
       || [t.title, t.notes, t.assigneeName, t.id].filter(Boolean).join(' ').toLowerCase().includes(needle));
 
-  /* Overdue at the top, then Today, then the rest — and inside a pile, by the
-     hour it is due. */
+  /* Grouping: date buckets for the active piles, submitted-time for Approval,
+     completed-day for Done. */
   const groups: Array<{ label: string; key: number; items: TaskRow[] }> = [];
-  if (tab !== 'done') {
+  if (tab === 'done') {
+    for (const t of shown) {
+      const label = doneDay(t.doneAt);
+      const g = groups.find((x) => x.label === label);
+      if (g) g.items.push(t);
+      else groups.push({ key: groups.length, label, items: [t] });
+    }
+  } else if (tab === 'approval') {
+    if (shown.length) groups.push({ key: 0, label: 'To check', items: [...shown] });
+    for (const g of groups) g.items.sort((a, b) => (b.submittedAt || '').localeCompare(a.submittedAt || ''));
+  } else {
     for (const t of shown) {
       const b = bucketOf(t, today);
       const g = groups.find((x) => x.key === b.key);
@@ -136,51 +145,38 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
     }
     groups.sort((a, b) => a.key - b.key);
     for (const g of groups) g.items.sort((a, b) => (a.dueTime || '99').localeCompare(b.dueTime || '99'));
-  } else {
-    /* Finished work is history, and history is read by day. One flat
-       "Completed" pile told you a thing was done but not when, which is the
-       only question anybody asks of a finished task. */
-    for (const t of shown) {
-      const label = doneDay(t.doneAt);
-      const g = groups.find((x) => x.label === label);
-      if (g) g.items.push(t);
-      else groups.push({ key: groups.length, label, items: t ? [t] : [] });
-    }
   }
 
-  const openCount = all.filter((t) => t.status !== 'done').length;
-  /* Everything that was meant to happen today — what is due today plus what
-     was finished today, so ticking one off moves the bar rather than shrinking
-     the total under it. */
+  /* Everything that was meant to happen today — due today plus finished today,
+     so ticking one off moves the bar rather than shrinking the total. */
   const todayRows = all.filter((t) => t.due === today || (t.status === 'done' && t.doneAt.slice(0, 10) === today));
   const todayTotal = todayRows.length;
   const todayDone = todayRows.filter((t) => t.status === 'done').length;
 
   return (
     <Screen>
-      <BackBar title="Tasks" sub={rows ? openCount + (openCount === 1 ? ' to do' : ' to do') : undefined}
-        fallback="/dashboard" />
+      <BackBar title="Tasks" sub={rows ? openCount + ' to do' : undefined} fallback="/dashboard" />
       <SearchBox value={q} onChange={setQ} placeholder="Search the tasks" />
 
       <div className="flex gap-2 px-4 pb-3 pt-0.5 overflow-x-auto no-scrollbar bg-white border-b border-line">
         {TABS.map((t) => (
           <button key={t.key} type="button" onClick={() => setTab(t.key)}
-            className={'h-[34px] px-4 rounded-full text-[14px] font-semibold whitespace-nowrap shrink-0 '
+            className={'h-[34px] px-4 rounded-full text-[14px] font-semibold whitespace-nowrap shrink-0 flex items-center gap-1.5 '
               + (tab === t.key ? 'bg-accent text-white' : 'bg-white border border-line text-ink')}>
             {t.label}
+            {t.n > 0 && (t.key === 'overdue' || t.key === 'approval') && (
+              <span className={'min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold flex items-center justify-center '
+                + (tab === t.key ? 'bg-white/25 text-white' : 'bg-accent text-white')}>{t.n}</span>
+            )}
           </button>
         ))}
       </div>
 
-      {/* Today, as a line. A to-do list that only ever shows what is left
-          never tells you that you are getting somewhere. */}
-      {rows !== null && todayTotal > 0 && tab !== 'done' && (
+      {rows !== null && todayTotal > 0 && tab !== 'done' && tab !== 'approval' && (
         <div className="mx-4 mt-3 bg-white rounded-[18px] px-4 py-3">
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-[13px] font-bold">Today</p>
-            <p className="text-[13px] font-bold text-mint-ink">
-              {todayDone} of {todayTotal} done
-            </p>
+            <p className="text-[13px] font-bold text-mint-ink">{todayDone} of {todayTotal} done</p>
           </div>
           <div className="mt-2 h-2 rounded-full bg-line-soft overflow-hidden">
             <div className="h-full rounded-full bg-mint-ink transition-all duration-500"
@@ -197,56 +193,58 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
             <p className="text-[16px] font-bold text-center">
               {needle ? 'Nothing matches that'
                 : tab === 'done' ? 'Nothing completed yet'
-                  : tab === 'overdue' ? 'Nothing overdue'
-                    : tab === 'today' ? 'Nothing due today' : 'Nothing to do'}
+                  : tab === 'approval' ? (canManage ? 'Nothing to check' : 'Nothing waiting')
+                    : tab === 'overdue' ? 'Nothing overdue'
+                      : tab === 'today' ? 'Nothing due today' : 'Nothing to do'}
             </p>
             {!needle && tab === 'open' && (
               <p className="text-muted text-[14px] mt-1.5 text-center leading-relaxed">
-                {canManage
-                  ? 'Give somebody something to do with the red button.'
+                {canManage ? 'Give somebody something to do with the red button.'
                   : 'Anything scheduled for you lands here, with its deadline.'}
+              </p>
+            )}
+            {!needle && tab === 'approval' && (
+              <p className="text-muted text-[14px] mt-1.5 text-center leading-relaxed">
+                {canManage ? 'Completed work waits here for you to check before it closes.'
+                  : 'Tasks you submit wait here until the office checks them.'}
               </p>
             )}
           </Card>
         ) : (
           groups.map((g) => (
             <div key={g.label}>
-              {/* Red is for late, and only for late. Keyed on the label, not
-                  the bucket number — the first pile in the Done list has key 0
-                  too, and "Today · 2" of finished work was coming out red. */}
               <p className={'px-1 pb-1.5 text-[12px] font-bold uppercase tracking-[0.06em] '
-                + (g.label === 'Overdue' ? 'text-accent' : 'text-muted')}>
+                + (g.label === 'Overdue' ? 'text-accent' : g.label === 'To check' ? 'text-sky-ink' : 'text-muted')}>
                 {g.label} · {g.items.length}
               </p>
               <Card flush>
                 {g.items.map((t) => {
                   const done = t.status === 'done';
-                  const late = !done && !!t.due && t.due < today;
+                  const submitted = t.status === 'submitted';
+                  const late = t.status === 'open' && !!t.due && t.due < today;
                   const tone: Tone = done ? 'good' : t.priority === 'high' ? 'bad' : 'info';
+                  const mine = t.assignee === meId;
                   return (
                     <div key={t.id}
-                      className={'flex items-start gap-3 px-4 border-b border-line-soft '
-                        + 'last:border-b-0 ' + (done ? 'py-3' : 'py-3.5')}>
-                      {/* Open work gets a ring to fill; finished work gets a
-                          quiet mark and nothing else. Two rows of filled green
-                          discs made a list of things that are OVER the loudest
-                          thing on the screen. */}
-                      <button type="button" onClick={() => tick(t)}
-                        aria-label={done ? 'Mark not done' : 'Mark done'}
+                      className={'flex items-start gap-3 px-4 border-b border-line-soft last:border-b-0 '
+                        + (done ? 'py-3' : 'py-3.5')}>
+                      {/* The ring, its shape a status: open to fill, submitted a
+                          quiet clock, done a quiet check. */}
+                      <button type="button" onClick={() => onTick(t)}
+                        aria-label={done ? 'Reopen' : submitted ? (canManage ? 'Approve' : 'Awaiting approval') : 'Mark completed'}
                         className={done
-                          ? 'w-6 h-6 shrink-0 mt-0.5 flex items-center justify-center text-muted-2'
-                          : 'w-[30px] h-[30px] rounded-full shrink-0 mt-0.5 flex items-center '
-                            + 'justify-center border-2 border-line-strong text-transparent '
-                            + 'transition-colors active:scale-95 hover:border-muted-2'}>
-                        <Icon name="check" size={done ? 15 : 17} className={done ? '' : 'opacity-0'} />
+                          ? 'w-6 h-6 shrink-0 mt-0.5 flex items-center justify-center text-mint-ink'
+                          : submitted
+                            ? 'w-[30px] h-[30px] rounded-full shrink-0 mt-0.5 flex items-center justify-center '
+                              + 'border-2 border-sky-ink text-sky-ink bg-sky active:scale-95'
+                            : 'w-[30px] h-[30px] rounded-full shrink-0 mt-0.5 flex items-center justify-center '
+                              + 'border-2 border-line-strong text-transparent transition-colors active:scale-95 hover:border-muted-2'}>
+                        <Icon name={submitted ? 'clock' : 'check'} size={done ? 15 : 17}
+                          className={done || submitted ? '' : 'opacity-0'} />
                       </button>
 
-                      <button type="button" onClick={() => onOpen(t.id)}
-                        className="min-w-0 flex-1 text-left">
+                      <button type="button" onClick={() => onOpen(t.id)} className="min-w-0 flex-1 text-left">
                         <span className="flex items-baseline justify-between gap-3">
-                          {/* Done work is quiet, not struck out. A line through
-                              every finished task makes the Done list unreadable
-                              exactly when somebody is checking what was done. */}
                           <span className={'truncate '
                             + (done ? 'text-[14.5px] font-medium text-ink-2' : 'text-[15px] font-bold')}>
                             {t.title}
@@ -257,6 +255,10 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
                                 {clock(t.doneAt.slice(11)) || 'Done'}
                               </span>
                             )
+                          ) : submitted ? (
+                            <span className="text-[12px] font-semibold shrink-0 whitespace-nowrap text-sky-ink">
+                              Awaiting check
+                            </span>
                           ) : (t.due || t.dueTime) && (
                             <span className={'text-[12.5px] font-semibold shrink-0 whitespace-nowrap '
                               + (late ? 'text-accent' : 'text-sky-ink')}>
@@ -267,38 +269,48 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
                         {t.notes && !done && (
                           <span className="text-[13px] text-muted mt-0.5 line-clamp-1">{t.notes}</span>
                         )}
-                        {/* Everything under the title is for work still to be
-                            done: what it is, who has it, what came with it.
-                            On a finished task it is a paragraph about the past. */}
                         {!done && (
-                        <span className="flex items-center gap-2 mt-1.5 min-w-0">
-                          {t.priority === 'high' && !done && <Chip tone={tone}>High</Chip>}
-                          {canManage && (
-                            <span className="flex items-center gap-1.5 min-w-0">
-                              <span className="w-5 h-5 rounded-full text-white text-[9px] font-bold
-                                flex items-center justify-center shrink-0"
-                                style={{ background: t.assigneeColor }}>
-                                {initials(t.assigneeName)}
+                          <span className="flex items-center gap-2 mt-1.5 min-w-0">
+                            {t.priority === 'high' && <Chip tone={tone}>High</Chip>}
+                            {submitted && !mine && (
+                              <span className="flex items-center gap-1.5 min-w-0">
+                                <span className="w-5 h-5 rounded-full text-white text-[9px] font-bold
+                                  flex items-center justify-center shrink-0" style={{ background: t.assigneeColor }}>
+                                  {initials(t.assigneeName)}
+                                </span>
+                                <span className="text-[12.5px] text-muted truncate">{t.assigneeName}</span>
                               </span>
-                              <span className="text-[12.5px] text-muted truncate">{t.assigneeName}</span>
-                            </span>
-                          )}
-                          {t.imageCount > 0 && (
-                            <span className="flex items-center gap-1 text-[12px] text-muted-2 shrink-0">
-                              <Icon name="upload" size={12} />{t.imageCount}
-                            </span>
-                          )}
-                          {t.fileCount > 0 && (
-                            <span className="flex items-center gap-1 text-[12px] text-muted-2 shrink-0">
-                              <Icon name="file" size={12} />{t.fileCount}
-                            </span>
-                          )}
-                          {t.hasVoice && (
-                            <span className="flex items-center gap-1 text-[12px] text-muted-2 shrink-0">
-                              <Icon name="play" size={12} />
-                            </span>
-                          )}
-                        </span>
+                            )}
+                            {!submitted && canManage && (
+                              <span className="flex items-center gap-1.5 min-w-0">
+                                <span className="w-5 h-5 rounded-full text-white text-[9px] font-bold
+                                  flex items-center justify-center shrink-0" style={{ background: t.assigneeColor }}>
+                                  {initials(t.assigneeName)}
+                                </span>
+                                <span className="text-[12.5px] text-muted truncate">{t.assigneeName}</span>
+                              </span>
+                            )}
+                            {submitted && (t.proofCount > 0 || t.hasProofNote) && (
+                              <span className="flex items-center gap-1 text-[12px] text-mint-ink font-semibold shrink-0">
+                                <Icon name="check" size={12} />{t.proofCount || 'note'}
+                              </span>
+                            )}
+                            {!submitted && t.imageCount > 0 && (
+                              <span className="flex items-center gap-1 text-[12px] text-muted-2 shrink-0">
+                                <Icon name="upload" size={12} />{t.imageCount}
+                              </span>
+                            )}
+                            {!submitted && t.fileCount > 0 && (
+                              <span className="flex items-center gap-1 text-[12px] text-muted-2 shrink-0">
+                                <Icon name="file" size={12} />{t.fileCount}
+                              </span>
+                            )}
+                            {!submitted && t.hasVoice && (
+                              <span className="flex items-center gap-1 text-[12px] text-muted-2 shrink-0">
+                                <Icon name="play" size={12} />
+                              </span>
+                            )}
+                          </span>
                         )}
                       </button>
                     </div>
@@ -310,23 +322,7 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
         )}
       </div>
 
-      {/* One tap back. It sits above the tab bar and goes on its own. */}
-      {undo && (
-        <div className="lg:hidden fixed left-3 right-3 z-40 bg-navy text-white rounded-[18px]
-          px-4 h-14 flex items-center justify-between gap-3 shadow-[0_6px_24px_rgba(20,20,20,0.28)]"
-          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 92px)' }}>
-          <span className="text-[14px] font-semibold truncate">Marked done</span>
-          <button type="button"
-            onClick={() => { const u = undo; setUndo(null); onToggle({ ...u, status: 'done' }); }}
-            className="text-[14px] font-bold text-white underline underline-offset-4 shrink-0">
-            Undo
-          </button>
-        </div>
-      )}
-
-      {/* The red button steps aside while the undo bar is up — they occupy
-          the same corner, and one of them is on a six-second clock. */}
-      {onNew && !undo && <Fab onClick={onNew} label="New task" />}
+      {onNew && <Fab onClick={onNew} label="New task" />}
     </Screen>
   );
 }
