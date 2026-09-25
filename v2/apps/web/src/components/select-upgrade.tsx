@@ -22,7 +22,7 @@
    `data-native`.
    ========================================================================== */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/components/icons';
 
 interface Opt { value: string; label: string; group: string; disabled: boolean }
@@ -58,6 +58,11 @@ export default function SelectUpgrade() {
   const [el, setEl] = useState<HTMLSelectElement | null>(null);
   const [opts, setOpts] = useState<Opt[]>([]);
   const [q, setQ] = useState('');
+  /* When the sheet opened. The tap that opens it fires a trailing `click`
+     AFTER the sheet has rendered, which lands on the fresh backdrop and would
+     dismiss it on the same tap — the sheet flashes open and shuts. We ignore
+     any backdrop dismiss within a moment of opening. */
+  const openedAt = useRef(0);
 
   useEffect(() => {
     const phone = () => window.matchMedia('(max-width: 1023px)').matches;
@@ -75,6 +80,7 @@ export default function SelectUpgrade() {
       setQ('');
       setOpts(list);
       setEl(sel);
+      openedAt.current = Date.now();
     };
 
     // pointerdown is where the native picker starts; click catches anything
@@ -115,7 +121,7 @@ export default function SelectUpgrade() {
 
   return (
     <div className="lg:hidden fixed inset-0 z-[90] bg-navy/45 flex items-end"
-      onClick={() => setEl(null)}>
+      onClick={() => { if (Date.now() - openedAt.current < 350) return; setEl(null); }}>
       <div className="w-full bg-white text-ink rounded-t-[24px] pt-2 max-h-[78vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}>
         <span className="block w-10 h-1 rounded-full bg-line mx-auto mb-1 shrink-0" />
