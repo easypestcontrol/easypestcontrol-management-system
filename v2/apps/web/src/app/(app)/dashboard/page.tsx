@@ -128,7 +128,7 @@ export default function Dashboard() {
           is where the business is examined, a phone is where it is checked. */}
       <AdminMobile s={s} me={me} actions={actions} branchEl={bf.heroEl} />
 
-    <div className="max-lg:hidden p-4 lg:p-6 max-w-[1200px]">
+    <div className="max-lg:hidden p-4 lg:p-6">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
           <h1 className="text-[20px] font-semibold">Home</h1>
