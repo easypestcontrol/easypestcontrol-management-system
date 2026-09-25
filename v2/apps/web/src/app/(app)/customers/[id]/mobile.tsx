@@ -14,6 +14,7 @@
 import Link from 'next/link';
 import { Icon } from '@/components/icons';
 import { BackBar, Card, Chip, Fold, Row, Screen, money, niceDate, type Tone } from '@/components/mobile';
+import PortalCard from '@/components/portal-card';
 import ActionMenu, { type Action } from '@/components/action-menu';
 
 interface Job { id: string; date: string; slot: string; status: string; type: string }
@@ -40,7 +41,7 @@ function jobState(s: string): { tone: Tone; label: string } {
   return { tone: 'info', label: 'Scheduled' };
 }
 
-export default function CustomerMobile({ c, actions, note }: {
+export default function CustomerMobile({ c, actions, note, portal }: {
   c: {
     id: string; name: string; contact: string; phone: string; email: string;
     addr: string; city: string; area: string; type: string; color: string;
@@ -48,6 +49,8 @@ export default function CustomerMobile({ c, actions, note }: {
   };
   actions?: Action[];
   note?: string;
+  /** Their portal link and its QR, drawn by the page; null until it loads. */
+  portal?: { url: string; qr: string; greeting: string } | null;
 }) {
   // What they owe, from the invoices we already have — no second request for
   // a number that is sitting in the payload.
@@ -106,6 +109,14 @@ export default function CustomerMobile({ c, actions, note }: {
             </span>
             <Icon name="chevRight" size={18} className="text-rose-ink" />
           </Link>
+        )}
+
+        {/* --------------------------------------------------- their portal */}
+        {portal && (
+          <Card title="Customer portal">
+            <PortalCard url={portal.url} qr={portal.qr} phone={c.phone}
+              greeting={portal.greeting} size={200} />
+          </Card>
         )}
 
         {/* ---------------------------------------------------- how to reach */}
