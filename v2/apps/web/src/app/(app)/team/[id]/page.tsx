@@ -66,6 +66,7 @@ interface JobDone {
 interface Member {
   id: string; name: string; role: string; title: string; phone: string; email: string;
   color: string; joined: string; skills: string[]; branches: string[];
+  kmRate: number;
   photo: string; sign: string; empType: string; dob: string; blood: string;
   aadhaar: string; addr: string; emergency: Emergency[];
   hoursFrom: string; hoursTo: string; hoursDays: number[];
@@ -188,6 +189,7 @@ interface Draft {
   name: string; phone: string; email: string; aadhaar: string; dob: string;
   blood: string; addr: string; role: string; title: string; empType: string;
   joined: string; skillsText: string; branches: string[];
+  kmRate: string;
   hoursFrom: string; hoursTo: string; hoursDays: number[];
   emergency: Emergency[]; photo: string; sign: string;
 }
@@ -204,6 +206,7 @@ function toDraft(m: Member | null): Draft {
     title: m?.title || DEFAULT_TITLE[m?.role || 'tech'],
     empType: m?.empType || 'Full-time', joined: m?.joined || '',
     skillsText: (m?.skills || []).join(', '), branches: m?.branches || [],
+    kmRate: m?.kmRate ? String(m.kmRate) : '',
     hoursFrom: m?.hoursFrom || '', hoursTo: m?.hoursTo || '',
     hoursDays: m?.hoursDays || [],
     emergency: m?.emergency?.length ? m.emergency.map((e) => ({ ...e })) : [{ ...BLANK_KIN }],
@@ -355,6 +358,7 @@ export default function TeamMember() {
       joined: draft.joined,
       skills: draft.skillsText.split(',').map((x) => x.trim()).filter(Boolean),
       branches: draft.branches,
+      kmRate: Math.max(0, Number(draft.kmRate) || 0),
       hoursFrom: draft.hoursFrom, hoursTo: draft.hoursTo, hoursDays: draft.hoursDays,
       emergency: kin, photo: draft.photo, sign: draft.sign,
     };
@@ -626,12 +630,23 @@ export default function TeamMember() {
               <input type="date" className={inputCls} value={draft.joined}
                 onChange={(e) => set('joined', e.target.value)} />
             </Field>
-            <label className="block sm:col-span-2">
+            <label className="block">
               <span className={labelCls}>Skills (comma separated)</span>
               <input className={inputCls} value={draft.skillsText} placeholder="Termite, Cockroach, Rodent"
                 onChange={(e) => set('skillsText', e.target.value)} />
               <p className="text-muted-2 text-[11.5px] mt-1.5">
                 Matched against service names when suggesting technicians for a visit.
+              </p>
+            </label>
+            {/* What a kilometre of this person's trips pays them. Their own
+                figure wins; blank means the branch's rate applies. */}
+            <label className="block">
+              <span className={labelCls}>Rate per km for travel expense ({'\u20b9'})</span>
+              <input className={inputCls} type="number" inputMode="decimal" min={0} step="0.5"
+                value={draft.kmRate} placeholder="e.g. 6"
+                onChange={(e) => set('kmRate', e.target.value)} />
+              <p className="text-muted-2 text-[11.5px] mt-1.5">
+                Used for this person&rsquo;s trip allowances. Leave blank to use their branch&rsquo;s rate.
               </p>
             </label>
           </div>
@@ -798,6 +813,7 @@ export default function TeamMember() {
     ['Working hours', hours],
   ];
   if (isTech) kv.push(['Skills', m.skills.join(', ') || '—']);
+  kv.push(['Rate per km', m.kmRate ? '\u20b9' + m.kmRate : 'branch rate']);
 
   return (
     <>

@@ -49,9 +49,9 @@ export class TripsController {
     return this.trips.notify(userId, text);
   }
 
-  /** The ₹/km rate for a branch (its own, else the company fallback). */
-  private kmRate(branch?: string): Promise<number> {
-    return this.trips.kmRate(branch);
+  /** The ₹/km rate for a trip: the person's, else the branch's, else the company's. */
+  private kmRate(branch?: string, userId?: string): Promise<number> {
+    return this.trips.kmRate(branch, userId);
   }
 
   private autoExpenseForTrip(tripId: string) {
@@ -515,9 +515,7 @@ export class TripsController {
     const start = new Date(day + 'T00:00:00');
     // Each trip is worth its own branch's rate; the headline `rate` is the
     // company fallback, kept for screens that still print one figure.
-    const rates = await this.trips.rateMap();
-    const rateOf = (b: string) => rates.get(b) ?? rates.get('') ?? 0;
-    const rate = rates.get('') ?? 0;
+    const { rateOf, base: rate } = await this.trips.rateFn();
     const rows = await this.prisma.trip.findMany({
       where: {
         ...(ids ? { userId: { in: ids } } : {}),
@@ -538,14 +536,14 @@ export class TripsController {
         trips: rows.length,
         onRoad: active.length,
         distanceKm: Math.round(distM / 1000),
-        cost: doneToday.filter((t) => t.review !== 'rejected').reduce((a, t) => a + Math.round((t.distanceM / 1000) * rateOf(t.branch)), 0),
+        cost: doneToday.filter((t) => t.review !== 'rejected').reduce((a, t) => a + Math.round((t.distanceM / 1000) * rateOf(t.branch, t.userId)), 0),
         needsReview: doneToday.filter((t) => t.review === 'pending').length,
       },
       rows: rows.map((t) => ({
         ...this.shape(t),
         userName: uOf.get(t.userId)?.name || 'Former staff',
         userColor: uOf.get(t.userId)?.color || '#888',
-        cost: Math.round((t.distanceM / 1000) * rateOf(t.branch)),
+        cost: Math.round((t.distanceM / 1000) * rateOf(t.branch, t.userId)),
       })),
     };
   }
@@ -563,7 +561,7 @@ export class TripsController {
     }
     const [u, rate] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: t.userId }, select: { name: true, color: true } }),
-      this.kmRate(t.branch),
+      this.kmRate(t.branch, t.userId),
     ]);
     return {
       ...this.shape(t),
@@ -633,9 +631,7 @@ export class TripsController {
     const ids = await this.scopedUserIds(req, branch);
     const start = new Date(day + 'T00:00:00');
     const end = new Date(day + 'T23:59:59.999');
-    const rates = await this.trips.rateMap();
-    const rateOf = (b: string) => rates.get(b) ?? rates.get('') ?? 0;
-    const rate = rates.get('') ?? 0;
+    const { rateOf, base: rate } = await this.trips.rateFn();
     const rows = await this.prisma.trip.findMany({
       where: {
         ...(ids ? { userId: { in: ids } } : {}),
@@ -660,7 +656,7 @@ export class TripsController {
       color: uOf.get(uid)?.color || '#888',
       trips: g.trips,
       distanceKm: +(g.distM / 1000).toFixed(1),
-      cost: Math.round((g.distM / 1000) * rateOf(g.branch)),
+      cost: Math.round((g.distM / 1000) * rateOf(g.branch, uid)),
       toReview: g.review,
       claimed: g.claimed,
     })).sort((a, b) => b.cost - a.cost);
@@ -697,8 +693,8 @@ export class TripsController {
   async pushToClaim(@Body() body: Record<string, unknown>, @Req() req: Request & Jwt) {
     const day = String(body.date || todayISO()).slice(0, 10);
     const ids = await this.scopedUserIds(req, String(body.branch || '') || undefined);
-    const anyRate = [...(await this.trips.rateMap()).values()].some(Boolean);
-    if (!anyRate) throw new BadRequestException('Set the \u20b9-per-km rate on the branch first (Master data \u2192 Branches)');
+    const anyRate = (await this.trips.rateFn()).any;
+    if (!anyRate) throw new BadRequestException('Set a \u20b9-per-km rate first - on the person (Team) or the branch (Master data \u2192 Branches)');
     const start = new Date(day + 'T00:00:00');
     const end = new Date(day + 'T23:59:59.999');
     const rows = await this.prisma.trip.findMany({

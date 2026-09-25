@@ -35,12 +35,16 @@ export class TripsService {
   }
 
   /**
-   * The rupees-per-km rate a trip is worth: the BRANCH's own, set where the
-   * branch is created (Master data > Branches). The old company-wide figure
-   * stays only as the fallback for a branch that has not set one yet, so no
-   * branch silently drops to zero the day the field moves.
+   * The rupees-per-km rate a trip is worth, in the order the office decides
+   * it: the PERSON's own rate (set on their profile), else their BRANCH's
+   * (set where the branch is created), else the old company-wide figure,
+   * kept only so nothing drops to zero the day the fields moved.
    */
-  async kmRate(branch?: string): Promise<number> {
+  async kmRate(branch?: string, userId?: string): Promise<number> {
+    if (userId) {
+      const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { kmRate: true } });
+      if (u?.kmRate) return u.kmRate;
+    }
     if (branch) {
       const b = await this.prisma.branch.findUnique({ where: { id: branch }, select: { kmRate: true } });
       if (b?.kmRate) return b.kmRate;
@@ -49,16 +53,25 @@ export class TripsService {
     return co?.kmRate || 0;
   }
 
-  /** Every branch's rate in one read, '' being the company fallback. */
-  async rateMap(): Promise<Map<string, number>> {
-    const [bs, co] = await Promise.all([
+  /**
+   * The same decision for many trips at once: one read of people, branches
+   * and the company, then a function of (branch, person). `base` is the
+   * company figure, for screens that still print one number.
+   */
+  async rateFn(): Promise<{ rateOf: (branch: string, userId: string) => number; base: number; any: boolean }> {
+    const [us, bs, co] = await Promise.all([
+      this.prisma.user.findMany({ select: { id: true, kmRate: true } }),
       this.prisma.branch.findMany({ select: { id: true, kmRate: true } }),
       this.prisma.company.findFirst({ select: { kmRate: true } }),
     ]);
     const base = co?.kmRate || 0;
-    const m = new Map<string, number>([['', base]]);
-    for (const b of bs) m.set(b.id, b.kmRate || base);
-    return m;
+    const user = new Map(us.map((u) => [u.id, u.kmRate || 0]));
+    const branch = new Map(bs.map((b) => [b.id, b.kmRate || 0]));
+    return {
+      rateOf: (b: string, u: string) => user.get(u) || branch.get(b) || base,
+      base,
+      any: base > 0 || us.some((u) => u.kmRate > 0) || bs.some((b) => b.kmRate > 0),
+    };
   }
 
   /**
@@ -131,7 +144,7 @@ export class TripsService {
     if (t.review === 'rejected') return 'skip';
     const existing = await this.prisma.expense.findFirst({ where: { tripId } });
     if (existing) return 'exists';
-    const rate = await this.kmRate(t.branch);
+    const rate = await this.kmRate(t.branch, t.userId);
     // The day the trip FINISHED is the day its money belongs to - that is
     // the folder the office reviews it in. And the folder opens itself, the
     // way a manual expense opens it: bookkeeping is not a decision. Only a

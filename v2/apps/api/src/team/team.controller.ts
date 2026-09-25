@@ -68,7 +68,7 @@ const PALETTE = ['#0B7454', '#7C3AED', '#2E90FA', '#F79009', '#12B76A', '#F04438
 const EDITABLE = [
   'name', 'phone', 'email', 'role', 'title', 'dob', 'blood', 'aadhaar', 'addr',
   'empType', 'joined', 'skills', 'branches', 'photo', 'sign', 'emergency',
-  'hoursFrom', 'hoursTo', 'hoursDays', 'color', 'active',
+  'hoursFrom', 'hoursTo', 'hoursDays', 'color', 'active', 'kmRate',
 ] as const;
 
 function pick(body: Record<string, unknown>) {
@@ -366,6 +366,8 @@ export class TeamController {
         empType: String(body.empType || 'Full-time'),
         skills: Array.isArray(body.skills) ? body.skills.map((s) => String(s).trim()).filter(Boolean) : [],
         branches,
+        // What a kilometre of this person's trips pays; 0 defers to the branch.
+        kmRate: Math.max(0, Number(body.kmRate) || 0),
         photo: String(body.photo || ''),
         sign: String(body.sign || ''),
         emergency: emergency as never,
@@ -422,6 +424,7 @@ export class TeamController {
         ? data.skills.map((s) => String(s).trim()).filter(Boolean)
         : [];
     }
+    if ('kmRate' in data) data.kmRate = Math.max(0, Number(data.kmRate) || 0);
     if ('role' in data && !DEFAULT_TITLE[String(data.role)]) {
       throw new BadRequestException('Not a staff role');
     }

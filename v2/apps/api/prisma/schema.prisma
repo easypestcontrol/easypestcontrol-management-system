@@ -140,6 +140,7 @@ model User {
   joined    String   @default("") // ISO date
   skills    String[] @default([])
   branches  String[] @default([]) // Branch ids
+  kmRate    Float    @default(0) // rupees per km for this person's trips; 0 = their branch's rate
   photo     String   @default("") // data URL
   sign      String   @default("") // signature image data URL — auto-placed on documents
   empType   String   @default("Full-time")
