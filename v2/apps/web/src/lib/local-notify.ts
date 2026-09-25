@@ -23,7 +23,7 @@ interface CapLocalNotifications {
    installs and stayed silent no matter what we set here. Bumping the id hands
    every device a brand-new channel that rings. Change the suffix again if a
    future install is ever created wrong. */
-const CHANNEL = 'pestops-alerts-2';
+const CHANNEL = 'pestops-alerts-3';
 
 function plugin(): CapLocalNotifications | null {
   if (typeof window === 'undefined') return null;

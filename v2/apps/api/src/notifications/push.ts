@@ -92,7 +92,7 @@ async function pushRow(prisma: PrismaClient, row: { userId: string; text: string
               notification: { title: 'PestOps', body: row.text },
               android: {
                 priority: 'high',
-                notification: { channel_id: 'pestops-alerts-2', default_sound: true },
+                notification: { channel_id: 'pestops-alerts-3', default_sound: true },
               },
               data: { ref: (REF.exec(row.text) || [''])[0] },
             },
