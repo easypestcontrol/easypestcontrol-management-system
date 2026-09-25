@@ -38,20 +38,32 @@ const fmtDate = (iso: string) => {
    actually wrong: overdue, and money still owed. Red goes back to being a
    signal, which is the only way it can carry the buttons as well. */
 const INK = 'rgb(20 20 20 / 0.80)';   // the achieved part of a figure
-const INK_SOFT = 'rgb(20 20 20 / 0.20)'; // the whole it is measured against
 const BAD = '#C81E1E';                 // a problem, in the brand's deeper red
 
-/** The four tints a figure can wear, each as a background and a matching ink. */
+/** The tints a figure can wear, each as a background and a matching ink. */
 const TINT: Record<string, { bg: string; fg: string }> = {
   sky: { bg: 'bg-sky', fg: 'text-sky-ink' },
   mint: { bg: 'bg-mint', fg: 'text-mint-ink' },
   amber: { bg: 'bg-amber', fg: 'text-amber-ink' },
   rose: { bg: 'bg-rose', fg: 'text-rose-ink' },
+  violet: { bg: 'bg-violet', fg: 'text-violet-ink' },
+  teal: { bg: 'bg-teal', fg: 'text-teal-ink' },
 };
 
+/* A categorical palette for the charts — the six tint inks, which are already
+   saturated enough to tell apart and light enough to read a label against.
+   Ranked lists (most-booked services, branches) rotate through it so each row
+   is its own colour, the way the reference's "Service Popularity" does, rather
+   than a column of identical grey bars. */
+const SERIES = ['#3A5A8C', '#6D28D9', '#1F7A4C', '#B45309', '#0E7C6B', '#C81E1E'];
+
+/* The invoice book, by state. These are semantic, not decorative: green is
+   money in, blue is money on its way, amber is half-paid, red is late, and a
+   draft that has not gone anywhere stays grey. So the colour on the donut
+   carries the same meaning as the colour everywhere else on the page. */
 const MIX_COLOR: Record<string, string> = {
-  overdue: BAD, partial: 'rgb(20 20 20 / 0.34)', sent: 'rgb(20 20 20 / 0.18)',
-  draft: 'rgb(20 20 20 / 0.09)', paid: INK,
+  paid: '#1F7A4C', partial: '#B45309', sent: '#3A5A8C',
+  overdue: BAD, draft: 'rgb(20 20 20 / 0.18)',
 };
 const MIX_LABEL: Record<string, string> = {
   overdue: 'Overdue', partial: 'Partially paid', sent: 'Awaiting payment',
@@ -97,10 +109,13 @@ export default function Dashboard() {
      actually go wrong wear the red one. */
   const cards = s ? [
     { label: 'Open leads', value: s.leads, href: '/leads', foot: 'in the pipeline', icon: 'leads' as IconName, tint: 'sky' },
-    { label: 'Quotes awaiting', value: s.quotes, href: '/quotations', foot: 'draft or with the customer', icon: 'quote' as IconName, tint: 'sky' },
+    { label: 'Quotes awaiting', value: s.quotes, href: '/quotations', foot: 'draft or with the customer', icon: 'quote' as IconName, tint: 'violet' },
     { label: 'Live contracts', value: s.contracts, href: '/contracts', foot: 'AMC + one-time', icon: 'contract' as IconName, tint: 'mint' },
-    { label: "Today's services", value: s.jobsToday, href: '/schedule', foot: `${s.doneToday} completed`, icon: 'calendar' as IconName, tint: 'sky' },
-    { label: 'Waiting for a technician', value: s.waiting, href: '/board', foot: 'drag them on the board', alert: s.waiting > 0, icon: 'board' as IconName, tint: s.waiting > 0 ? 'amber' : 'mint' },
+    { label: "Today's services", value: s.jobsToday, href: '/schedule', foot: `${s.doneToday} completed`, icon: 'calendar' as IconName, tint: 'teal' },
+    /* These two carry a real alarm, so they keep the semantic colours: amber
+       while work is waiting, red while money is owed. Colour elsewhere is
+       decoration; here it means something, so it wins over the palette. */
+    { label: 'Waiting for a technician', value: s.waiting, href: '/board', foot: 'drag them on the board', alert: s.waiting > 0, icon: 'board' as IconName, tint: s.waiting > 0 ? 'amber' : 'teal' },
     { label: 'Outstanding', value: money(s.outstanding), href: '/invoices', foot: `${money(s.collected)} collected`, alert: s.outstanding > 0, icon: 'invoice' as IconName, tint: s.outstanding > 0 ? 'rose' : 'mint' },
   ] : [];
 
@@ -144,17 +159,21 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             {cards.map((c) => (
               <Link key={c.label} href={c.href}
-                className="card card-hover p-5 flex items-start gap-3.5">
-                <span className={'chipbox ' + TINT[c.tint].bg}>
-                  <Icon name={c.icon} size={18} className={TINT[c.tint].fg} />
+                className="card card-hover p-4 flex flex-col justify-between min-h-[134px]">
+                {/* The colour lives in the tile, the way the reference does it —
+                    a big soft square per figure, so six white cards read as six
+                    different things at a glance rather than one grid to scan. */}
+                <span className={'w-11 h-11 rounded-[13px] flex items-center justify-center shrink-0 '
+                  + TINT[c.tint].bg}>
+                  <Icon name={c.icon} size={21} className={TINT[c.tint].fg} />
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[12px] font-medium text-muted leading-tight">{c.label}</span>
-                  <span className={'block mt-1.5 text-[27px] font-bold tracking-[-0.02em] leading-none tabular-nums '
+                <span className="min-w-0">
+                  <span className={'block text-[28px] font-bold tracking-[-0.02em] leading-none tabular-nums '
                     + (c.alert ? 'text-hero' : 'text-ink')}>
                     {c.value}
                   </span>
-                  <span className="block mt-2 text-[12px] text-muted-2 truncate">{c.foot}</span>
+                  <span className="block mt-1.5 text-[13px] font-semibold text-ink-2 leading-tight">{c.label}</span>
+                  <span className="block mt-0.5 text-[11.5px] text-muted-2 truncate">{c.foot}</span>
                 </span>
               </Link>
             ))}
@@ -269,7 +288,14 @@ function Empty({ text }: { text: string }) {
   return <p className="py-6 text-center text-[12.5px] text-muted">{text}</p>;
 }
 
-/** Grouped bars, one pair per month: ink = billed, red = collected. */
+/* Billed is the whole, collected the part achieved — so one hue, two weights:
+   a soft blue behind a strong one. Same-hue keeps the pair legible as "how
+   much of what we billed came in", where two different colours would read as
+   two unrelated things. */
+const BILLED_C = '#C4D3EC';
+const COLLECTED_C = '#3A5A8C';
+
+/** Grouped bars, one pair per month: soft blue = billed, strong blue = collected. */
 function MonthBars({ months }: { months: DashboardStats['months'] }) {
   const W = 560, H = 190, PAD = 8, AXIS = 20;
   const max = Math.max(1, ...months.flatMap((m) => [m.invoiced, m.collected]));
@@ -290,17 +316,17 @@ function MonthBars({ months }: { months: DashboardStats['months'] }) {
           return (
             <g key={m.label}>
               <rect x={cx - bar - 2} y={y(m.invoiced)} width={bar} height={Math.max(1, H - AXIS - y(m.invoiced))}
-                rx="3" fill={INK_SOFT}><title>{m.label}: billed {money(m.invoiced)}</title></rect>
+                rx="3" fill={BILLED_C}><title>{m.label}: billed {money(m.invoiced)}</title></rect>
               <rect x={cx + 2} y={y(m.collected)} width={bar} height={Math.max(1, H - AXIS - y(m.collected))}
-                rx="3" fill={INK}><title>{m.label}: collected {money(m.collected)}</title></rect>
+                rx="3" fill={COLLECTED_C}><title>{m.label}: collected {money(m.collected)}</title></rect>
               <text x={cx} y={H - 5} textAnchor="middle" fontSize="10" fill="#666">{m.label}</text>
             </g>
           );
         })}
       </svg>
       <div className="mt-1 flex gap-4 text-[11.5px] text-muted">
-        <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: INK_SOFT }} /> Billed</span>
-        <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: INK }} /> Collected</span>
+        <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: BILLED_C }} /> Billed</span>
+        <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: COLLECTED_C }} /> Collected</span>
       </div>
     </div>
   );
@@ -348,19 +374,20 @@ function StatusDonut({ mix }: { mix: DashboardStats['invoiceMix'] }) {
   );
 }
 
-/** Horizontal bars for name → count rankings. */
+/** Horizontal bars for name → count rankings, each row its own colour. */
 function HBars({ rows, fmt }: { rows: Array<{ label: string; v: number }>; fmt: (v: number) => string }) {
   const max = Math.max(1, ...rows.map((r) => r.v));
   return (
     <div className="flex flex-col gap-2.5">
-      {rows.map((r) => (
+      {rows.map((r, i) => (
         <div key={r.label}>
           <div className="flex justify-between text-[12px] mb-1">
             <span className="truncate pr-2">{r.label}</span>
             <span className="text-muted shrink-0">{fmt(r.v)}</span>
           </div>
           <div className="h-2 rounded bg-wash overflow-hidden">
-            <div className="h-full rounded" style={{ width: (r.v / max) * 100 + '%', background: INK }} />
+            <div className="h-full rounded"
+              style={{ width: (r.v / max) * 100 + '%', background: SERIES[i % SERIES.length] }} />
           </div>
         </div>
       ))}
@@ -382,13 +409,13 @@ function BranchBars({ rows }: { rows: DashboardStats['branchSplit'] }) {
             </span>
           </div>
           <div className="h-3 rounded bg-wash overflow-hidden flex">
-            <div className="h-full" style={{ width: (r.collected / max) * 100 + '%', background: INK }} />
+            <div className="h-full" style={{ width: (r.collected / max) * 100 + '%', background: COLLECTED_C }} />
             <div className="h-full" style={{ width: (r.outstanding / max) * 100 + '%', background: BAD }} />
           </div>
         </div>
       ))}
       <div className="flex gap-4 text-[11.5px] text-muted">
-        <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: INK }} /> Collected</span>
+        <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: COLLECTED_C }} /> Collected</span>
         <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: BAD }} /> Outstanding</span>
       </div>
     </div>
@@ -405,7 +432,7 @@ function CollectionRate({ billed, collected }: { billed: number; collected: numb
         <span className="text-[12.5px] text-muted">of {money(billed)} billed has been collected</span>
       </div>
       <div className="mt-3 h-3 rounded bg-wash overflow-hidden">
-        <div className="h-full rounded" style={{ width: pct + '%', background: INK }} />
+        <div className="h-full rounded" style={{ width: pct + '%', background: COLLECTED_C }} />
       </div>
       <p className="mt-2 text-[12px] text-muted-2">
         {money(billed - collected)} still to come in — the Invoices page ageing cards show where it is stuck.

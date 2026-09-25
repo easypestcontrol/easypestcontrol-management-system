@@ -56,6 +56,12 @@
   --color-sky-ink: #3A5A8C;
   --color-amber: #FEF3E2;
   --color-amber-ink: #B45309;
+  /* Two more tints so a row of KPI tiles reads as a palette, not a repeat —
+     a violet and a teal to sit alongside sky, mint, amber and rose. */
+  --color-violet: #F1ECFC;
+  --color-violet-ink: #6D28D9;
+  --color-teal: #E2F5F2;
+  --color-teal-ink: #0E7C6B;
 
   /* ---------------------------------------------------------- the phone
 
