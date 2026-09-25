@@ -35,6 +35,12 @@ services:
       DATABASE_URL: postgresql://pestops:${DB_PASSWORD}@db:5432/pestops
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       PORT: 4000
+      # The office's clock. Every stamp the API writes - who approved an
+      # expense and when, a report's diary, which day a trip's allowance lands
+      # on - is the container's local time, and the container's default is
+      # UTC: 6:28 pm in Chennai was being recorded as 12:58. One business, one
+      # timezone; set it here rather than in a hundred date calls.
+      TZ: Asia/Kolkata
       # Cloudflare R2. Blank means photos keep living in PostgreSQL as data
       # URLs — see DEPLOY.md. The secret is read from deploy/.env, which
       # set-secrets.sh writes at 0600 and which is never committed.
