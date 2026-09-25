@@ -50,8 +50,8 @@ function kindOf(l: Lesson): { label: string; icon: 'play' | 'book' } {
 
 /* ------------------------------------------------------------- the reader */
 
-export function LessonScreen({ lesson, onClose, onDelete }: {
-  lesson: Lesson; onClose: () => void; onDelete: () => void;
+export function LessonScreen({ lesson, onClose, onEdit, onDelete }: {
+  lesson: Lesson; onClose: () => void; onEdit: () => void; onDelete: () => void;
 }) {
   const embed = embedOf(lesson.link);
   const videoSrc = lesson.hasVideo
@@ -92,11 +92,18 @@ export function LessonScreen({ lesson, onClose, onDelete }: {
         </p>
 
         {lesson.canManage && (
-          <button type="button" onClick={onDelete}
-            className="h-12 rounded-xl border border-accent text-accent text-[14.5px] font-semibold
-              active:bg-red-wash">
-            Delete lesson
-          </button>
+          <div className="flex gap-2">
+            <button type="button" onClick={onEdit}
+              className="flex-1 h-12 rounded-xl border border-navy text-navy text-[14.5px] font-semibold
+                active:bg-wash flex items-center justify-center gap-2">
+              <Icon name="edit" size={16} /> Edit lesson
+            </button>
+            <button type="button" onClick={onDelete}
+              className="h-12 px-5 rounded-xl border border-accent text-accent text-[14.5px] font-semibold
+                active:bg-red-wash">
+              Delete
+            </button>
+          </div>
         )}
       </div>
     </div>

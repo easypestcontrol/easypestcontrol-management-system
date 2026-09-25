@@ -35,6 +35,7 @@ export default function TrainingPage() {
   const [rows, setRows] = useState<Lesson[] | null>(null);
   const [open, setOpen] = useState<Lesson | null>(null);
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<Lesson | null>(null);
   const [confirming, setConfirming] = useState<Lesson | null>(null);
   const [me, setMe] = useState<SessionUser | null>(null);
 
@@ -56,6 +57,7 @@ export default function TrainingPage() {
         onNew={canManage ? () => setAdding(true) : undefined} />
       {open && (
         <LessonScreen lesson={open} onClose={() => setOpen(null)}
+          onEdit={() => { const l = open; setOpen(null); setEditing(l); }}
           onDelete={() => setConfirming(open)} />
       )}
       <Confirm spec={confirming ? {
@@ -100,46 +102,60 @@ export default function TrainingPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {rows.map((l) => (
-            <button key={l.id} onClick={() => setOpen(l)}
-              className="text-left card card-hover p-4">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="zpill outline">{ROLE_LABEL[l.role] || l.role}</span>
-                {l.hasVideo && <span className="zpill navy">video</span>}
-                {l.link && !l.hasVideo && <span className="zpill">link</span>}
-              </div>
-              <p className="text-[14px] font-semibold leading-snug">{l.title}</p>
-              <p className="text-[12px] text-muted mt-1 line-clamp-2">{l.body || '—'}</p>
-              <p className="text-[10.5px] text-muted-2 mt-2">{l.by} · {l.createdAt}</p>
-            </button>
+            <div key={l.id} className="card p-4 flex flex-col">
+              <button onClick={() => setOpen(l)} className="text-left">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="zpill outline">{ROLE_LABEL[l.role] || l.role}</span>
+                  {l.hasVideo && <span className="zpill navy">video</span>}
+                  {l.link && !l.hasVideo && <span className="zpill">link</span>}
+                </div>
+                <p className="text-[14px] font-semibold leading-snug">{l.title}</p>
+                <p className="text-[12px] text-muted mt-1 line-clamp-2">{l.body || '—'}</p>
+                <p className="text-[10.5px] text-muted-2 mt-2">{l.by} · {l.createdAt}</p>
+              </button>
+              {canManage && (
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-line-soft">
+                  <button onClick={() => setEditing(l)}
+                    className="h-8 px-3 rounded border border-line text-[12px] font-semibold hover:bg-wash flex items-center gap-1.5">
+                    <Icon name="edit" size={13} /> Edit
+                  </button>
+                  <button onClick={() => setConfirming(l)}
+                    className="h-8 px-3 rounded border border-line text-[12px] font-medium text-muted hover:text-accent hover:bg-red-wash flex items-center gap-1.5">
+                    <Icon name="x" size={13} /> Delete
+                  </button>
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
 
       {open && (
         <span className="max-lg:hidden">
-          <Viewer lesson={open} onClose={() => setOpen(null)} onDeleted={() => { setOpen(null); load(); }} />
+          <Viewer lesson={open} onClose={() => setOpen(null)}
+            onEdit={() => { const l = open; setOpen(null); setEditing(l); }}
+            onDelete={() => setConfirming(open)} />
         </span>
       )}
     </div>
-    {adding && <AddDialog onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} />}
+    {adding && <LessonDialog onClose={() => setAdding(false)} onDone={() => { setAdding(false); load(); }} />}
+    {editing && (
+      <LessonDialog lesson={editing}
+        onClose={() => setEditing(null)} onDone={() => { setEditing(null); load(); }} />
+    )}
     </>
   );
 }
 
 /* ------------------------------------------------------------------ viewer */
 
-function Viewer({ lesson, onClose, onDeleted }: {
-  lesson: Lesson; onClose: () => void; onDeleted: () => void;
+function Viewer({ lesson, onClose, onEdit, onDelete }: {
+  lesson: Lesson; onClose: () => void; onEdit: () => void; onDelete: () => void;
 }) {
   const embed = embedOf(lesson.link);
   const videoSrc = lesson.hasVideo
     ? API_BASE + '/training/' + lesson.id + '/video?t=' + (getToken() || '')
     : '';
-
-  async function remove() {
-    if (!confirm('Delete this lesson for everyone?')) return;
-    try { await api.del('/training/' + lesson.id); onDeleted(); } catch { /* keep */ }
-  }
 
   return (
     <div className="fixed inset-0 z-50 bg-navy/40 flex items-center justify-center p-6" onClick={onClose}>
@@ -170,9 +186,16 @@ function Viewer({ lesson, onClose, onDeleted }: {
             <p className="text-[13.5px] leading-relaxed whitespace-pre-line">{lesson.body}</p>
           )}
           {lesson.canManage && (
-            <button onClick={remove} className="mt-5 text-[12px] font-medium text-muted hover:text-accent">
-              Delete lesson
-            </button>
+            <div className="mt-5 flex items-center gap-2">
+              <button onClick={onEdit}
+                className="h-9 px-4 rounded border border-line text-[13px] font-semibold hover:bg-wash flex items-center gap-1.5">
+                <Icon name="edit" size={14} /> Edit
+              </button>
+              <button onClick={onDelete}
+                className="h-9 px-4 rounded border border-line text-[13px] font-medium text-muted hover:text-accent">
+                Delete lesson
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -182,20 +205,30 @@ function Viewer({ lesson, onClose, onDeleted }: {
 
 /* --------------------------------------------------------------- add form */
 
-function AddDialog({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
-  const [title, setTitle] = useState('');
-  const [role, setRole] = useState('tech');
-  const [body, setBody] = useState('');
-  const [link, setLink] = useState('');
+function LessonDialog({ lesson, onClose, onDone }: {
+  lesson?: Lesson; onClose: () => void; onDone: () => void;
+}) {
+  const editing = !!lesson;
+  const [title, setTitle] = useState(lesson?.title || '');
+  const [role, setRole] = useState(lesson?.role || 'tech');
+  const [body, setBody] = useState(lesson?.body || '');
+  const [link, setLink] = useState(lesson?.link || '');
   const [file, setFile] = useState<File | null>(null);
+  const [removeVideo, setRemoveVideo] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const hadVideo = !!lesson?.hasVideo;
 
   async function save() {
     setErr('');
     if (!title.trim()) { setErr('Give the lesson a title'); return; }
-    if (!body.trim() && !link.trim() && !file) { setErr('Add some text, a video file, or a link'); return; }
+    // The lesson must still open after the edit: text, a link, a fresh file,
+    // or an existing video that is being kept.
+    const keepsVideo = editing && hadVideo && !removeVideo && !file;
+    if (!body.trim() && !link.trim() && !file && !keepsVideo) {
+      setErr('Add some text, a video file, or a link'); return;
+    }
     if (file && file.size > 100 * 1024 * 1024) { setErr('Keep videos under 100 MB'); return; }
     setBusy(true);
     try {
@@ -208,10 +241,16 @@ function AddDialog({ onClose, onDone }: { onClose: () => void; onDone: () => voi
           r.readAsDataURL(file);
         });
       }
-      await api.post('/training', {
+      const payload: Record<string, unknown> = {
         title: title.trim(), role, body: body.trim(), link: link.trim(),
         videoB64, videoName: file?.name || '',
-      });
+      };
+      if (editing) {
+        if (removeVideo && !file) payload.removeVideo = true;
+        await api.patch('/training/' + lesson!.id, payload);
+      } else {
+        await api.post('/training', payload);
+      }
       onDone();
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Could not save the lesson');
@@ -227,7 +266,7 @@ function AddDialog({ onClose, onDone }: { onClose: () => void; onDone: () => voi
       <div className="bg-white rounded-lg shadow-xl w-full max-w-[560px] max-h-[88vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
-          <h2 className="text-[15px] font-semibold">New lesson</h2>
+          <h2 className="text-[15px] font-semibold">{editing ? 'Edit lesson' : 'New lesson'}</h2>
           <button onClick={onClose} className="text-muted hover:text-ink p-1"><Icon name="x" size={16} /></button>
         </div>
         <div className="p-5 flex flex-col gap-4">
@@ -251,10 +290,26 @@ function AddDialog({ onClose, onDone }: { onClose: () => void; onDone: () => voi
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <span className={label}>Video file</span>
+              {editing && hadVideo && !file && !removeVideo && (
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="zpill navy">video attached</span>
+                  <button type="button" onClick={() => setRemoveVideo(true)}
+                    className="text-[12px] font-medium text-muted hover:text-accent">Remove</button>
+                </div>
+              )}
+              {removeVideo && (
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-[12px] font-medium text-accent">Video will be removed</span>
+                  <button type="button" onClick={() => setRemoveVideo(false)}
+                    className="text-[12px] font-medium text-muted hover:text-ink">Undo</button>
+                </div>
+              )}
               <input ref={fileRef} type="file" accept="video/mp4,video/webm,video/quicktime"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
                 className="block w-full text-[12px] text-muted file:mr-2 file:h-8 file:px-3 file:rounded file:border file:border-line file:bg-white file:text-[12px] file:font-medium" />
-              <span className="block text-[10.5px] text-muted-2 mt-1">MP4/WebM, up to 100 MB.</span>
+              <span className="block text-[10.5px] text-muted-2 mt-1">
+                {editing && hadVideo ? 'Pick a file to replace it — MP4/WebM, up to 100 MB.' : 'MP4/WebM, up to 100 MB.'}
+              </span>
             </div>
             <label className="block">
               <span className={label}>…or a video link</span>
@@ -269,7 +324,7 @@ function AddDialog({ onClose, onDone }: { onClose: () => void; onDone: () => voi
             className="h-9 px-4 rounded border border-line text-[13px] font-medium hover:bg-wash">Cancel</button>
           <button onClick={save} disabled={busy}
             className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-60">
-            {busy ? 'Uploading…' : 'Publish lesson'}
+            {busy ? (editing ? 'Saving…' : 'Uploading…') : editing ? 'Save changes' : 'Publish lesson'}
           </button>
         </div>
       </div>

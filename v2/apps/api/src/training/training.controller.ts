@@ -6,7 +6,7 @@
    ========================================================================== */
 import {
   BadRequestException, Body, Controller, Delete, Get, NotFoundException,
-  Param, Post, Req, Res, UseGuards,
+  Param, Patch, Post, Req, Res, UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import type { Role } from '@prisma/client';
@@ -101,6 +101,54 @@ export class TrainingController {
         data: audience.map((u) => ({ userId: u.id, at, text: lessonText })),
       });
     }
+    return { id };
+  }
+
+  @Patch(':id')
+  @Roles('admin', 'ops')
+  async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
+    const t = await this.prisma.training.findUnique({ where: { id } });
+    if (!t) throw new NotFoundException('No such lesson');
+
+    const data: Record<string, unknown> = {};
+    if ('title' in body) {
+      const title = String(body.title || '').trim();
+      if (!title) throw new BadRequestException('Give the lesson a title');
+      data.title = title;
+    }
+    if ('role' in body) data.role = ROLES.includes(String(body.role)) ? String(body.role) : t.role;
+    if ('body' in body) data.body = String(body.body || '').trim();
+    if ('link' in body) data.link = String(body.link || '').trim();
+
+    // Video: a fresh upload replaces the old file on disk; removeVideo clears it.
+    const b64 = String(body.videoB64 || '');
+    if (b64) {
+      const raw = Buffer.from(b64.replace(/^data:[^;]+;base64,/, ''), 'base64');
+      if (!raw.length) throw new BadRequestException('The video file came through empty');
+      if (raw.length > MAX_VIDEO) {
+        throw new BadRequestException('Keep videos under 100 MB — trim it or host it and paste the link');
+      }
+      if (t.video) { try { fs.unlinkSync(path.join(VIDEO_DIR, t.video)); } catch { /* already gone */ } }
+      const ext = (String(body.videoName || '').match(/\.(mp4|webm|mov|m4v)$/i) || [])[1] || 'mp4';
+      const video = id + '.' + ext.toLowerCase();
+      fs.mkdirSync(VIDEO_DIR, { recursive: true });
+      fs.writeFileSync(path.join(VIDEO_DIR, video), raw);
+      data.video = video;
+    } else if (body.removeVideo) {
+      if (t.video) { try { fs.unlinkSync(path.join(VIDEO_DIR, t.video)); } catch { /* already gone */ } }
+      data.video = '';
+    }
+
+    // Whatever is edited, a lesson must still carry something to open.
+    const finalBody = 'body' in data ? (data.body as string) : t.body;
+    const finalLink = 'link' in data ? (data.link as string) : t.link;
+    const finalVideo = 'video' in data ? (data.video as string) : t.video;
+    if (!finalBody && !finalLink && !finalVideo) {
+      throw new BadRequestException('A lesson needs some text, a video, or a link');
+    }
+    if (!Object.keys(data).length) throw new BadRequestException('Nothing to change');
+
+    await this.prisma.training.update({ where: { id }, data });
     return { id };
   }
 
