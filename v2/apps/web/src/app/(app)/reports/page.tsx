@@ -10,8 +10,18 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '@/lib/api';
 import { money, moneyShort, toISO } from 'shared';
 import { useBranchFilter } from '@/components/branch-filter';
+import { Icon, type IconName } from '@/components/icons';
 import ReportsMobile from './mobile';
 import { Filters } from '@/components/mobile';
+
+/* The same tinted-tile language as the home dashboard, so the two money
+   screens read as one system. Each headline figure wears its own colour. */
+const TINT: Record<string, { bg: string; fg: string }> = {
+  sky: { bg: 'bg-sky', fg: 'text-sky-ink' },
+  mint: { bg: 'bg-mint', fg: 'text-mint-ink' },
+  amber: { bg: 'bg-amber', fg: 'text-amber-ink' },
+  rose: { bg: 'bg-rose', fg: 'text-rose-ink' },
+};
 
 /* ---------------------------------------------------------------- payload */
 
@@ -77,14 +87,20 @@ function Card({ title, sub, foot, flush, children }: {
   );
 }
 
-function Stat({ label, value, foot, alert }: {
+function Stat({ label, value, foot, alert, icon = 'report', tint = 'sky' }: {
   label: string; value: string; foot: string; alert?: boolean;
+  icon?: IconName; tint?: string;
 }) {
+  const t = TINT[tint] || TINT.sky;
   return (
-    <div className="card px-5 py-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</p>
-      <p className={'text-[22px] font-semibold mt-0.5 ' + (alert ? 'text-accent' : '')}>{value}</p>
-      <p className="text-[12px] text-muted mt-1">{foot}</p>
+    <div className="card p-5 flex flex-col">
+      <span className={'w-11 h-11 rounded-[13px] flex items-center justify-center shrink-0 mb-5 ' + t.bg}>
+        <Icon name={icon} size={21} className={t.fg} />
+      </span>
+      <p className={'text-[26px] font-bold tracking-[-0.02em] leading-none tabular-nums '
+        + (alert ? 'text-accent' : 'text-ink')}>{value}</p>
+      <p className="text-[13px] font-semibold text-ink-2 mt-2 leading-tight">{label}</p>
+      <p className="text-[12px] text-muted-2 mt-1">{foot}</p>
     </div>
   );
 }
@@ -228,13 +244,13 @@ export default function Reports() {
 
           {/* --------------------------------------------------- headline */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Stat label="Billed" value={moneyShort(data.totals.billed)}
+            <Stat label="Billed" value={moneyShort(data.totals.billed)} icon="invoice" tint="sky"
               foot="Invoices raised in this range, incl. GST" />
-            <Stat label="Collected" value={moneyShort(data.totals.collected)}
+            <Stat label="Collected" value={moneyShort(data.totals.collected)} icon="check" tint="mint"
               foot="Payments received in this range" />
-            <Stat label="Outstanding" value={moneyShort(data.totals.outstanding)}
+            <Stat label="Outstanding" value={moneyShort(data.totals.outstanding)} icon="report" tint="amber"
               foot={data.totals.openInvoices + ' open invoices, all time'} />
-            <Stat label="Overdue" value={moneyShort(data.totals.overdue)}
+            <Stat label="Overdue" value={moneyShort(data.totals.overdue)} icon="alert" tint="rose"
               alert={data.totals.overdue > 0}
               foot={data.totals.overdue > 0 ? 'Needs follow-up today' : 'Nothing overdue'} />
           </div>
