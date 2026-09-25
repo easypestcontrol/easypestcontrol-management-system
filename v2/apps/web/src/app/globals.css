@@ -16,11 +16,14 @@
 
 @theme {
   --color-navy: #141414;
-  /* The brand red — buttons, links, alarms, every "+ New". #DC2626, the
-     reference's button red. The sidebar's active pill wears a deeper red one
-     step down (#B91C1C, see --color-side-active below and the inline colour in
-     shell.tsx), so the navigation reads as a shade apart from the actions. */
-  --color-accent: #DC2626;
+  /* The brand red — buttons, links, alarms, every "+ New". #E11D48, the exact
+     rose the ZService admin console uses for its primary button (bg-admin-600).
+     The sidebar deliberately stays on the Tailwind-red family instead — its
+     active pill is #B91C1C (red-700), which is what ZService itself uses there
+     (bg-red-50 text-red-700 in AdminLayout). So the two reds are not a whim:
+     they are the reference's own two-red split, actions in rose and navigation
+     in red. See --color-side-active below and the inline colour in shell.tsx. */
+  --color-accent: #E11D48;
 
   --color-ink: #141414;
   --color-ink-2: rgb(20 20 20 / 0.78);
@@ -35,8 +38,8 @@
   --color-wash: rgb(20 20 20 / 0.035);
   --color-wash-2: rgb(20 20 20 / 0.06);
 
-  --color-red-wash: rgb(220 38 38 / 0.06);
-  --color-red-line: rgb(220 38 38 / 0.30);
+  --color-red-wash: rgb(225 29 72 / 0.06);
+  --color-red-line: rgb(225 29 72 / 0.30);
 
   /* --------------------------------------------------------------------
      The phone's surfaces.
@@ -79,8 +82,8 @@
      second stop is a shade under it so the panel keeps some depth rather
      than reading as a flat rectangle.
      -------------------------------------------------------------------- */
-  --color-hero: #DC2626;
-  --color-hero-2: #B91C1C;
+  --color-hero: #E11D48;
+  --color-hero-2: #BE123C;
   /* The tiles that sit ON the band. At 0.16 white over #FF0000 they came out
      a washed pink that fought the red behind them; darkening instead of
      lightening keeps them in the same family, and a hairline of white does
