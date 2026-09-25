@@ -116,7 +116,7 @@ function BankCard({ userId, bank, onSaved }: {
     } finally { setBusy(false); }
   }
 
-  const field = 'h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy';
+  const field = 'h-9 px-3 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
 
   return (
     <section className="card mt-5">
@@ -245,8 +245,12 @@ function durationText(mins: number) {
    Appending `w-[90px]` to a class that already says w-full is a coin toss
    decided by stylesheet order — which is how a description box ended up
    narrower than the quantity beside it. */
+/* Touch-sized on the phone, desk-sized from lg up. The 16px text on mobile is
+   not a style choice: iOS zooms the whole page in when it focuses an input
+   under 16px, and a form that lurches on every tap is the web-page feeling the
+   phone is meant to lose. */
 const fieldCls =
-  'h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy bg-white';
+  'h-11 lg:h-9 px-3 rounded-lg border border-line text-[16px] lg:text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
 const inputCls = 'w-full ' + fieldCls;
 const labelCls = 'block text-[12px] font-semibold text-ink-2 mb-1.5';
 const sectionTitle =
@@ -274,6 +278,10 @@ export default function TeamMember() {
 
   const [member, setMember] = useState<Member | null>(null);
   const [branches, setBranches] = useState<BranchRow[]>([]);
+  /* Who is looking. Editing a colleague, setting a password and deactivating
+     are the office's job, not the field's — the API restricts them to admin
+     and ops, so the phone only offers them to those two. */
+  const [me, setMe] = useState<{ role: string } | null>(null);
   const [editing, setEditing] = useState(isNew);
   const [draft, setDraft] = useState<Draft>(() => toDraft(null));
   const [err, setErr] = useState('');
@@ -285,11 +293,23 @@ export default function TeamMember() {
 
   useEffect(() => {
     api.get<BranchRow[]>('/branches').then(setBranches).catch(() => {});
+    api.get<{ role: string }>('/auth/me').then(setMe).catch(() => {});
     if (isNew) return;
     api.get<Member>('/team/' + id)
       .then((m) => { setMember(m); setDraft(toDraft(m)); })
       .catch(() => setMissing(true));
   }, [id, isNew]);
+
+  const canManage = me?.role === 'admin' || me?.role === 'ops';
+
+  /* The way out of the editor: back to the roster for a new member, back to
+     their profile for an existing one. Used by the desk's Cancel button, the
+     phone's back chevron and the phone's bottom bar alike. */
+  function cancelEdit() {
+    if (isNew) { router.push('/team'); return; }
+    setDraft(toDraft(member));
+    setEditing(false);
+  }
 
   function set<K extends keyof Draft>(k: K, v: Draft[K]) {
     setDraft((d) => ({ ...d, [k]: v }));
@@ -393,7 +413,8 @@ export default function TeamMember() {
   /* ================================================================ editor */
   if (editing) {
     return (
-      <div className="p-6 max-w-[860px]">
+      <div className="p-4 lg:p-6 max-w-[860px]
+        max-lg:pb-[calc(env(safe-area-inset-bottom)+96px)]">
         {/* The first password, shown once. There is no second chance to read
             it — the database holds only the bcrypt hash — so the dialog does
             not close on a stray click, and the redirect waits for it. */}
@@ -435,9 +456,17 @@ export default function TeamMember() {
           </div>
         )}
 
-        <div className="mb-5 flex items-center justify-between">
+        {/* On a phone the way out is a back chevron, and the save waits in the
+            bar pinned above the thumb; the desk keeps its header buttons. */}
+        <button type="button" onClick={cancelEdit}
+          className="lg:hidden -ml-1 mb-2 flex items-center gap-1 text-[13px] text-muted active:text-navy">
+          <Icon name="chevRight" size={16} className="rotate-180" />
+          {isNew ? 'Team' : 'Back to profile'}
+        </button>
+
+        <div className="mb-4 lg:mb-5 flex items-center justify-between">
           <div>
-            <h1 className="text-[20px] font-semibold">
+            <h1 className="text-[18px] lg:text-[20px] font-semibold">
               {isNew ? 'Add team member' : 'Edit team member'}
             </h1>
             <p className="max-lg:hidden text-muted text-[13px] mt-0.5">
@@ -445,13 +474,8 @@ export default function TeamMember() {
               {isNew && ' A first password is generated when you save it.'}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                if (isNew) { router.push('/team'); return; }
-                setDraft(toDraft(member));
-                setEditing(false);
-              }}
+          <div className="max-lg:hidden flex items-center gap-2">
+            <button onClick={cancelEdit}
               className="h-9 px-4 rounded border border-line text-[13px] font-medium hover:bg-wash">
               Cancel
             </button>
@@ -462,13 +486,16 @@ export default function TeamMember() {
           </div>
         </div>
 
+        {/* On the phone the error rides the bottom bar, next to the button that
+            triggered it — a message at the top of a form this tall is a message
+            nobody scrolls back up to read. */}
         {err && (
-          <div className="mb-4 px-4 py-2.5 rounded border border-red-line bg-red-wash text-[13px] text-accent font-medium">
+          <div className="max-lg:hidden mb-4 px-4 py-2.5 rounded border border-red-line bg-red-wash text-[13px] text-accent font-medium">
             {err}
           </div>
         )}
 
-        <div className="card p-5">
+        <div className="card p-4 lg:p-5">
           {/* ------------------------------------------------- photo + sign */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="flex items-center gap-4">
@@ -664,7 +691,7 @@ export default function TeamMember() {
                       onClick={() => set('hoursDays', on
                         ? draft.hoursDays.filter((x) => x !== i)
                         : [...draft.hoursDays, i].sort())}
-                      className={'h-8 w-11 rounded border text-[12px] font-medium transition-colors ' +
+                      className={'h-10 w-10 lg:h-8 lg:w-11 rounded border text-[12px] font-medium transition-colors ' +
                         (on ? 'bg-navy text-white border-navy' : 'border-line text-ink-2 hover:bg-wash')}>
                       {d}
                     </button>
@@ -676,17 +703,22 @@ export default function TeamMember() {
 
           {/* ---------------------------------------------- emergency contacts */}
           <p className={sectionTitle}>Emergency contacts <span className="text-accent">*</span></p>
+          {/* One kin to a row on the desk; a bordered stack on the phone,
+              where three fields abreast at 390px is three unreadable slivers.
+              Every field keeps its label once stacked — an unlabelled box in a
+              column is a guess. */}
           {draft.emergency.map((e, i) => (
-            <div key={i} className="flex items-end gap-3 mb-2.5">
-              <div className="flex-1 min-w-[150px]">
-                <Field label={i === 0 ? 'Name' : ''}>
+            <div key={i} className="flex flex-col sm:flex-row sm:items-end gap-3 mb-3 sm:mb-2.5
+              max-sm:rounded-xl max-sm:border max-sm:border-line-soft max-sm:p-3">
+              <div className="w-full sm:flex-1 sm:min-w-[150px]">
+                <Field label="Name">
                   <input className={inputCls} value={e.name} placeholder="e.g. Ravi R"
                     onChange={(ev) => set('emergency',
                       draft.emergency.map((x, j) => (j === i ? { ...x, name: ev.target.value } : x)))} />
                 </Field>
               </div>
-              <div className="w-[140px]">
-                <Field label={i === 0 ? 'Relation' : ''}>
+              <div className="w-full sm:w-[140px]">
+                <Field label="Relation">
                   <select className={inputCls} value={e.relation}
                     onChange={(ev) => set('emergency',
                       draft.emergency.map((x, j) => (j === i ? { ...x, relation: ev.target.value } : x)))}>
@@ -694,9 +726,9 @@ export default function TeamMember() {
                   </select>
                 </Field>
               </div>
-              <div className="flex-1 min-w-[150px]">
-                <Field label={i === 0 ? 'Phone' : ''}>
-                  <input className={inputCls} value={e.phone} placeholder="+91 "
+              <div className="w-full sm:flex-1 sm:min-w-[150px]">
+                <Field label="Phone">
+                  <input className={inputCls} value={e.phone} placeholder="+91 " inputMode="tel"
                     onChange={(ev) => set('emergency',
                       draft.emergency.map((x, j) => (j === i ? { ...x, phone: ev.target.value } : x)))} />
                 </Field>
@@ -704,7 +736,7 @@ export default function TeamMember() {
               {draft.emergency.length > 1 && (
                 <button type="button" title="Remove"
                   onClick={() => set('emergency', draft.emergency.filter((_, j) => j !== i))}
-                  className="h-9 w-9 shrink-0 rounded border border-line text-muted hover:text-accent hover:bg-red-wash flex items-center justify-center">
+                  className="self-end shrink-0 h-11 sm:h-9 w-11 sm:w-9 rounded border border-line text-muted hover:text-accent hover:bg-red-wash flex items-center justify-center">
                   <Icon name="x" size={14} />
                 </button>
               )}
@@ -715,6 +747,27 @@ export default function TeamMember() {
             className="flex items-center gap-1.5 h-8 px-3 rounded border border-line text-[12.5px] font-medium hover:bg-wash mt-1">
             <Icon name="plus" size={13} /> Add another contact
           </button>
+        </div>
+
+        {/* The save under the thumb. On a form this long the header buttons
+            scroll away; this bar does not, and it carries the error to where it
+            will actually be read. Pinned clear of the shell's tab bar. */}
+        <div className="lg:hidden fixed left-0 right-0 z-30
+          bottom-[calc(max(12px,env(safe-area-inset-bottom))+70px)]
+          bg-white border-t border-line px-4 pt-2.5 pb-2.5">
+          {err && <p className="text-accent text-[13px] mb-2 leading-snug">{err}</p>}
+          <div className="flex gap-2.5">
+            <button type="button" onClick={cancelEdit} disabled={saving}
+              className="h-11 px-5 rounded-lg border border-line bg-white font-semibold text-[14.5px]
+                active:bg-wash disabled:opacity-60">
+              Cancel
+            </button>
+            <button type="button" onClick={save} disabled={saving}
+              className="flex-1 h-11 rounded-lg bg-accent text-white font-semibold text-[14.5px]
+                active:brightness-90 disabled:opacity-60">
+              {saving ? 'Saving…' : isNew ? 'Add member' : 'Save member'}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -752,7 +805,11 @@ export default function TeamMember() {
           employee record sits below both, quiet, because it is filled in
           once at a desk and read only when it is needed. */}
       <MemberMobile m={m} roleLabel={meta.label}
-        branchName={(bid) => branches.find((b) => b.id === bid)?.name || bid} />
+        branchName={(bid) => branches.find((b) => b.id === bid)?.name || bid}
+        canManage={canManage}
+        onEdit={() => { setDraft(toDraft(m)); setEditing(true); }}
+        onToggleActive={toggleActive}
+        onSetPassword={async (password) => { await api.post('/team/' + id + '/password', { password }); }} />
 
     <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
@@ -786,7 +843,7 @@ export default function TeamMember() {
           <span className="text-[12.5px] font-semibold text-ink-2">New password</span>
           <input type="password" value={pw} onChange={(e) => setPw(e.target.value)}
             placeholder="At least 6 characters"
-            className="h-8 px-3 rounded border border-line text-[13px] outline-none focus:border-navy bg-white w-[220px]" />
+            className="h-8 px-3 rounded-lg border border-line text-[13px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)] w-[220px]" />
           <button onClick={setPassword}
             className="h-8 px-3 rounded bg-accent text-white text-[12.5px] font-semibold hover:brightness-90">
             Save

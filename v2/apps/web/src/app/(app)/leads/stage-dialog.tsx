@@ -63,8 +63,8 @@ export default function StageDialog({ lead, to, users, onClose, onDone }: {
           <>
             <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
               placeholder="e.g. Went with another vendor on price — revisit at renewal in February."
-              className="w-full px-3.5 py-3 rounded-xl lg:rounded border border-line
-                text-[15px] lg:text-[13px] outline-none focus:border-accent" />
+              className="w-full px-3.5 py-3 rounded-xl lg:rounded-lg border border-line
+                text-[15px] lg:text-[13px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
             <p className="text-[11.5px] text-muted-2 mt-1.5">
               Kept on the lead so you know what to do differently next time.
             </p>
@@ -73,16 +73,16 @@ export default function StageDialog({ lead, to, users, onClose, onDone }: {
           <>
             <div className="flex gap-2">
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-                className="flex-1 lg:flex-none h-12 lg:h-9 px-3.5 lg:px-3 rounded-xl lg:rounded
-                  border border-line text-[15px] lg:text-[13px] outline-none focus:border-accent" />
+                className="flex-1 lg:flex-none h-12 lg:h-9 px-3.5 lg:px-3 rounded-xl lg:rounded-lg
+                  border border-line text-[15px] lg:text-[13px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
               <TimePicker value={time} onChange={(__t) => setTime(__t)}
-                className="h-12 lg:h-9 px-3.5 lg:px-3 rounded-xl lg:rounded border border-line
-                  text-[15px] lg:text-[13px] outline-none focus:border-accent" />
+                className="h-12 lg:h-9 px-3.5 lg:px-3 rounded-xl lg:rounded-lg border border-line
+                  text-[15px] lg:text-[13px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
             </div>
             {to === 'inspection' && (
               <select value={who} onChange={(e) => setWho(e.target.value)}
-                className="mt-2 w-full h-12 lg:h-9 px-3 lg:px-2 rounded-xl lg:rounded border border-line
-                  text-[15px] lg:text-[13px] bg-white outline-none">
+                className="mt-2 w-full h-12 lg:h-9 px-3 lg:px-2 rounded-xl lg:rounded-lg border border-line
+                  text-[15px] lg:text-[13px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]">
                 <option value="">— nobody yet —</option>
                 {techs.map((t) => <option key={t.id} value={t.id}>{t.name} · {t.role}</option>)}
               </select>

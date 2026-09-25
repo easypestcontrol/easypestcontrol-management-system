@@ -73,14 +73,14 @@ export default function Login() {
               <span className="block text-[12.5px] font-medium mb-1.5">Email</span>
               <input value={email} onChange={(e) => setEmail(e.target.value)}
                 type="email" required autoComplete="username" autoFocus
-                className="w-full h-11 px-3 rounded-lg border border-line text-[13.5px] outline-none focus:border-navy" />
+                className="w-full h-11 px-3 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
             </label>
 
             <label className="block">
               <span className="block text-[12.5px] font-medium mb-1.5">Password</span>
               <input value={password} onChange={(e) => setPassword(e.target.value)}
                 type="password" required autoComplete="current-password"
-                className="w-full h-11 px-3 rounded-lg border border-line text-[13.5px] outline-none focus:border-navy" />
+                className="w-full h-11 px-3 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
             </label>
 
             {err && (

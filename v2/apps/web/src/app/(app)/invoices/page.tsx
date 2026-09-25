@@ -217,10 +217,10 @@ export default function Invoices() {
         <span className="flex items-center gap-2 text-[12px] text-muted">
           From
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-            className="h-10 lg:h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_rgba(220,38,38,0.12)]" />
+            className="h-10 lg:h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
           to
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-            className="h-10 lg:h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_rgba(220,38,38,0.12)]" />
+            className="h-10 lg:h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
           {(from || to || bucket >= 0) && (
             <button onClick={() => { setFrom(''); setTo(''); setBucket(-1); }}
               className="h-8 px-2.5 rounded border border-line text-[12px] font-medium hover:bg-wash">

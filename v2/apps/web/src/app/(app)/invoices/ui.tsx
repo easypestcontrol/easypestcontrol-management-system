@@ -435,7 +435,7 @@ export function PayDialog({ inv, onClose, onDone }: {
   }
 
   const label = 'block text-[12px] font-semibold text-ink-2 mb-1.5';
-  const input = 'w-full h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy';
+  const input = 'w-full h-9 px-3 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
 
   /* Nothing to argue with once the money is in — no buttons, no form. */
   if (landed) {
@@ -484,7 +484,7 @@ export function PayDialog({ inv, onClose, onDone }: {
         </label>
         <label className="block">
           <span className={label}>Payment mode</span>
-          <select value={mode} onChange={(e) => changeMode(e.target.value)} className={input + ' bg-white'}>
+          <select value={mode} onChange={(e) => changeMode(e.target.value)} className={input}>
             {MODES.map((m) => <option key={m}>{m}</option>)}
           </select>
         </label>

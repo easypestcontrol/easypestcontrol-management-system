@@ -68,8 +68,8 @@ export default function AddExpense({ onClose, onDone, page }: {
 
   /* Thumb-sized on a phone, compact at a desk. A 40px field with 13px type is
      a form on a laptop; on a phone it is a target people miss. */
-  const input = 'w-full h-12 lg:h-10 px-3.5 lg:px-3 rounded-xl lg:rounded border border-line '
-    + 'text-[15px] lg:text-[13.5px] outline-none focus:border-navy bg-white';
+  const input = 'w-full h-12 lg:h-10 px-3.5 lg:px-3 rounded-xl lg:rounded-lg border border-line '
+    + 'text-[15px] lg:text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
 
   return (
     <div className={page

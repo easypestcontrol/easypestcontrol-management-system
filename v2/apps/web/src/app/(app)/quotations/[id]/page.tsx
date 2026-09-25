@@ -80,7 +80,7 @@ function ShareModal({ q, co, total, onClose, onSent }: {
             <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">Send to</span>
             <input value={num} onChange={(e) => setNum(e.target.value)}
               placeholder="10-digit number, or +country code"
-              className="w-full h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy" />
+              className="w-full h-9 px-3 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
           </label>
           <p className="text-[11.5px] mt-1 mb-4">
             {!num.trim() ? (
@@ -102,7 +102,7 @@ function ShareModal({ q, co, total, onClose, onSent }: {
           <label className="block mb-4">
             <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">Message</span>
             <textarea value={msg} onChange={(e) => setMsg(e.target.value)}
-              className="w-full min-h-[210px] p-3 rounded border border-line text-[12.5px] leading-relaxed outline-none focus:border-navy" />
+              className="w-full min-h-[210px] p-3 rounded-lg border border-line text-[12.5px] leading-relaxed outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
             <span className="block text-[11.5px] text-muted-2 mt-1">Edit anything you like before it goes.</span>
           </label>
 

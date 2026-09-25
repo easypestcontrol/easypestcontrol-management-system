@@ -88,7 +88,7 @@ const PRIO: Record<string, { label: string; cls: string }> = {
   low: { label: 'Low', cls: 'zpill' },
 };
 
-const inputCls = 'w-full h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy bg-white';
+const inputCls = 'w-full h-9 px-3 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
 const labelCls = 'block text-[12px] font-semibold text-ink-2 mb-1.5';
 
 /* ==================================================================== page */
@@ -613,7 +613,7 @@ function TaskForm({ draft, setDraft, boot, editing, onClose, onSaved }: {
             <span className={labelCls}>What has to be done</span>
             <textarea value={d.notes} onChange={(e) => set({ notes: e.target.value })}
               placeholder="The details the person needs — spell it out"
-              className="w-full min-h-[76px] px-3 py-2 rounded border border-line text-[13px] outline-none focus:border-navy" />
+              className="w-full min-h-[76px] px-3 py-2 rounded-lg border border-line text-[13px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
           </label>
 
           {/* ------------------------------------------------ attachments */}

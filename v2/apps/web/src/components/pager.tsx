@@ -31,7 +31,7 @@ export function usePager<T>(rows: T[]): { pageRows: T[]; el: ReactNode } {
           Per page
           <select value={per}
             onChange={(e) => { setPer(Number(e.target.value)); setPage(0); }}
-            className="h-8 px-2 rounded border border-line bg-white text-[12.5px] outline-none focus:border-navy">
+            className="h-8 px-2 rounded-lg border border-line bg-wash text-[12.5px] outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]">
             {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </label>

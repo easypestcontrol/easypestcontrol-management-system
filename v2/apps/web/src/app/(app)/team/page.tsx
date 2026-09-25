@@ -29,7 +29,7 @@ interface BranchRow { id: string; name: string; code: string; areas: string[]; s
 
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Administrator', ops: 'Operations Manager', sales: 'Sales Executive',
-  tech: 'Field Technician', accounts: 'Accounts & Billing',
+  tech: 'Field Technician', senior_tech: 'Senior Technician', accounts: 'Accounts & Billing',
 };
 
 function Avatar({ m, size = 28 }: { m: Member; size?: number }) {
@@ -75,6 +75,7 @@ export default function Team() {
         rows={(data?.members || []).map((m) => ({
           id: m.id,
           href: '/team/' + m.id,
+          avatar: m.name,
           title: m.name,
           right: m.phone,
           meta: [ROLE_LABEL[m.role] || m.role, m.branches.length
@@ -87,7 +88,19 @@ export default function Team() {
         emptyHint="Add your technicians and office staff."
         fabHref="/team/new"
         fabLabel="Add someone"
-      />
+      >
+        {/* The no-branch warning, said the phone's way: a soft banner above
+            the roster, not the desktop's bordered strip. */}
+        {data && data.unposted > 0 && (
+          <div className="flex items-start gap-2.5 bg-amber rounded-2xl px-3.5 py-3">
+            <Icon name="alert" size={18} className="text-amber-ink shrink-0 mt-px" />
+            <p className="text-[13.5px] font-semibold text-amber-ink leading-snug">
+              {data.unposted} {data.unposted === 1 ? 'person is' : 'people are'} not posted
+              to a branch &mdash; open them to pick one, so they show on filters and reports.
+            </p>
+          </div>
+        )}
+      </ListScreen>
     <div className="max-lg:hidden">
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
@@ -122,7 +135,6 @@ export default function Team() {
         ))}
       </div>
 
-    </div>
       {data && data.unposted > 0 && (
         <div className="mx-6 mt-4 px-4 py-3 rounded border border-red-line bg-red-wash text-[13px]">
           <span className="font-semibold">
@@ -195,6 +207,7 @@ export default function Team() {
           </tbody>
         </table>
       )}
+    </div>
     </>
   );
 }

@@ -1322,8 +1322,8 @@ function TechDetail({ j, me, reload }: {
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={saveNotes}
             disabled={busy}
             placeholder="Access, the customer's requests, what to watch for next visit…"
-            className="w-full min-h-[80px] px-3 py-2 rounded border border-line text-[13px]
-              outline-none focus:border-navy" />
+            className="w-full min-h-[80px] px-3 py-2 rounded-lg border border-line text-[13px]
+              outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
           <p className="text-[11.5px] text-muted mt-1.5">
             Goes on the report with your name against it.
           </p>

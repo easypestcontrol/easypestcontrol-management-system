@@ -98,8 +98,8 @@ interface RowItem {
    in when the field takes focus, and the person is then panning sideways
    through a form they were halfway down. From `lg` up it goes back to the
    compact 36px row a mouse deserves. */
-const INP = 'w-full h-11 lg:h-9 px-3 rounded border border-line text-[16px] lg:text-[13.5px] outline-none focus:border-navy bg-white';
-const AREA = 'w-full min-h-[88px] p-3 rounded border border-line text-[16px] lg:text-[13px] leading-relaxed outline-none focus:border-navy bg-white';
+const INP = 'w-full h-11 lg:h-9 px-3 rounded-lg border border-line text-[16px] lg:text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
+const AREA = 'w-full min-h-[88px] p-3 rounded-lg border border-line text-[16px] lg:text-[13px] leading-relaxed outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
 
 /* A label and its input, and nothing else.
    The explanatory line under every field is gone on purpose: a form of
@@ -724,19 +724,19 @@ export default function Builder({ edit, presetClient, presetLead }: {
                   ]} />
                 <input value={it.desc} onChange={(e) => patchItem(i, { desc: e.target.value })}
                   placeholder="Description shown on the quotation"
-                  className="w-full h-8 px-2.5 mt-2 rounded border border-line text-[12.5px] outline-none focus:border-navy bg-white" />
+                  className="w-full h-8 px-2.5 mt-2 rounded-lg border border-line text-[12.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
                 {mode === 'amc' && it.svId !== '__unset' && (
                   <div className="flex flex-wrap items-center gap-2 mt-2 text-[12px] text-muted">
                     <span>Deliver</span>
                     <input type="number" min={1} step={1} value={it.visits}
                       title="How many times this service happens"
                       onChange={(e) => patchItem(i, { visits: Number(e.target.value) || 1, touched: true })}
-                      className="w-[60px] h-7 px-2 rounded border border-line text-[12.5px] outline-none focus:border-navy bg-white" />
+                      className="w-[60px] h-7 px-2 rounded-lg border border-line text-[12.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
                     <span>{it.visits === 1 ? 'time' : 'times'} over</span>
                     <input type="number" min={1} step={1} value={it.months}
                       title="Over how many months"
                       onChange={(e) => patchItem(i, { months: Number(e.target.value) || 1 })}
-                      className="w-[60px] h-7 px-2 rounded border border-line text-[12.5px] outline-none focus:border-navy bg-white" />
+                      className="w-[60px] h-7 px-2 rounded-lg border border-line text-[12.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
                     <span>months</span>
                     <span className="text-muted-2">{cad(it)}</span>
                   </div>
@@ -773,13 +773,13 @@ export default function Builder({ edit, presetClient, presetLead }: {
                   aria-label="Quantity"
                   onChange={(e) => onQty(i, Number(e.target.value) || 0)}
                   className="w-[68px] h-11 px-2.5 rounded-lg border border-line text-[15px]
-                    text-center outline-none focus:border-accent bg-white" />
+                    text-center outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
                 <span className="text-[14px] text-muted-2">×</span>
                 <input type="number" inputMode="numeric" min={0} step={50} value={it.rate}
                   aria-label="Rate"
                   onChange={(e) => patchItem(i, { rate: Number(e.target.value) || 0 })}
                   className="flex-1 min-w-0 h-11 px-3 rounded-lg border border-line text-[15px]
-                    text-right outline-none focus:border-accent bg-white" />
+                    text-right outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
                 <span className="text-[15px] font-bold tabular-nums shrink-0 min-w-[68px] text-right">
                   {money(it.qty * it.rate)}
                 </span>

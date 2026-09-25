@@ -138,7 +138,7 @@ export default function Jobs() {
         {!isTech && bf.el}
         {!isTech && (
           <select value={techFilter} onChange={(e) => setTechFilter(e.target.value)}
-            className="h-10 lg:h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none min-w-[168px]">
+            className="h-10 lg:h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)] min-w-[168px]">
             <option value="">All technicians</option>
             {techs.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
@@ -383,7 +383,7 @@ function NewJobModal({ boot, onClose, onCreated }: {
         <Field label="Instructions for the technician">
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
             placeholder="Access, contact person, what to look out for…"
-            className="w-full min-h-[72px] px-3 py-2 rounded border border-line text-[13.5px] outline-none focus:border-navy" />
+            className="w-full min-h-[72px] px-3 py-2 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
         </Field>
       </div>
 

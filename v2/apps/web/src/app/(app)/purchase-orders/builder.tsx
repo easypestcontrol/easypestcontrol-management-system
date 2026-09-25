@@ -290,7 +290,7 @@ export default function PoBuilder({ initial, poId, onSaved }: {
         <Field label="Notes for the vendor">
           <textarea value={d.notes} onChange={(e) => set('notes', e.target.value)} rows={3}
             placeholder="Delivery instructions, reference numbers…"
-            className="w-full px-3 py-2 rounded border border-line text-[13.5px] outline-none focus:border-navy bg-white resize-none" />
+            className="w-full px-3 py-2 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)] resize-none" />
         </Field>
         <p className="mt-2 text-[11.5px] text-muted">
           No prices on a purchase order — this says what we want and how much. What it

@@ -195,7 +195,7 @@ function NewAudit({ clients, onDone, onClose }: {
 
         <label className="block text-[12px] font-semibold text-ink-2 mb-1.5">Customer</label>
         <select value={clientId} onChange={(e) => setClientId(e.target.value)}
-          className="w-full h-9 px-2.5 rounded border border-line text-[13px] outline-none focus:border-navy mb-3 bg-white">
+          className="w-full h-9 px-2.5 rounded-lg border border-line text-[13px] outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)] mb-3 bg-wash">
           <option value="">— pick —</option>
           {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
@@ -204,18 +204,18 @@ function NewAudit({ clients, onDone, onClose }: {
           <label className="block col-span-1">
             <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">Date</span>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-              className="w-full h-9 px-2.5 rounded border border-line text-[13px] outline-none focus:border-navy" />
+              className="w-full h-9 px-2.5 rounded-lg border border-line text-[13px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
           </label>
           <label className="block col-span-1">
             <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">Auditor</span>
             <input value={auditor} onChange={(e) => setAuditor(e.target.value)} placeholder="Name"
-              className="w-full h-9 px-2.5 rounded border border-line text-[13px] outline-none focus:border-navy" />
+              className="w-full h-9 px-2.5 rounded-lg border border-line text-[13px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
           </label>
           <label className="block col-span-1">
             <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">Score / 100</span>
             <input type="number" min={0} max={100} value={score}
               onChange={(e) => setScore(Number(e.target.value))}
-              className="w-full h-9 px-2.5 rounded border border-line text-[13px] outline-none focus:border-navy" />
+              className="w-full h-9 px-2.5 rounded-lg border border-line text-[13px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
           </label>
         </div>
 
@@ -224,7 +224,7 @@ function NewAudit({ clients, onDone, onClose }: {
         </label>
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5}
           placeholder={'Kitchen: gel bait stations depleted\nStore room: rodent droppings near rear door'}
-          className="w-full px-2.5 py-2 rounded border border-line text-[13px] outline-none focus:border-navy resize-none" />
+          className="w-full px-2.5 py-2 rounded-lg border border-line text-[13px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)] resize-none" />
 
         <div className="mt-4 flex justify-end gap-2">
           <button onClick={onClose}

@@ -86,8 +86,8 @@ export default function Collect({ contractId, clientName, phone, role, variant =
     ? 'bg-white rounded-2xl p-4'
     : 'card-soft p-3.5 mt-4';
   const input = phone_
-    ? 'w-full h-11 px-3 rounded-xl border border-line text-[15.5px] outline-none focus:border-navy'
-    : 'w-full h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy';
+    ? 'w-full h-11 px-3 rounded-xl border border-line text-[15.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]'
+    : 'w-full h-9 px-3 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
   const btn = phone_
     ? 'h-11 px-4 rounded-xl text-[15px] font-bold active:brightness-90 disabled:opacity-60'
     : 'h-9 px-3.5 rounded text-[12.5px] font-semibold disabled:opacity-60';

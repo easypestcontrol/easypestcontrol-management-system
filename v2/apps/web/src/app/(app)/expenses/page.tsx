@@ -149,7 +149,7 @@ function OpenReport({ onClose, onDone }: { onClose: () => void; onDone: () => vo
     try { await api.post('/expenses/reports', { date, branch }); onDone(); }
     catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not open the report'); setBusy(false); }
   }
-  const input = 'w-full h-10 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy bg-white';
+  const input = 'w-full h-10 px-3 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white w-full max-w-[400px] rounded-xl shadow-xl" onClick={(e) => e.stopPropagation()}>

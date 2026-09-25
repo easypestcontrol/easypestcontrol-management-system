@@ -112,7 +112,7 @@ export function useBranchFilter(): { branch: string; el: ReactNode; heroEl: Reac
   const el = rows.length > 1 ? (
     <select value={branch} onChange={(e) => pick(e.target.value)}
       title="See one branch, or the whole company"
-      className="h-9 px-2.5 rounded border border-line bg-white text-[12.5px] font-medium outline-none focus:border-navy">
+      className="h-9 px-2.5 rounded-lg border border-line bg-wash text-[12.5px] font-medium outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]">
       {options}
     </select>
   ) : null;

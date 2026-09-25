@@ -31,9 +31,9 @@ function Label({ children, req }: { children: React.ReactNode; req?: boolean }) 
   );
 }
 const inputCls =
-  'w-full h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy';
+  'w-full h-9 px-3 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
 const selectCls =
-  'w-full h-9 px-2 rounded border border-line text-[13px] bg-white outline-none';
+  'w-full h-9 px-2 rounded-lg border border-line text-[13px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
 
 export default function NewLead({ boot, me, leads, presetClient, onClose, onSaved }: {
   boot: Bootstrap; me: SessionUser | null; leads: Lead[];
@@ -389,7 +389,7 @@ export default function NewLead({ boot, me, leads, presetClient, onClose, onSave
             <Label>Notes</Label>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
               placeholder="What exactly did the customer say?"
-              className="w-full px-3 py-2 rounded border border-line text-[13.5px] outline-none focus:border-navy" />
+              className="w-full px-3 py-2 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
           </label>
 
           {err && <p className="text-accent text-[12.5px] mt-3">{err}</p>}

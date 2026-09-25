@@ -164,7 +164,7 @@ export default function Chemicals() {
             className="flex-1 bg-transparent outline-none text-[13px]" />
         </label>
         <select value={cat} onChange={(e) => setCat(e.target.value)}
-          className="h-10 lg:h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none">
+          className="h-10 lg:h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]">
           <option value="">All categories</option>
           {CATS.map((c) => <option key={c}>{c}</option>)}
         </select>

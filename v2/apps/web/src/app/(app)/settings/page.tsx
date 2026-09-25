@@ -136,7 +136,7 @@ export default function Settings() {
     <label key={k} className={'block ' + (wide ? 'sm:col-span-2' : '')}>
       <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">{label}</span>
       <input value={String(co[k] ?? '')} onChange={(e) => set(k, e.target.value as never)}
-        className="w-full h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy" />
+        className="w-full h-9 px-3 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
     </label>
   );
 
@@ -333,7 +333,7 @@ export default function Settings() {
                         </span>
                         <input value={t}
                           onChange={(e) => setList(d.key, rows.map((x, j) => (j === i ? e.target.value : x)))}
-                          className="flex-1 h-9 px-3 rounded border border-line text-[13px] outline-none focus:border-navy" />
+                          className="flex-1 h-9 px-3 rounded-lg border border-line text-[13px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
                         <button onClick={() => setList(d.key, rows.filter((_, j) => j !== i))}
                           title="Remove"
                           className="w-9 h-9 rounded border border-line text-muted hover:text-accent hover:bg-red-wash flex items-center justify-center shrink-0">

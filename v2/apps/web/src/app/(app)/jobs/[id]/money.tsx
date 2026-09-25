@@ -213,14 +213,14 @@ function CollectDialog({ invoiceId, balance, jobId, onClose, onDone }: {
           <label className="block mb-3">
             <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">Amount collected (₹)</span>
             <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
-              className="w-full h-10 px-3 rounded border border-line text-[14px] outline-none focus:border-navy" />
+              className="w-full h-10 px-3 rounded-lg border border-line text-[14px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
           </label>
           {mode === 'Transfer' && (
             <label className="block mb-3">
               <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">UTR / reference no.</span>
               <input value={ref} onChange={(e) => setRef(e.target.value)}
                 placeholder="From the customer's transfer receipt"
-                className="w-full h-10 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy" />
+                className="w-full h-10 px-3 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
             </label>
           )}
           {mode === 'UPI' && (

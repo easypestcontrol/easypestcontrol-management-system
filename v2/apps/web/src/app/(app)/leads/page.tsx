@@ -293,12 +293,12 @@ export default function Leads() {
             className="flex-1 bg-transparent outline-none text-[13px]" />
         </label>
         <select value={fStage} onChange={(e) => setFStage(e.target.value)}
-          className="h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none">
+          className="h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]">
           <option value="">All stages</option>
           {STAGES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
         <select value={fOwner} onChange={(e) => setFOwner(e.target.value)}
-          className="h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none">
+          className="h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]">
           <option value="">All owners</option>
           {owners.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
         </select>

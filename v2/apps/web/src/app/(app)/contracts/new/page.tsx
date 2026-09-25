@@ -459,7 +459,7 @@ function NewContractForm() {
      Appending `w-[90px]` to a class that already says w-full is a coin toss
      decided by stylesheet order — which is how a description box ended up
      narrower than the quantity beside it. */
-  const field = 'h-11 lg:h-9 px-3 rounded border border-line text-[16px] lg:text-[13.5px] outline-none focus:border-navy bg-white';
+  const field = 'h-11 lg:h-9 px-3 rounded-lg border border-line text-[16px] lg:text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
   const input = 'w-full ' + field;
   const card = 'card';
 
@@ -789,7 +789,7 @@ function NewContractForm() {
                           onClick={(e) => e.stopPropagation()}>
                           <span className="text-[12px] text-muted">₹</span>
                           <input type="number" min={0} step={100}
-                            className="h-7 w-[110px] px-2 rounded border border-line text-[12px] outline-none focus:border-navy"
+                            className="h-7 w-[110px] px-2 rounded-lg border border-line text-[12px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]"
                             value={draft.billingAmount ||
                               Math.round(((totals?.sub || 0) - (totals?.disc || 0)) / Math.max(1, monthsOf))}
                             onChange={(e) => set({ billingAmount: Math.max(0, Math.round(Number(e.target.value) || 0)) })} />

@@ -185,11 +185,11 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
           </p>
           <div className="flex gap-2 flex-wrap">
             <input type="date" value={sopDate} onChange={(e) => setSopDate(e.target.value)}
-              className="h-11 lg:h-8 px-2.5 rounded border border-line text-[12.5px] outline-none focus:border-navy" />
-            <TimePicker value={sopTime} onChange={(__t) => setSopTime(__t)} className="h-11 lg:h-8 px-2.5 rounded border border-line text-[12.5px] outline-none focus:border-navy" />
+              className="h-11 lg:h-8 px-2.5 rounded-lg border border-line text-[12.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
+            <TimePicker value={sopTime} onChange={(__t) => setSopTime(__t)} className="h-11 lg:h-8 px-2.5 rounded-lg border border-line text-[12.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
             {isInspect && (
               <select value={sopWho} onChange={(e) => setSopWho(e.target.value)}
-                className="h-11 lg:h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none min-w-[160px]">
+                className="h-11 lg:h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)] min-w-[160px]">
                 <option value="">— nobody yet —</option>
                 {techs.map((t) => <option key={t.id} value={t.id}>{t.name} · {t.role}</option>)}
               </select>
@@ -222,7 +222,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
           </p>
           <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
             placeholder="e.g. Went with another vendor on price — revisit at renewal in February."
-            className="w-full px-3 py-2 rounded border border-line text-[13px] outline-none focus:border-navy" />
+            className="w-full px-3 py-2 rounded-lg border border-line text-[13px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
           <p className="text-[11.5px] text-muted-2 mt-1">
             Kept on the lead so you know what to do differently next time.
           </p>
@@ -259,7 +259,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
   const input = (k: string, ph = '') => (
     <input value={form[k] || ''} onChange={(e) => setForm({ ...form, [k]: e.target.value })}
       placeholder={ph}
-      className="w-full h-11 lg:h-8 px-2.5 rounded border border-line text-[13px] outline-none focus:border-navy" />
+      className="w-full h-11 lg:h-8 px-2.5 rounded-lg border border-line text-[13px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
   );
 
   return (
@@ -359,7 +359,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
             <label className="block">
               <span className="block text-[11px] text-muted mb-1">Branch / territory</span>
               <select value={branch} onChange={(e) => setBranch(e.target.value)}
-                className="w-full h-11 lg:h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none">
+                className="w-full h-11 lg:h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]">
                 <option value="">— no branch —</option>
                 {boot.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
@@ -367,7 +367,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
             <label className="block">
               <span className="block text-[11px] text-muted mb-1">Assigned to</span>
               <select value={owner} onChange={(e) => setOwner(e.target.value)}
-                className="w-full h-11 lg:h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none">
+                className="w-full h-11 lg:h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]">
                 {owners.map((u) => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
               </select>
             </label>
@@ -516,14 +516,14 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
               <label className="block">
                 <span className="block text-[11px] text-muted mb-1">Property type</span>
                 <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
-                  className="w-full h-11 lg:h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none">
+                  className="w-full h-11 lg:h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]">
                   {PROPERTY_TYPES.map((t) => <option key={t}>{t}</option>)}
                 </select>
               </label>
               <label className="block">
                 <span className="block text-[11px] text-muted mb-1">Lead source</span>
                 <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}
-                  className="w-full h-11 lg:h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none">
+                  className="w-full h-11 lg:h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]">
                   {LEAD_SOURCES.map((s) => <option key={s}>{s}</option>)}
                 </select>
               </label>
@@ -558,7 +558,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
                 <span className="block text-[11px] text-muted mb-1">Notes</span>
                 <textarea value={form.notes || ''} rows={3}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  className="w-full px-2.5 py-2 rounded border border-line text-[13px] outline-none focus:border-navy" />
+                  className="w-full px-2.5 py-2 rounded-lg border border-line text-[13px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
               </label>
               <div className="col-span-2">
                 <button
@@ -596,7 +596,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
                 }
               }}
               placeholder="Add a note to the trail…"
-              className="flex-1 h-11 lg:h-8 px-2.5 rounded border border-line text-[13px] outline-none focus:border-navy" />
+              className="flex-1 h-11 lg:h-8 px-2.5 rounded-lg border border-line text-[13px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
             <button
               onClick={async () => {
                 if (!note.trim()) return;

@@ -219,7 +219,7 @@ function AddDialog({ onClose, onDone }: { onClose: () => void; onDone: () => voi
     }
   }
 
-  const input = 'w-full h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy';
+  const input = 'w-full h-9 px-3 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
   const label = 'block text-[12px] font-semibold text-ink-2 mb-1.5';
 
   return (
@@ -238,7 +238,7 @@ function AddDialog({ onClose, onDone }: { onClose: () => void; onDone: () => voi
           </label>
           <label className="block">
             <span className={label}>Who is this for?</span>
-            <select value={role} onChange={(e) => setRole(e.target.value)} className={input + ' bg-white'}>
+            <select value={role} onChange={(e) => setRole(e.target.value)} className={input}>
               {Object.entries(ROLE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </label>
@@ -246,7 +246,7 @@ function AddDialog({ onClose, onDone }: { onClose: () => void; onDone: () => voi
             <span className={label}>Lesson text</span>
             <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={5}
               placeholder="Write the steps, safety notes, dosages…"
-              className="w-full px-3 py-2 rounded border border-line text-[13.5px] leading-relaxed outline-none focus:border-navy resize-none" />
+              className="w-full px-3 py-2 rounded-lg border border-line text-[13.5px] leading-relaxed outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)] resize-none" />
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>

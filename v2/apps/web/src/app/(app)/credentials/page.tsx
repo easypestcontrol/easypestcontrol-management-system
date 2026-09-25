@@ -630,7 +630,7 @@ function OperationalKeys() {
     } catch (e) { setMsg(e instanceof ApiError ? e.message : 'Could not save'); }
   }
 
-  const input = 'w-full h-9 px-3 rounded border border-line text-[13px] font-mono outline-none focus:border-navy';
+  const input = 'w-full h-9 px-3 rounded-lg border border-line text-[13px] font-mono outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
   const dot = (on: boolean) => (
     <span className="w-2.5 h-2.5 rounded-full inline-block"
       style={{ background: on ? '#0B7454' : '#FF0000' }} />

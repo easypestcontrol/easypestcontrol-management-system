@@ -192,7 +192,7 @@ export default function ApprovePage() {
                 <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">Reason</span>
                 <textarea value={note} onChange={(e) => setNote(e.target.value)}
                   placeholder="e.g. Price is above our budget this year"
-                  className="w-full min-h-[88px] p-3 rounded border border-line text-[13px] outline-none focus:border-navy" />
+                  className="w-full min-h-[88px] p-3 rounded-lg border border-line text-[13px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
               </label>
             </div>
             <div className="px-5 py-3.5 border-t border-line flex justify-end gap-2">

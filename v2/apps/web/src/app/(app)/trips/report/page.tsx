@@ -83,7 +83,7 @@ export default function TripReport() {
         <div className="flex items-center gap-2 flex-wrap">
           {bf.el}
           <input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)}
-            className="h-9 px-2.5 rounded border border-line text-[12.5px] bg-white outline-none" />
+            className="h-9 px-2.5 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
           <button disabled={busy || !r || r.total.trips === 0} onClick={push}
             className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-50">
             Push to expense claim

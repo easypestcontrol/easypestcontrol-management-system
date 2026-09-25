@@ -978,7 +978,7 @@ function PlanDialog({ c, boot, onClose, onSaved }: {
   }
 
   const nothing = diff && !diff.add && !diff.update && !diff.remove;
-  const num = 'h-8 rounded border border-line text-[12.5px] text-center outline-none focus:border-navy';
+  const num = 'h-8 rounded-lg border border-line text-[12.5px] text-center outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
 
   return (
     <div className="fixed inset-0 z-50 bg-navy/40 flex items-center justify-center p-6" onClick={onClose}>

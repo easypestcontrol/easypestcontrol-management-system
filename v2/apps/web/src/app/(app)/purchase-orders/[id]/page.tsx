@@ -248,7 +248,7 @@ function ReceiveDialog({ po, branchName, onClose, onDone }: {
                     ...g,
                     [l.id]: Math.max(0, Math.min(left, Number(e.target.value) || 0)),
                   }))}
-                  className="w-[92px] h-10 px-3 rounded border border-line text-[14px] outline-none focus:border-navy" />
+                  className="w-[92px] h-10 px-3 rounded-lg border border-line text-[14px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
                 <span className="text-[12.5px] text-muted">{l.packUnit}</span>
                 <span className="flex-1" />
                 <span className="text-[12.5px] font-semibold text-navy">

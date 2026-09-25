@@ -512,8 +512,8 @@ function AddTripDialog({ onClose, onStart }: {
     catch (e) { setErr(e instanceof Error ? e.message : 'Could not start'); setBusy(false); }
   }
 
-  const input = 'w-full h-12 lg:h-10 px-3.5 rounded-xl lg:rounded border border-line '
-    + 'text-[15px] lg:text-[13.5px] outline-none focus:border-accent';
+  const input = 'w-full h-12 lg:h-10 px-3.5 rounded-xl lg:rounded-lg border border-line '
+    + 'text-[15px] lg:text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
   const label = 'block text-[13px] lg:text-[12px] font-semibold text-ink-2 mb-1.5';
   const chip = (on: boolean) => 'h-9 px-3.5 rounded-full text-[13.5px] font-semibold '
     + 'whitespace-nowrap shrink-0 ' + (on ? 'bg-accent text-white' : 'bg-white border border-line text-ink');

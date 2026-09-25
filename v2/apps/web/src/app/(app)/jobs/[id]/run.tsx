@@ -456,7 +456,7 @@ export default function TechRun({ j, me, reload }: {
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={saveNotes}
           disabled={busy} placeholder="Access, the customer's requests, what to watch next visit…"
           className="w-full min-h-[110px] px-3.5 py-3 rounded-xl border border-line text-[15px]
-            outline-none focus:border-accent" />
+            outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
       ),
     },
     {
@@ -485,7 +485,7 @@ export default function TechRun({ j, me, reload }: {
           <input value={signName} onChange={(e) => setSignName(e.target.value)}
             placeholder="Who is signing?"
             className="w-full h-12 px-3.5 rounded-xl border border-line text-[15px]
-              outline-none focus:border-accent" />
+              outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
           <div className="flex items-center gap-2 mt-3">
             <span className="text-[13px] text-muted">Rating</span>
             {[1, 2, 3, 4, 5].map((n) => (

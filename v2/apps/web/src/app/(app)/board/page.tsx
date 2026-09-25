@@ -955,7 +955,7 @@ export default function Board() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}
-            className="h-8 px-2 rounded border border-line bg-white text-[12.5px] outline-none focus:border-navy">
+            className="h-8 px-2 rounded-lg border border-line bg-wash text-[12.5px] outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]">
             <option value="">All branches</option>
             {(data?.branches || []).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
@@ -1008,7 +1008,7 @@ export default function Board() {
             className="h-7 px-2.5 rounded border border-line text-[12px] hover:bg-wash">Next ›</button>
           <input type="date" value={date}
             onChange={(e) => { if (e.target.value) { setDate(e.target.value); setSel(null); } }}
-            className="h-7 px-2 rounded border border-line text-[12px] outline-none focus:border-navy" />
+            className="h-7 px-2 rounded-lg border border-line text-[12px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
           <span className="flex items-center gap-1 ml-1">
             <button onClick={() => setFilter({ status: '', prio: false })}
               className={'h-6 px-2.5 rounded-full text-[11.5px] border ' +

@@ -140,6 +140,6 @@ export function Field({ label, required, children }: {
    these, and at a flat h-9 a field was a 36px target under a thumb that is
    about 45px wide — you aimed at the GSTIN box and got the one above it. */
 export const inputCls =
-  'w-full h-11 lg:h-9 px-3 rounded border border-line text-[15px] lg:text-[13.5px] '
-  + 'outline-none focus:border-navy bg-white';
+  'w-full h-11 lg:h-9 px-3 rounded-lg border border-line text-[15px] lg:text-[13.5px] '
+  + 'outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
 export const selectCls = inputCls + ' appearance-none';

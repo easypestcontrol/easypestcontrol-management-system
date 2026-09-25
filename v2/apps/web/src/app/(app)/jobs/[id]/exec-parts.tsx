@@ -205,7 +205,7 @@ export function ChemBlock({ j, busy, onAdd, onRemove, onErr }: {
               ))}
             </select>
             <input type="number" min={1} value={qty} onChange={(e) => setQty(e.target.value)}
-              className="w-[88px] h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy" />
+              className="w-[88px] h-9 px-3 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
             <button disabled={busy}
               onClick={() => {
                 const n = parseFloat(qty) || 0;
@@ -273,13 +273,13 @@ export function AreaFindingsBlock({ rows, busy, onChange }: {
             <input value={r.area} disabled={busy} onBlur={commit}
               onChange={(e) => edit(i, 'area', e.target.value)}
               placeholder="Area"
-              className="w-[104px] shrink-0 h-9 px-2.5 rounded border border-line text-[13px]
-                outline-none focus:border-navy" />
+              className="w-[104px] shrink-0 h-9 px-2.5 rounded-lg border border-line text-[13px]
+                outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
             <textarea value={r.text} disabled={busy} onBlur={commit}
               onChange={(e) => edit(i, 'text', e.target.value)}
               placeholder="What you did here"
-              className="flex-1 min-h-[36px] px-2.5 py-2 rounded border border-line text-[13px]
-                outline-none focus:border-navy" />
+              className="flex-1 min-h-[36px] px-2.5 py-2 rounded-lg border border-line text-[13px]
+                outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
             <button type="button" onClick={() => remove(i)}
               disabled={busy || (last && empty)}
               aria-label="Remove this area"

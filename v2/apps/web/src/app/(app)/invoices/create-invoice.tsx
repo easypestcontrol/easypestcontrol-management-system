@@ -154,7 +154,7 @@ export function CreateDialog({ onClose, onCreated, page }: {
      v3-style `!w-[70px]` I first reached for would have generated nothing at
      all. A field that sets its own width simply starts from the width-free
      base instead. */
-  const fieldCls = 'h-9 px-3 rounded border border-line text-[13.5px] outline-none focus:border-navy';
+  const fieldCls = 'h-9 px-3 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
   const inputCls = 'w-full ' + fieldCls;
 
   /* Step two only exists on the phone; the desktop shows both at once. */
@@ -337,7 +337,7 @@ export function CreateDialog({ onClose, onCreated, page }: {
             <label className="block">
               <span className={labelCls}>Customer *</span>
               <select value={clientId} onChange={(e) => setClientId(e.target.value)}
-                className={inputCls + ' bg-white'}>
+                className={inputCls}>
                 <option value="">Pick a customer…</option>
                 {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>

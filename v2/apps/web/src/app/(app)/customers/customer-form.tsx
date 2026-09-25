@@ -55,8 +55,14 @@ const TABS = ['Overview', 'Tax & terms', 'Addresses', 'Contacts', 'Documents', '
 function L({ children }: { children: React.ReactNode }) {
   return <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">{children}</span>;
 }
-const INPUT = 'w-full h-9 px-3 rounded border border-line text-[13px] outline-none focus:border-navy';
-const SELECT = INPUT + ' bg-white';
+/* The field look, one definition. Soft-grey fill at rest so a form reads as a
+   set of wells rather than a grid of white boxes; on focus it clears to white
+   and takes a red ring, which is the one place the brand colour marks "you are
+   typing here". */
+const INPUT = 'w-full h-11 px-3.5 rounded-lg bg-wash border border-line text-[14px] outline-none '
+  + 'transition-colors placeholder:text-muted-2 '
+  + 'focus:bg-white focus:border-accent focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
+const SELECT = INPUT;
 
 export default function CustomerForm({ initial, onDone, onClose, page }: {
   initial?: Client | null;
@@ -181,7 +187,11 @@ export default function CustomerForm({ initial, onDone, onClose, page }: {
 
   const overview = (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <label className="block sm:col-span-2">
+      {/* A div, not a label: a <label> wrapping two radios sends every click on
+          its whitespace to the first control, so clicking beside the buttons
+          silently snapped the choice back to Business. Each radio keeps its own
+          inner <label>; the group heading is just text. */}
+      <div className="block sm:col-span-2">
         <L>Customer type</L>
         <span className="flex gap-5 h-9 items-center">
           {['Business', 'Individual'].map((k) => (
@@ -192,7 +202,7 @@ export default function CustomerForm({ initial, onDone, onClose, page }: {
             </label>
           ))}
         </span>
-      </label>
+      </div>
 
       <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-[110px_1fr_1fr] gap-3">
         <label className="block"><L>Salutation</L>
@@ -279,7 +289,9 @@ export default function CustomerForm({ initial, onDone, onClose, page }: {
           maxLength={10} placeholder="AABCS1429B" className={INPUT + ' font-mono'} />
       </label>
 
-      <label className="block"><L>Tax preference</L>
+      {/* div, not label — same reason as Customer type above: a label around
+          two radios routes stray clicks to the first one (Taxable). */}
+      <div className="block"><L>Tax preference</L>
         <span className="flex gap-5 h-9 items-center">
           {['Taxable', 'Tax Exempt'].map((k) => (
             <label key={k} className="flex items-center gap-1.5 text-[13px] cursor-pointer">
@@ -289,7 +301,7 @@ export default function CustomerForm({ initial, onDone, onClose, page }: {
             </label>
           ))}
         </span>
-      </label>
+      </div>
       <label className="block"><L>Currency</L>
         <select value={f.currency} onChange={(e) => set('currency', e.target.value)} className={SELECT}>
           {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
@@ -406,8 +418,9 @@ export default function CustomerForm({ initial, onDone, onClose, page }: {
           <div className="flex items-center justify-between gap-3 mb-3">
             <input value={a.label || ''} onChange={(e) => setSite(i, 'label', e.target.value)}
               placeholder={'Name this site — e.g. Head office, Block B'}
-              className="flex-1 min-w-0 h-8 px-2.5 rounded border border-line text-[13px]
-                font-semibold outline-none focus:border-navy" />
+              className="flex-1 min-w-0 h-8 px-2.5 rounded-lg bg-wash border border-line text-[13px]
+                font-semibold outline-none transition-colors focus:bg-white focus:border-accent
+                focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
             <button type="button" onClick={() => setF((cur) => ({
               ...cur, sites: cur.sites.filter((_, n) => n !== i),
             }))}
@@ -509,7 +522,7 @@ export default function CustomerForm({ initial, onDone, onClose, page }: {
     <label className="block"><L>Remarks</L>
       <textarea value={f.remarks} onChange={(e) => set('remarks', e.target.value)} rows={6}
         placeholder="Anything the team should know before they call or visit."
-        className="w-full px-3 py-2 rounded border border-line text-[13px] outline-none focus:border-navy resize-none" />
+        className="w-full px-3 py-2 rounded-lg bg-wash border border-line text-[13px] outline-none transition-colors resize-none focus:bg-white focus:border-accent focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
       <span className="block text-[11px] text-muted-2 mt-1">Internal only — the customer never sees this.</span>
     </label>
   );

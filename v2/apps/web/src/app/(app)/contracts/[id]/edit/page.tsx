@@ -125,8 +125,8 @@ export default function EditContract() {
   /* Same two sizes as the create form — 44px and 16px on a phone so the
      control can be hit and Safari does not zoom the page on focus, back to
      the compact desktop row from `lg` up. */
-  const input = 'w-full h-11 lg:h-9 px-3 rounded border border-line text-[16px] lg:text-[13.5px] outline-none focus:border-navy bg-white';
-  const area = 'w-full px-3 py-2 rounded border border-line text-[16px] lg:text-[13.5px] leading-relaxed outline-none focus:border-navy resize-none';
+  const input = 'w-full h-11 lg:h-9 px-3 rounded-lg border border-line text-[16px] lg:text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
+  const area = 'w-full px-3 py-2 rounded-lg border border-line text-[16px] lg:text-[13.5px] leading-relaxed outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)] resize-none';
 
   return (
     <div className="p-4 lg:p-6 max-w-[920px]">
@@ -289,7 +289,7 @@ export default function EditContract() {
                   <span className="mt-2 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                     <span className="text-[12px] text-muted">₹</span>
                     <input type="number" min={0} step={100}
-                      className="h-8 w-[120px] px-2 rounded border border-line text-[12.5px] outline-none focus:border-navy"
+                      className="h-8 w-[120px] px-2 rounded-lg border border-line text-[12.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]"
                       value={billingAmount || Math.round(c.value / Math.max(1, c.months))}
                       onChange={(e) => setBillingAmount(Math.max(0, Math.round(Number(e.target.value) || 0)))} />
                     <span className="text-[11.5px] text-muted">/ month + GST — first due one month after start</span>
@@ -333,7 +333,7 @@ export default function EditContract() {
               const done = jx.status === 'completed';
               const set = (patch: Partial<typeof row>) =>
                 setSched((m) => ({ ...m, [jx.id]: { ...row, ...patch } }));
-              const inp = 'h-8 px-2 rounded border border-line text-[12.5px] outline-none focus:border-navy bg-white';
+              const inp = 'h-8 px-2 rounded-lg border border-line text-[12.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
               const svcNames = jx.serviceIds
                 .map((sv) => boot.services.find((x) => x.id === sv)?.code || sv).join(', ');
               return (
