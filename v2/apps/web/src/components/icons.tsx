@@ -20,6 +20,9 @@ export function Icon({ name, size = 18, className = '' }: {
 
 const PATHS = {
   home: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /><path d="M9.5 21v-6h5v6" /></>,
+  /* Four panels — the overview screen, in the shape people read as a
+     dashboard. Distinct from `board` (the dispatch grid) on purpose. */
+  dashboard: <><rect x="3.5" y="3.5" width="7" height="7" rx="1.6" /><rect x="13.5" y="3.5" width="7" height="7" rx="1.6" /><rect x="3.5" y="13.5" width="7" height="7" rx="1.6" /><rect x="13.5" y="13.5" width="7" height="7" rx="1.6" /></>,
   leads: <><circle cx="9" cy="8" r="3.4" /><path d="M2.8 20a6.2 6.2 0 0 1 12.4 0" /><path d="M17 8h5M19.5 5.5v5" /></>,
   quote: <><path d="M6 2.8h8.5L19 7.3V21H6z" /><path d="M14 3v5h5" /><path d="M9 12h6M9 15.5h6" /></>,
   contract: <><path d="M12 2.8 20 6v6c0 5-3.4 8.3-8 9.2C7.4 20.3 4 17 4 12V6z" /><path d="m8.8 12 2.2 2.2 4.2-4.4" /></>,

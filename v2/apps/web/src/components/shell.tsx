@@ -23,7 +23,7 @@ type NavItem = { href: string; label: string; icon: IconName; roles?: string[] }
 
 /* The Zoho Books idiom: Home on top, everything else in categories that fold.
    One category open at a time; the one holding the current page opens itself. */
-const HOME: NavItem = { href: '/dashboard', label: 'Home', icon: 'home' };
+const HOME: NavItem = { href: '/dashboard', label: 'Dashboard', icon: 'dashboard' };
 // Its own module, right under Home — the admin's to-do list for the team.
 const TASKS: NavItem = { href: '/tasks', label: 'Tasks', icon: 'check' };
 const SETTINGS: NavItem = { href: '/settings', label: 'Settings', icon: 'settings', roles: ['admin', 'ops'] };
@@ -264,7 +264,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
            leave the sidebar glaring beside it: the overlay was underneath the
            furniture. Nothing here ever needs to cover a dialog. */
         className={'shrink-0 bg-white border-r border-line hidden lg:flex flex-col z-20 '
-          + 'transition-[width] duration-200 ease-in-out ' + (railed ? 'w-[76px]' : 'w-[236px]')}>
+          + 'transition-[width] duration-200 ease-in-out ' + (railed ? 'w-[72px]' : 'w-[256px]')}>
         {/* The brand tile. A rounded square in the company colour, the same
             shape the app wears on a phone's home screen, so the two read as
             one product. */}
@@ -305,26 +305,27 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               .sort((a, b) => b.length - a.length)[0];
             const isActive = (n: NavItem) => n.href === activeHref;
             /* One row, styled like the reference: an inset rounded pill. The
-               active one wears the brand's own rose with a red label and a
-               chevron; the rest are quiet slate that lifts on hover. When the
-               bar is railed the label drops away and the icon centres, with
-               the name moved to a native tooltip. */
+               active one wears the brand's rose fill with a deep-red label,
+               icon and chevron (#B91C1C — a calmer, more legible red than the
+               pure accent); the rest are quiet slate that lifts on hover. When
+               the bar is railed the label drops away and the icon centres,
+               with the name moved to a native tooltip. */
             const item = (n: NavItem) => {
               const active = isActive(n);
               return (
                 <Link key={n.href} href={n.href} title={railed ? n.label : undefined}
                   className={
-                    'group flex items-center h-11 mx-2 rounded-xl transition-colors '
+                    'group flex items-center h-11 mx-2 rounded-[10px] transition-colors '
                     + (railed ? 'justify-center ' : 'gap-3 px-3 ')
                     + (active
-                      ? 'bg-side-active text-accent font-semibold'
+                      ? 'bg-side-active text-[#B91C1C] font-semibold'
                       : 'text-side-text hover:bg-side-hover font-medium')
                   }>
                   <Icon name={n.icon} size={20}
-                    className={'shrink-0 ' + (active ? 'text-accent' : 'text-side-muted')} />
+                    className={'shrink-0 ' + (active ? 'text-[#B91C1C]' : 'text-side-muted')} />
                   {!railed && <span className="flex-1 truncate text-[14.5px]">{n.label}</span>}
                   {!railed && active
-                    && <Icon name="chevRight" size={16} className="text-accent shrink-0" />}
+                    && <Icon name="chevRight" size={16} className="text-[#B91C1C] shrink-0" />}
                 </Link>
               );
             };
@@ -365,7 +366,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                         </span>
                         {g.label}
                         {holdsActive && !open && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#B91C1C]" />
                         )}
                       </button>
                       <div
@@ -391,7 +392,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             hidden hotkey — people who want the room can find it. */}
         <div className="px-2 pt-2 pb-1 border-t border-side-line">
           <button type="button" onClick={toggleRail} title={railed ? 'Expand' : 'Collapse'}
-            className={'w-full flex items-center h-10 rounded-xl text-side-muted '
+            className={'w-full flex items-center h-10 rounded-[10px] text-side-muted '
               + 'hover:bg-side-hover hover:text-ink transition-colors '
               + (railed ? 'justify-center' : 'gap-3 px-3')}>
             <Icon name="panelLeft" size={20}
@@ -433,7 +434,12 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             which is 48px of chrome saying what the app already is. The bell
             was the only part of it doing any work, so the bell is what
             stayed — floating, top right, on every screen. */}
-        <header className="h-[48px] shrink-0 bg-white border-b border-line items-center gap-3 px-4 relative z-30 hidden lg:flex">
+        {/* The reference's AdminLayout header: the page's own name on the left
+            over the platform line, and everything you act on — search, new,
+            bell, who you are — gathered on the right. Ours used to lead with
+            a wide search box and had no title and no person in the bar, which
+            is most of why the two screens read differently at a glance. */}
+        <header className="h-[56px] shrink-0 bg-white/90 backdrop-blur-xl border-b border-line-soft items-center gap-3 px-6 relative z-30 hidden lg:flex">
           {/* the phone app bar identity — desktop has the sidebar for this */}
           <Link href={homeFor(me?.role)} className="lg:hidden flex items-center gap-2 min-w-0 shrink-0">
             {co?.logo ? (
@@ -450,24 +456,45 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               {co?.name || 'PestOps'}
             </span>
           </Link>
-          {/* ------------------------------------------------ search */}
-          <div className="relative flex-1 max-w-[460px] max-lg:hidden" onClick={(e) => e.stopPropagation()}>
-            <label className="flex items-center gap-2 h-8 px-3 rounded border border-line bg-wash focus-within:bg-white focus-within:border-navy/40">
-              <Icon name="search" size={15} className="text-muted-2" />
+
+          {/* ------------------------------------- page title, on the left */}
+          {(() => {
+            // Longest matching href wins, the same rule the sidebar uses.
+            const all = [HOME, TASKS, SETTINGS, CREDENTIALS, ...GROUPS.flatMap((g) => g.items), ...TECH_NAV];
+            const hit = all
+              .filter((n) => path === n.href || path.startsWith(n.href + '/'))
+              .sort((a, b) => b.href.length - a.href.length)[0];
+            return (
+              <div className="min-w-0 max-lg:hidden">
+                <p className="text-sm font-bold text-ink leading-tight truncate">{hit?.label || 'Home'}</p>
+                <p className="text-[10px] text-muted-2 leading-tight truncate">{co?.name || 'PestOps'}</p>
+              </div>
+            );
+          })()}
+
+          <div className="flex-1" />
+
+          {/* ------------------------------------------- search, on the right */}
+          <div className="relative max-lg:hidden" onClick={(e) => e.stopPropagation()}>
+            {/* The reference's admin search: w-64, gray-50 fill, gray-200 line,
+                12px corners, rose ring on focus. */}
+            <label className="flex items-center gap-2 h-9 w-[256px] px-3 rounded-[12px] border border-line bg-wash
+              focus-within:bg-white focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/10 transition-colors">
+              <Icon name="search" size={15} className="text-muted-2 shrink-0" />
               <input ref={searchRef} value={q}
                 onChange={(e) => setQ(e.target.value)}
                 onFocus={() => hits && setSearchOpen(true)}
-                placeholder="Search customers, contracts, invoices…  ( / )"
-                className="flex-1 bg-transparent outline-none text-[13px] placeholder:text-muted-2" />
+                placeholder="Search anything…  ( / )"
+                className="flex-1 min-w-0 bg-transparent outline-none text-sm placeholder:text-muted-2" />
               {q && (
-                <button onClick={() => { setQ(''); setHits(null); }} className="text-muted-2 hover:text-ink">
+                <button onClick={() => { setQ(''); setHits(null); }} className="text-muted-2 hover:text-ink shrink-0">
                   <Icon name="x" size={13} />
                 </button>
               )}
             </label>
 
             {searchOpen && hits && (
-              <div className="absolute top-9 left-0 right-0 card shadow-pop max-h-[420px] overflow-y-auto">
+              <div className="absolute top-10 right-0 w-[420px] card shadow-pop max-h-[420px] overflow-y-auto">
                 {hitGroups.length === 0 ? (
                   <p className="p-4 text-muted text-[13px]">Nothing matches “{q}”.</p>
                 ) : hitGroups.map(([group, rows]) => (
@@ -499,7 +526,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             hidden={!QUICK.some((n) => !n.roles || !me || n.roles.includes(me.role))}
             onClick={(e) => e.stopPropagation()}>
             <button onClick={() => { setMenuOpen((v) => !v); setBellOpen(false); }}
-              className="flex items-center gap-1.5 h-8 px-3.5 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90">
+              className="flex items-center gap-1.5 h-9 px-4 rounded bg-accent text-white text-sm font-semibold shadow-lg shadow-accent/20 hover:brightness-90 transition-all">
               <Icon name="plus" size={15} /> New
               <Icon name="chevDown" size={13} className="opacity-80" />
             </button>
@@ -519,8 +546,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           {/* ------------------------------------------------ bell */}
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <button onClick={openBell}
-              className="w-8 h-8 rounded flex items-center justify-center text-muted hover:bg-wash relative">
-              <Icon name="bell" size={17} />
+              className="w-9 h-9 rounded-[12px] flex items-center justify-center text-muted hover:bg-wash relative transition-colors">
+              <Icon name="bell" size={18} />
               {notes.unread > 0 && (
                 <span className="absolute top-0 right-0 min-w-[17px] h-[17px] px-1 rounded-full bg-accent text-white text-[11px] font-bold flex items-center justify-center">
                   {notes.unread}
@@ -544,10 +571,22 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             )}
           </div>
 
-          <Link href="/settings"
-            className="w-8 h-8 rounded flex items-center justify-center text-muted hover:bg-wash">
-            <Icon name="settings" size={17} />
-          </Link>
+          {/* Who is signed in, at the far right, the way the reference ends its
+              bar: a tinted round avatar and the name over the role. It opens
+              Settings, so the cog it replaces loses nothing. */}
+          {me && (
+            <Link href="/settings" title="Settings"
+              className="flex items-center gap-2 pl-3 ml-1 border-l border-line-soft rounded-[12px] hover:bg-wash transition-colors py-1 pr-1.5">
+              <span className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                style={{ background: '#FEE2E2', color: '#DC2626' }}>
+                {me.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
+              </span>
+              <span className="min-w-0 max-w-[140px]">
+                <span className="block text-xs font-medium text-ink-2 leading-tight truncate">{me.name}</span>
+                <span className="block text-[9px] text-muted-2 leading-tight capitalize">{me.role}</span>
+              </span>
+            </Link>
+          )}
         </header>
 
         {/* The content sits on the grey ground; every card on it is white. That
