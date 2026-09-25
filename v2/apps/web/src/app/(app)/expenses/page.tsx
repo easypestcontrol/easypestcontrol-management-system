@@ -157,7 +157,7 @@ function ManagerView() {
   );
 }
 
-const empty = (): Summary => ({ count: 0, employees: 0, total: 0, pending: 0, approved: 0, partial: 0, reimbursed: 0, rejected: 0, paid: 0, due: 0 });
+const empty = (): Summary => ({ count: 0, employees: 0, total: 0, pending: 0, approved: 0, partial: 0, reimbursed: 0, rejected: 0, paid: 0, due: 0, unsettled: 0 });
 
 /* ------------------------------------------------------ employee: mine */
 function EmployeeView() {

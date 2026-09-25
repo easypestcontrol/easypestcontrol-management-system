@@ -44,6 +44,9 @@ interface Summary {
   count: number; employees: number; total: number;
   pending: number; approved: number; partial: number; reimbursed: number; rejected: number;
   paid: number; due: number;
+  /** Lines the office has not finished with: not yet verified, or verified
+      and still owed. A report closes only when this is zero. */
+  unsettled: number;
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -136,7 +139,26 @@ export class ExpensesController {
       // office wants at a glance, whatever the statuses underneath.
       paid: expenses.reduce((a, e) => a + (e.paidAmount || 0), 0),
       due: expenses.filter((e) => PAYABLE.includes(e.status)).reduce((a, e) => a + e.amount - (e.paidAmount || 0), 0),
+      unsettled: expenses.filter((e) => this.unsettled(e)).length,
     };
+  }
+
+  /** Settled means paid in full or rejected. A Rs 0 line that is approved
+      owes nothing, so it is settled too. Pending is never settled, whatever
+      the amount - somebody still has to look at it. */
+  private unsettled(e: { status: string; amount: number; paidAmount?: number }) {
+    if (e.status === 'pending' || e.status === 'processing') return true;
+    return PAYABLE.includes(e.status) && e.amount - (e.paidAmount || 0) > 0;
+  }
+
+  /** The sentence that refuses a close: what is still in the way. */
+  private stillOpen(expenses: Array<{ status: string; amount: number; paidAmount?: number }>) {
+    const bits = [];
+    const pendingN = expenses.filter((e) => e.status === 'pending' || e.status === 'processing').length;
+    const due = expenses.filter((e) => PAYABLE.includes(e.status)).reduce((a, e) => a + e.amount - (e.paidAmount || 0), 0);
+    if (pendingN) bits.push(`${pendingN} line(s) still to approve or reject`);
+    if (due > 0) bits.push(`${rupees(due)} still to pay`);
+    return bits.join(' and ');
   }
 
   /** An expense the way a screen shows it: names on, receipt bytes off. */
@@ -425,7 +447,18 @@ export class ExpensesController {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new BadRequestException('Pick a valid date');
     const reopen = !!body.reopen;
     const scope = clampScope(await branchScope(this.prisma, req.user), undefined);
-    const reports = await this.prisma.expenseReport.findMany({ where: { ...branchWhere(scope), date: d } as never });
+    const reports = await this.prisma.expenseReport.findMany({
+      where: { ...branchWhere(scope), date: d } as never,
+      include: { expenses: { select: { status: true, amount: true, paidAmount: true } } },
+    });
+    // Closing is the office saying "this day is settled". So it has to be:
+    // every line paid in full or rejected. Anything pending or still owed
+    // keeps the day open, and the refusal says exactly what is in the way.
+    if (!reopen) {
+      const open = reports.filter((r) => r.status !== 'closed');
+      const why = this.stillOpen(open.flatMap((r) => r.expenses));
+      if (why) throw new BadRequestException(`Can't close ${niceDate(d)} yet: ${why}. Approve or reject every line and pay what is owed first.`);
+    }
     const who = await this.nameOf(req.user?.sub || '');
     let changed = 0, pulled = 0;
     for (const r of reports) {
@@ -496,6 +529,11 @@ export class ExpensesController {
     if (!r) throw new NotFoundException('No such report');
     if (!inScope(await branchScope(this.prisma, req.user), r.branch)) throw new NotFoundException('No such report');
     const reopening = r.status === 'closed';
+    if (!reopening) {
+      const lines = await this.prisma.expense.findMany({ where: { reportId: id }, select: { status: true, amount: true, paidAmount: true } });
+      const why = this.stillOpen(lines);
+      if (why) throw new BadRequestException(`Can't close this report yet: ${why}. Approve or reject every line and pay what is owed first.`);
+    }
     await this.prisma.expenseReport.update({ where: { id }, data: { status: reopening ? 'open' : 'closed' } });
     await this.hist(id, reopening ? 'Report reopened' : 'Report closed');
     // A trip that finished while the folder was shut had nowhere to go.

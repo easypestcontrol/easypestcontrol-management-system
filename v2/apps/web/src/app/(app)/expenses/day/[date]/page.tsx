@@ -95,6 +95,11 @@ export default function DayPage() {
   const allClosed = d.reports.length > 0 && openReports.length === 0;
   const pendingOpen = openReports.reduce((a, r) => a + r.summary.pending, 0);
   const dueOpen = openReports.reduce((a, r) => a + r.summary.due, 0);
+  // What still stands in the way of closing the day - the same test the
+  // server applies, so the button says it before the server has to.
+  const unsettledOpen = openReports.reduce((a, r) => a + (r.summary.unsettled || 0), 0);
+  const pendingLines = openReports.reduce((a, r) => a + r.expenses.filter((e) => e.status === 'pending' || e.status === 'processing').length, 0);
+  const inTheWay = [pendingLines ? pendingLines + ' to approve or reject' : '', dueOpen > 0 ? money(dueOpen) + ' to pay' : ''].filter(Boolean).join(' · ');
   const tiles = [
     { l: 'Expenses', v: String(S.count), sub: S.employees + (S.employees === 1 ? ' person' : ' people') + ' · ' + d.reports.length + (d.reports.length === 1 ? ' branch' : ' branches') },
     { l: 'Pending', v: money(S.pending), sub: 'to verify', cls: S.pending > 0 ? 'text-rose-ink' : '' },
@@ -125,6 +130,14 @@ export default function DayPage() {
             className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">
             Reopen all reports
           </button>
+        ) : unsettledOpen > 0 ? (
+          <span className="flex items-center gap-2 max-lg:basis-full">
+            <span className="text-[11.5px] text-muted text-right">Settle everything to close: {inTheWay}</span>
+            <button disabled title={'Can\u2019t close yet: ' + inTheWay}
+              className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold opacity-50 cursor-not-allowed shrink-0">
+              Close all reports
+            </button>
+          </span>
         ) : (
           <button disabled={busy} onClick={() => closeDay(false, openReports.length)}
             className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">
@@ -253,4 +266,4 @@ export default function DayPage() {
   );
 }
 
-const empty = (): Summary => ({ count: 0, employees: 0, total: 0, pending: 0, approved: 0, partial: 0, reimbursed: 0, rejected: 0, paid: 0, due: 0 });
+const empty = (): Summary => ({ count: 0, employees: 0, total: 0, pending: 0, approved: 0, partial: 0, reimbursed: 0, rejected: 0, paid: 0, due: 0, unsettled: 0 });
