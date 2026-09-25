@@ -86,7 +86,9 @@ const GROUPS: Array<{ id: string; label: string; items: NavItem[] }> = [
       { href: '/branches', label: 'Branches', icon: 'branch', roles: ['admin', 'ops'] },
       { href: '/expense-categories', label: 'Expense categories', icon: 'receipt', roles: ['admin', 'ops'] },
       { href: '/team', label: 'Team', icon: 'team', roles: ['admin', 'ops'] },
-      { href: '/training', label: 'Training', icon: 'team', roles: ['admin', 'ops'] },
+      // Training is for everyone who works the field or the phone, not only
+      // the office: the sales team learns the same catalogue it sells.
+      { href: '/training', label: 'Training', icon: 'team', roles: ['admin', 'ops', 'sales'] },
     ],
   },
 ];
