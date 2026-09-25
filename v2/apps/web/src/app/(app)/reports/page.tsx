@@ -94,13 +94,15 @@ function Stat({ label, value, foot, alert, icon = 'report', tint = 'sky' }: {
   const t = TINT[tint] || TINT.sky;
   return (
     <div className="card p-5 flex flex-col">
-      <span className={'w-11 h-11 rounded-[13px] flex items-center justify-center shrink-0 mb-5 ' + t.bg}>
-        <Icon name={icon} size={21} className={t.fg} />
+      {/* The reference's AdminStatsCard, to the class — same as the home
+          dashboard, so the two money screens are one component in spirit. */}
+      <span className={'w-11 h-11 rounded-[12px] flex items-center justify-center shrink-0 mb-4 ' + t.bg}>
+        <Icon name={icon} size={20} className={t.fg} />
       </span>
-      <p className={'text-[26px] font-bold tracking-[-0.02em] leading-none tabular-nums '
+      <p className={'text-2xl font-bold tracking-tight leading-none tabular-nums '
         + (alert ? 'text-accent' : 'text-ink')}>{value}</p>
-      <p className="text-[13px] font-semibold text-ink-2 mt-2 leading-tight">{label}</p>
-      <p className="text-[12px] text-muted-2 mt-1">{foot}</p>
+      <p className="text-xs font-medium text-muted-2 mt-1 leading-tight">{label}</p>
+      <p className="text-[11px] text-muted-2 mt-0.5">{foot}</p>
     </div>
   );
 }

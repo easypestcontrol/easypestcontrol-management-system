@@ -25,18 +25,29 @@
      in red. See --color-side-active below and the inline colour in shell.tsx. */
   --color-accent: #E11D48;
 
-  --color-ink: #141414;
-  --color-ink-2: rgb(20 20 20 / 0.78);
-  --color-muted: rgb(20 20 20 / 0.58);
-  --color-muted-2: rgb(20 20 20 / 0.40);
-  --color-line: rgb(20 20 20 / 0.09);
-  --color-line-soft: rgb(20 20 20 / 0.055);
+  /* Neutrals: the reference's Tailwind gray scale, to the hex, in place of the
+     old black-at-reduced-opacity ramp. Every screen reads these, so this block
+     is what makes the whole app sit on the same cool grey the reference does.
+       ink      gray-900  headings, figures
+       ink-2    gray-700  body, labels
+       muted    gray-500  secondary text
+       muted-2  gray-400  captions, table heads
+       line     gray-200  input borders
+       line-soft gray-100 card borders, dividers
+       wash     gray-50   input fills, hover rows
+       wash-2   gray-100  chips */
+  --color-ink: #111827;
+  --color-ink-2: #374151;
+  --color-muted: #6B7280;
+  --color-muted-2: #9CA3AF;
+  --color-line: #E5E7EB;
+  --color-line-soft: #F3F4F6;
   /* For a control whose whole job is to be seen — an empty tick waiting to be
-     filled. The ordinary hairline is a divider between things, and at 9% it
+     filled. gray-300: the ordinary hairline is a divider between things and
      disappears on a phone held at arm's length in daylight. */
-  --color-line-strong: rgb(20 20 20 / 0.28);
-  --color-wash: rgb(20 20 20 / 0.035);
-  --color-wash-2: rgb(20 20 20 / 0.06);
+  --color-line-strong: #D1D5DB;
+  --color-wash: #F9FAFB;
+  --color-wash-2: #F3F4F6;
 
   --color-red-wash: rgb(225 29 72 / 0.06);
   --color-red-line: rgb(225 29 72 / 0.30);
@@ -54,21 +65,16 @@
      person PRESSES -- the active tab, the button, the plus. If red meant
      both "tap me" and "this is wrong", neither would read.
      -------------------------------------------------------------------- */
-  --color-ground: #F4F5F7;
-  --color-rose: #FDECEC;
-  --color-rose-ink: #C81E1E;
-  --color-mint: #EAF6EE;
-  --color-mint-ink: #1F7A4C;
-  --color-sky: #EEF2FA;
-  --color-sky-ink: #3A5A8C;
-  --color-amber: #FEF3E2;
-  --color-amber-ink: #B45309;
-  /* Two more tints so a row of KPI tiles reads as a palette, not a repeat —
-     a violet and a teal to sit alongside sky, mint, amber and rose. */
-  --color-violet: #F1ECFC;
-  --color-violet-ink: #6D28D9;
-  --color-teal: #E2F5F2;
-  --color-teal-ink: #0E7C6B;
+  --color-ground: #F9FAFB;   /* gray-50: the reference's page ground */
+  /* The tints are the reference's own KPI-tile pairs, Tailwind 50 for the
+     square and 600 for the icon on it (AdminStatsCard: bg-blue-50 +
+     text-blue-600, and so on). To the hex, so a tile here is a tile there. */
+  --color-rose: #FEF2F2;      --color-rose-ink: #DC2626;    /* red-50 / red-600 */
+  --color-mint: #ECFDF5;      --color-mint-ink: #059669;    /* emerald-50 / 600 */
+  --color-sky: #EFF6FF;       --color-sky-ink: #2563EB;     /* blue-50 / 600 */
+  --color-amber: #FFFBEB;     --color-amber-ink: #D97706;   /* amber-50 / 600 */
+  --color-violet: #F5F3FF;    --color-violet-ink: #7C3AED;  /* violet-50 / 600 */
+  --color-teal: #F0FDFA;      --color-teal-ink: #0D9488;    /* teal-50 / 600 */
 
   /* ---------------------------------------------------------- the phone
 
@@ -92,11 +98,13 @@
   --color-hero-line: rgb(255 255 255 / 0.16);
 
   /* the sidebar's internal palette — a white sidebar wears dark text */
-  --color-side-text: rgb(20 20 20 / 0.80);
-  --color-side-muted: rgb(20 20 20 / 0.45);
-  --color-side-hover: rgb(20 20 20 / 0.045);
-  --color-side-active: rgb(185 28 28 / 0.07);
-  --color-side-line: rgb(20 20 20 / 0.10);
+  /* The reference's AdminLayout, to the hex: inactive rows gray-500 that go
+     gray-700 on a gray-50 hover; the active pill is red-50 under red-700. */
+  --color-side-text: #6B7280;
+  --color-side-muted: #9CA3AF;
+  --color-side-hover: #F9FAFB;
+  --color-side-active: #FEF2F2;
+  --color-side-line: #F3F4F6;
 
   --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
 
@@ -111,9 +119,12 @@
      Two shadows, both soft, both mostly vertical: a close one for the edge
      and a wide diffuse one for the lift. One hard shadow reads as a sticker;
      two read as paper. */
-  --shadow-card: 0 1px 2px rgb(20 20 20 / 0.04), 0 4px 14px rgb(20 20 20 / 0.045);
-  --shadow-raise: 0 1px 2px rgb(20 20 20 / 0.05), 0 8px 24px rgb(20 20 20 / 0.07);
-  --shadow-pop: 0 8px 32px rgb(20 20 20 / 0.13);
+  /* The reference's three shadows, verbatim from its tailwind.config:
+     `soft` on every resting card, `card` when it lifts, `elevated` under a
+     modal. */
+  --shadow-card: 0 2px 15px -3px rgb(0 0 0 / 0.07), 0 10px 20px -2px rgb(0 0 0 / 0.04);
+  --shadow-raise: 0 0 0 1px rgb(0 0 0 / 0.03), 0 2px 4px rgb(0 0 0 / 0.05), 0 12px 24px rgb(0 0 0 / 0.05);
+  --shadow-pop: 0 20px 25px -5px rgb(0 0 0 / 0.10), 0 8px 10px -6px rgb(0 0 0 / 0.10);
 
   /* --------------------------------------------------------------- corners
 
@@ -121,7 +132,7 @@
      than a decision. The phone's cards have been at 18-20px for a while and
      the desktop never caught up; this is the ladder the rest of the interface
      was already asking for. */
-  --radius: 0.5rem;        /* 8px  - inputs, buttons, chips */
+  --radius: 0.75rem;       /* 12px - inputs, buttons, chips: the reference's rounded-xl */
   --radius-sm: 0.375rem;   /* 6px  - swatches, tiny tags */
   --radius-md: 1rem;       /* 16px - section cards, the reference's softer corner */
   --radius-lg: 1.125rem;   /* 18px - feature cards */
@@ -142,16 +153,20 @@
    shadow and a `.card rounded-2xl` would have stayed at 14px. Layered, the
    utility wins and `.card` is a default rather than a rule. */
 @layer components {
+  /* The reference's Card: white, rounded-2xl, a gray-100 hairline AND the
+     soft shadow — the border gives the edge, the shadow gives the lift. */
   .card {
     background: #fff;
+    border: 1px solid var(--color-line-soft);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-card);
   }
   .card-hover { transition: box-shadow .18s ease, border-color .18s ease; }
   .card-hover:hover { box-shadow: var(--shadow-raise); }
 
+  /* The reference's KPI icon tile: 44px, 12px corners (AdminStatsCard). */
   .chipbox {
-    width: 38px; height: 38px; border-radius: 11px;
+    width: 44px; height: 44px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center; flex: none;
   }
 }
@@ -173,27 +188,32 @@ html, body {
 
    Rows breathe more than they did (14px, not 10px). Every list in the app
    changes from this one rule. */
+/* Drawn to the reference's AdminTable: a rounded-2xl card with a gray-100
+   hairline, heads in 12px medium gray-400 (no uppercase) on a half-tint of
+   gray-50, cells padded 16/20, rows divided by gray-50 and lit gray-50 on
+   hover. */
 .ztable {
-  width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px;
+  width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px;
   background: #fff;
+  border: 1px solid var(--color-line-soft);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 .ztable th {
-  text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
-  text-transform: uppercase; color: var(--color-muted);
-  padding: 11px 16px; border-bottom: 1px solid var(--color-line);
-  background: var(--color-wash);
+  text-align: left; font-size: 12px; font-weight: 500;
+  color: var(--color-muted-2);
+  padding: 14px 20px; border-bottom: 1px solid var(--color-line-soft);
+  background: rgb(249 250 251 / 0.5);
   white-space: nowrap;
 }
 .ztable td {
-  padding: 14px 16px; border-bottom: 1px solid var(--color-line-soft);
+  padding: 16px 20px; border-bottom: 1px solid var(--color-wash);
   vertical-align: middle;
 }
 .ztable tbody tr:last-child td { border-bottom: 0; }
 .ztable tr.zrow { cursor: pointer; }
-.ztable tr.zrow:hover td { background: var(--color-wash); }
+.ztable tr.zrow:hover td { background: rgb(249 250 251 / 0.8); }
 
 /* The gutter every list page was missing.
 
@@ -356,12 +376,13 @@ html, body {
 
 /* status pill */
 .zpill {
-  display: inline-flex; align-items: center; gap: 5px;
-  /* Rounded fully and given a little more room. A 3px-cornered 20px chip is
-     a 2010 badge; the rest of the interface is on 8-18px corners now. */
-  height: 22px; padding: 0 10px; border-radius: 999px;
-  font-size: 11px; font-weight: 600; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px;
+  /* The reference's Badge at its `md` size: px-3 py-1, 12px semibold, fully
+     round, and a 1px border in the same family as the fill. */
+  height: 24px; padding: 0 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
   background: var(--color-wash-2); color: var(--color-ink-2);
+  border: 1px solid var(--color-line);
 }
 .zpill.red { background: var(--color-red-wash); color: var(--color-accent); }
 .zpill.navy { background: rgb(20 20 20 / 0.86); color: #fff; }

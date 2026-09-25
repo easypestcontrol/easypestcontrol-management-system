@@ -160,24 +160,23 @@ export default function Dashboard() {
             {cards.map((c) => (
               <Link key={c.label} href={c.href}
                 className="card card-hover p-5 flex flex-col">
-                {/* The colour lives in the tile, the way the reference does it —
-                    a big soft square per figure, so six white cards read as six
-                    different things at a glance rather than one grid to scan.
-                    `mb-5` is the gap the reference keeps between the tile and
-                    the figure; an earlier justify-between collapsed to nothing
-                    once the three text lines outgrew the card's min height, and
-                    the icon ended up sitting on the number. */}
-                <span className={'w-11 h-11 rounded-[13px] flex items-center justify-center shrink-0 mb-5 '
+                {/* The reference's AdminStatsCard, to the class: a 44px tile
+                    with 12px corners in the figure's own tint, mb-4 above a
+                    text-2xl bold tracking-tight value, then a text-xs
+                    gray-400 label. (rounded-[12px] rather than rounded-xl —
+                    this app remaps rounded-xl to 22px, which is the oval the
+                    sidebar pill used to be.) */}
+                <span className={'w-11 h-11 rounded-[12px] flex items-center justify-center shrink-0 mb-4 '
                   + TINT[c.tint].bg}>
-                  <Icon name={c.icon} size={21} className={TINT[c.tint].fg} />
+                  <Icon name={c.icon} size={20} className={TINT[c.tint].fg} />
                 </span>
                 <span className="min-w-0">
-                  <span className={'block text-[28px] font-bold tracking-[-0.02em] leading-none tabular-nums '
+                  <span className={'block text-2xl font-bold tracking-tight leading-none tabular-nums '
                     + (c.alert ? 'text-hero' : 'text-ink')}>
                     {c.value}
                   </span>
-                  <span className="block mt-2 text-[13px] font-semibold text-ink-2 leading-tight">{c.label}</span>
-                  <span className="block mt-1 text-[11.5px] text-muted-2 truncate">{c.foot}</span>
+                  <span className="block mt-1 text-xs font-medium text-muted-2 leading-tight">{c.label}</span>
+                  <span className="block mt-0.5 text-[11px] text-muted-2 truncate">{c.foot}</span>
                 </span>
               </Link>
             ))}
