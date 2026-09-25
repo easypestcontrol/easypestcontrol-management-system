@@ -38,7 +38,7 @@ export const DEFAULT_CATEGORIES = [
     or a payout that bounced and wants another go. */
 const PAYABLE = ['approved', 'partial', 'payment_failed'];
 
-interface Actors { approvedBy?: string; rejectedBy?: string; payments?: unknown }
+interface Actors { approvedBy?: string; rejectedBy?: string; reviewedAt?: string; paidAt?: string; payments?: unknown }
 
 interface Summary {
   count: number; employees: number; total: number;
@@ -159,6 +159,10 @@ export class ExpensesController {
       approvedByName: name(e.approvedBy),
       rejectedByName: name(e.rejectedBy),
       paidByName: pays.length ? name(pays[pays.length - 1].by) : '',
+      // When: the review's own stamp, and the last payment's. Both are
+      // "YYYY-MM-DD HH:MM", the office's clock, the way every diary line is.
+      reviewedAt: e.reviewedAt || '',
+      paidAt: pays.length ? String((pays[pays.length - 1] as { at?: string }).at || e.paidAt || '') : '',
     };
   }
 
@@ -467,7 +471,7 @@ export class ExpensesController {
     const who = await this.nameOf(me);
     await this.prisma.expense.updateMany({
       where: { id: { in: ok.map((e) => e.id) } },
-      data: { status: 'approved', approvedBy: me, rejectedBy: '', rejectReason: '' },
+      data: { status: 'approved', approvedBy: me, rejectedBy: '', rejectReason: '', reviewedAt: nowStamp() },
     });
     const byReport = new Map<string, number>();
     const byUser = new Map<string, { n: number; sum: number }>();
@@ -716,8 +720,8 @@ export class ExpensesController {
     await this.prisma.expense.update({
       where: { id },
       data: approve
-        ? { status: 'approved', approvedBy: me, rejectedBy: '', rejectReason: '' }
-        : { status: 'rejected', rejectedBy: me, rejectReason: reason },
+        ? { status: 'approved', approvedBy: me, rejectedBy: '', rejectReason: '', reviewedAt: nowStamp() }
+        : { status: 'rejected', rejectedBy: me, rejectReason: reason, reviewedAt: nowStamp() },
     });
     await this.hist(e.reportId, `${e.id} ${approve ? 'approved' : 'rejected'} by ${who}${approve ? '' : ': ' + reason}`);
     // The employee hears WHO decided, not just what - the name is the point.

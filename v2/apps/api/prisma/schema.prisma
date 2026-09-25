@@ -582,6 +582,7 @@ model Expense {
   rejectReason String        @default("")
   approvedBy   String        @default("")
   rejectedBy   String        @default("") // who turned it down - the employee sees the name
+  reviewedAt   String        @default("") // YYYY-MM-DD HH:MM of the approve / reject
   paidAt       String        @default("")
   payMode      String        @default("") // razorpayx | manual
   payoutId     String        @default("")

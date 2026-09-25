@@ -48,13 +48,24 @@ export interface Exp {
   status: string; source: string; tripId: string; rejectReason: string; hasReceipt: boolean;
   km: number; rate: number;
   approvedByName?: string; rejectedByName?: string; paidByName?: string;
+  reviewedAt?: string; paidAt?: string;
 }
 
-/** The minimum any screen needs to say who did what to an expense. */
+/** The minimum any screen needs to say who did what to an expense, and when. */
 export interface Acted {
   status: string; amount: number; paidAmount?: number; rejectReason?: string;
   approvedByName?: string; rejectedByName?: string; paidByName?: string;
+  reviewedAt?: string; paidAt?: string;
 }
+
+/** "2026-09-25 18:41" -> "25 Sep, 6:41 pm"; anything else -> "". */
+export function stampText(stamp?: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(stamp || ''));
+  if (!m) return '';
+  const h = Number(m[4]); const mm = m[5];
+  return `${Number(m[3])} ${M[Number(m[2]) - 1]}, ${((h + 11) % 12) + 1}:${mm} ${h >= 12 ? 'pm' : 'am'}`;
+}
+const on = (stamp?: string) => (stampText(stamp) ? ' on ' + stampText(stamp) : '');
 
 /**
  * Who did what, for the OFFICE's row: "Rejected by Munishwaran — no bill",
@@ -62,11 +73,13 @@ export interface Acted {
  */
 export function whoLine(e: Acted): string {
   if (e.status === 'rejected') {
-    return 'Rejected by ' + (e.rejectedByName || 'the office') + (e.rejectReason ? ' — ' + e.rejectReason : '');
+    return 'Rejected by ' + (e.rejectedByName || 'the office') + on(e.reviewedAt) + (e.rejectReason ? ' — ' + e.rejectReason : '');
   }
   if (e.status === 'pending') return '';
-  const bits = [e.approvedByName ? 'Approved by ' + e.approvedByName : ''];
-  if (e.paidByName) bits.push((e.status === 'partial' ? 'Part paid by ' : e.status === 'payment_failed' ? 'Payment attempted by ' : 'Paid by ') + e.paidByName);
+  const bits = [e.approvedByName ? 'Approved by ' + e.approvedByName + on(e.reviewedAt) : ''];
+  if (e.paidByName) {
+    bits.push((e.status === 'partial' ? 'Part paid by ' : e.status === 'payment_failed' ? 'Payment attempted by ' : 'Paid by ') + e.paidByName + on(e.paidAt));
+  }
   return bits.filter(Boolean).join(' · ');
 }
 
@@ -78,12 +91,12 @@ export function whoLine(e: Acted): string {
 export function whoSentence(e: Acted, money: (n: number) => string): string {
   const a = e.approvedByName || 'The office';
   switch (e.status) {
-    case 'rejected': return (e.rejectedByName || 'The office') + ' rejected your expense' + (e.rejectReason ? ' — ' + e.rejectReason : '');
-    case 'approved': return a + ' approved your expense · payment to follow';
-    case 'processing': return a + ' approved your expense · payment in progress';
-    case 'partial': return a + ' approved · ' + (e.paidByName || 'the office') + ' paid you ' + money(e.paidAmount || 0) + ' so far';
-    case 'reimbursed': return (e.paidByName || a) + ' paid you ' + money(e.amount);
-    case 'payment_failed': return a + ' approved · the payment failed and will be retried';
+    case 'rejected': return (e.rejectedByName || 'The office') + ' rejected your expense' + on(e.reviewedAt) + (e.rejectReason ? ' — ' + e.rejectReason : '');
+    case 'approved': return a + ' approved your expense' + on(e.reviewedAt) + ' · payment to follow';
+    case 'processing': return a + ' approved your expense' + on(e.reviewedAt) + ' · payment in progress';
+    case 'partial': return a + ' approved' + on(e.reviewedAt) + ' · ' + (e.paidByName || 'the office') + ' paid you ' + money(e.paidAmount || 0) + on(e.paidAt) + ' so far';
+    case 'reimbursed': return (e.paidByName || a) + ' paid you ' + money(e.amount) + on(e.paidAt);
+    case 'payment_failed': return a + ' approved' + on(e.reviewedAt) + ' · the payment failed and will be retried';
     default: return '';
   }
 }

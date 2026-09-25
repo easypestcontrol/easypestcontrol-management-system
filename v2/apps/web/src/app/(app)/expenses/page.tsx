@@ -35,6 +35,7 @@ interface MineRow {
   id: string; date: string; category: string; merchant: string; note: string; amount: number; paidAmount: number;
   status: string; source: string; tripId: string; rejectReason: string; hasReceipt: boolean;
   approvedByName?: string; rejectedByName?: string; paidByName?: string;
+  reviewedAt?: string; paidAt?: string;
 }
 
 export default function ExpensesPage() {
