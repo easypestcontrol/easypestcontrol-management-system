@@ -131,6 +131,18 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<SessionUser | null>(null);
   const [boot, setBoot] = useState<Bootstrap | null>(null);
   const [openGroup, setOpenGroup] = useState('');
+  /* The sidebar can shrink to an icon rail. Kept per browser — it is a
+     personal preference about screen real estate, not shared state — and read
+     after mount so the server and the first client render agree. */
+  const [railed, setRailed] = useState(false);
+  useEffect(() => {
+    try { setRailed(localStorage.getItem('pestops.rail') === '1'); } catch { /* private mode */ }
+  }, []);
+  const toggleRail = () => setRailed((v) => {
+    const n = !v;
+    try { localStorage.setItem('pestops.rail', n ? '1' : '0'); } catch { /* private mode */ }
+    return n;
+  });
 
   // The category holding the page you are on opens itself.
   useEffect(() => {
@@ -251,30 +263,36 @@ export default function Shell({ children }: { children: React.ReactNode }) {
            backdrop instead. That is why a modal could darken the board and
            leave the sidebar glaring beside it: the overlay was underneath the
            furniture. Nothing here ever needs to cover a dialog. */
-        className="w-[224px] shrink-0 bg-white border-r border-line hidden lg:flex flex-col z-20">
+        className={'shrink-0 bg-white border-r border-line hidden lg:flex flex-col z-20 '
+          + 'transition-[width] duration-200 ease-in-out ' + (railed ? 'w-[76px]' : 'w-[236px]')}>
+        {/* The brand tile. A rounded square in the company colour, the same
+            shape the app wears on a phone's home screen, so the two read as
+            one product. */}
         <Link href={homeFor(me?.role)}
-          className="flex items-center gap-3 px-4 h-[58px] border-b border-side-line">
+          className={'flex items-center h-[64px] shrink-0 ' + (railed ? 'justify-center px-2' : 'gap-3 px-3')}>
           {co?.logo ? (
-            <span className="w-9 h-9 rounded bg-white flex items-center justify-center overflow-hidden">
+            <span className="w-10 h-10 rounded-[13px] bg-white border border-line flex items-center justify-center overflow-hidden shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={co.logo} alt="" className="max-w-full max-h-full object-contain" />
             </span>
           ) : (
-            <span className="w-9 h-9 rounded bg-accent text-white flex items-center justify-center font-bold text-[15px]">
+            <span className="w-10 h-10 rounded-[13px] bg-accent text-white flex items-center justify-center font-bold text-[17px] shrink-0">
               {(co?.name || 'P').charAt(0)}
             </span>
           )}
-          <span className="min-w-0">
-            <span className="block text-ink font-semibold text-[13.5px] leading-tight truncate">
-              {co?.name || 'PestOps'}
+          {!railed && (
+            <span className="min-w-0">
+              <span className="block text-ink font-bold text-[15.5px] leading-tight truncate">
+                {co?.name || 'PestOps'}
+              </span>
+              <span className="block text-side-muted text-[12px] truncate">
+                {co?.city || 'Operations'}
+              </span>
             </span>
-            <span className="block text-side-muted text-[10.5px] truncate">
-              {co?.city || 'Operations'}
-            </span>
-          </span>
+          )}
         </Link>
 
-        <nav className="flex-1 overflow-y-auto py-2">
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2">
           {(() => {
             const visible = (n: NavItem) => allowed(n.href)
               ?? (!n.roles || !me || n.roles.includes(me.role));
@@ -286,30 +304,50 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               .filter((h) => path === h || path.startsWith(h + '/'))
               .sort((a, b) => b.length - a.length)[0];
             const isActive = (n: NavItem) => n.href === activeHref;
-            const item = (n: NavItem, indent = false) => {
+            /* One row, styled like the reference: an inset rounded pill. The
+               active one wears the brand's own rose with a red label and a
+               chevron; the rest are quiet slate that lifts on hover. When the
+               bar is railed the label drops away and the icon centres, with
+               the name moved to a native tooltip. */
+            const item = (n: NavItem) => {
               const active = isActive(n);
               return (
-                <Link key={n.href} href={n.href}
+                <Link key={n.href} href={n.href} title={railed ? n.label : undefined}
                   className={
-                    'relative flex items-center gap-3 h-9 text-[13px] transition-colors ' +
-                    (indent ? 'pl-7 pr-4 ' : 'px-4 ') +
-                    (active
+                    'group flex items-center h-11 mx-2 rounded-xl transition-colors '
+                    + (railed ? 'justify-center ' : 'gap-3 px-3 ')
+                    + (active
                       ? 'bg-side-active text-accent font-semibold'
-                      : 'text-side-text hover:bg-side-hover hover:text-ink')
+                      : 'text-side-text hover:bg-side-hover font-medium')
                   }>
-                  {active && <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent" />}
-                  <Icon name={n.icon} size={16} className={active ? '' : 'opacity-75'} />
-                  {n.label}
+                  <Icon name={n.icon} size={20}
+                    className={'shrink-0 ' + (active ? 'text-accent' : 'text-side-muted')} />
+                  {!railed && <span className="flex-1 truncate text-[14.5px]">{n.label}</span>}
+                  {!railed && active
+                    && <Icon name="chevRight" size={16} className="text-accent shrink-0" />}
                 </Link>
               );
             };
 
             if (isFieldTech(me?.role)) {
-              return <>{[TECH_NAV[0], TASKS, ...TECH_NAV.slice(1)].filter(visible).map((n) => item(n))}</>;
+              return (
+                <div className="flex flex-col gap-0.5">
+                  {[TECH_NAV[0], TASKS, ...TECH_NAV.slice(1)].filter(visible).map((n) => item(n))}
+                </div>
+              );
+            }
+
+            // Railed: no room for group headings, so the whole thing flattens
+            // into one column of icons — everything the person can reach, in
+            // order, each a tooltip away from its name.
+            if (railed) {
+              const flat = [HOME, TASKS, ...GROUPS.flatMap((g) => g.items),
+                SETTINGS, CREDENTIALS].filter(visible);
+              return <div className="flex flex-col gap-0.5">{flat.map((n) => item(n))}</div>;
             }
 
             return (
-              <>
+              <div className="flex flex-col gap-0.5">
                 {visible(HOME) && item(HOME)}
                 {visible(TASKS) && item(TASKS)}
                 {GROUPS.map((g) => {
@@ -321,7 +359,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                     <div key={g.id}>
                       <button
                         onClick={() => setOpenGroup(open ? '' : g.id)}
-                        className="w-full flex items-center gap-2 px-4 h-8 mt-1.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-side-muted hover:text-ink transition-colors">
+                        className="w-full flex items-center gap-2 px-4 h-8 mt-2 text-[11px] font-bold uppercase tracking-[0.08em] text-side-muted hover:text-ink transition-colors">
                         <span className={'transition-transform duration-300 ' + (open ? 'rotate-90' : '')}>
                           <Icon name="chevRight" size={11} />
                         </span>
@@ -333,36 +371,57 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                       <div
                         className="grid transition-[grid-template-rows] duration-300 ease-in-out"
                         style={{ gridTemplateRows: open ? '1fr' : '0fr' }}>
-                        <div className="overflow-hidden min-h-0">
-                          {items.map((n) => item(n, true))}
+                        <div className="overflow-hidden min-h-0 flex flex-col gap-0.5 pt-0.5">
+                          {items.map((n) => item(n))}
                         </div>
                       </div>
                     </div>
                   );
                 })}
-                <div className="mt-1.5 border-t border-side-line pt-1.5">
+                <div className="mt-2 border-t border-side-line pt-2 flex flex-col gap-0.5">
                   {visible(SETTINGS) && item(SETTINGS)}
                   {visible(CREDENTIALS) && item(CREDENTIALS)}
                 </div>
-              </>
+              </div>
             );
           })()}
         </nav>
 
+        {/* The rail toggle. A named control the way the reference has it, not a
+            hidden hotkey — people who want the room can find it. */}
+        <div className="px-2 pt-2 pb-1 border-t border-side-line">
+          <button type="button" onClick={toggleRail} title={railed ? 'Expand' : 'Collapse'}
+            className={'w-full flex items-center h-10 rounded-xl text-side-muted '
+              + 'hover:bg-side-hover hover:text-ink transition-colors '
+              + (railed ? 'justify-center' : 'gap-3 px-3')}>
+            <Icon name="panelLeft" size={20}
+              className={'shrink-0 transition-transform ' + (railed ? 'rotate-180' : '')} />
+            {!railed && <span className="text-[14px] font-medium">Collapse</span>}
+          </button>
+        </div>
+
         {me && (
-          <div className="border-t border-side-line px-4 py-3 flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0"
-              style={{ background: me.color || '#FF0000' }}>
+          <div className={'border-t border-side-line flex items-center py-3 '
+            + (railed ? 'justify-center px-2' : 'gap-3 px-3')}>
+            <span className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[12px] font-bold shrink-0"
+              style={{ background: me.color || '#FF0000' }}
+              title={railed ? me.name : undefined}>
               {me.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
             </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-ink text-[12.5px] font-medium truncate">{me.name}</span>
-              <span className="block text-side-muted text-[10.5px] capitalize">{me.role}</span>
-            </span>
-            <button title="Sign out" className="text-side-muted hover:text-accent"
-              onClick={() => { forgetPush(); clearToken(); router.replace('/login'); }}>
-              <Icon name="logout" size={16} />
-            </button>
+            {!railed && (
+              <>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-ink text-[14px] font-semibold truncate">{me.name}</span>
+                  <span className="block text-side-muted text-[11.5px] truncate">
+                    {me.email || me.role}
+                  </span>
+                </span>
+                <button title="Sign out" className="text-side-muted hover:text-accent shrink-0"
+                  onClick={() => { forgetPush(); clearToken(); router.replace('/login'); }}>
+                  <Icon name="logout" size={18} />
+                </button>
+              </>
+            )}
           </div>
         )}
       </aside>

@@ -39,6 +39,8 @@ const PATHS = {
      service, branch — and the set had no mark for the commonest verb there
      is, so they were borrowing a spanner. */
   edit: <><path d="M4 20.2h4.2L19 9.4a2.1 2.1 0 0 0-3-3L5.2 17.2z" /><path d="m14.6 7.8 3 3" /></>,
+  /* Collapse the sidebar to a rail: a panel with its left column pushed shut. */
+  panelLeft: <><rect x="3.5" y="4.5" width="17" height="15" rx="2.2" /><path d="M9.5 4.5v15" /><path d="m15.5 10 -2 2 2 2" /></>,
   bell: <><path d="M18 8.5a6 6 0 0 0-12 0c0 6-2.5 7-2.5 7h17s-2.5-1-2.5-7" /><path d="M10 19.5a2.2 2.2 0 0 0 4 0" /></>,
   chevDown: <path d="m6 9 6 6 6-6" />,
   chevRight: <path d="m9 6 6 6-6 6" />,
