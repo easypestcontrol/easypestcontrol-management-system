@@ -73,11 +73,25 @@ const fmtT = (t: string) => {
   const [h, m] = t.split(':').map(Number);
   return `${((h + 11) % 12) + 1}:${String(m || 0).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
 };
-/** A stored stamp "YYYY-MM-DD HH:MM" (or an ISO createdAt) → local ms. */
-function stampMs(s: string): number {
-  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(s || ''));
+/**
+ * The real epoch of a stamp.
+ *
+ * createdAt arrives as an ISO instant (it carries a Z) and parses straight to
+ * a true epoch. A naive server stamp "YYYY-MM-DD HH:MM" carries no zone: since
+ * the API moved to Asia/Kolkata it is IST wall time, so we read it as +05:30.
+ * `floor` is the instant it must fall after (the task's own createdAt) — a
+ * stamp that reads as IST but lands *before* the task existed was written back
+ * when the server was still UTC, so it is read as UTC instead. That one rule
+ * keeps both the old rows and every new one honest across the timezone change.
+ */
+function stampMs(s: string, floor = -Infinity): number {
+  const str = String(s || '');
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(str);
   if (!m) return NaN;
-  return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).getTime();
+  if (/[zZ]|[+-]\d\d:?\d\d$/.test(str)) return Date.parse(str); // already zoned (ISO)
+  const naive = `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00`;
+  const ist = Date.parse(naive + '+05:30');
+  return ist >= floor ? ist : Date.parse(naive + 'Z');
 }
 /** "2026-09-25 16:12" → "25/09/2026 · 4:12 PM" (12-hour, never 24). */
 const fmtDT = (s: string) => {
@@ -96,8 +110,10 @@ function humanDur(ms: number): string {
   return d + 'd' + (hh ? ' ' + hh + 'h' : '');
 }
 /** From when a task was raised to when the work was handed in. */
-const timeTaken = (t: { createdAt: string; submittedAt: string; doneAt: string }) =>
-  humanDur(stampMs(t.submittedAt || t.doneAt) - stampMs(t.createdAt));
+const timeTaken = (t: { createdAt: string; submittedAt: string; doneAt: string }) => {
+  const created = stampMs(t.createdAt);
+  return humanDur(stampMs(t.submittedAt || t.doneAt, created) - created);
+};
 
 const todayISO = () => {
   const d = new Date();
