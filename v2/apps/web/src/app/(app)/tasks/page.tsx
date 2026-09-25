@@ -1036,6 +1036,13 @@ function TaskForm({ draft, setDraft, boot, editing, onClose, onSaved }: {
     return pickedBranches.find((b) => u.branches.includes(b)) || u.branches[0] || pickedBranches[0] || '';
   }
 
+  /* One tap to take, or drop, everyone in the chosen branches. */
+  const allOn = people.length > 0 && people.every((u) => (d.assignees || []).includes(u.id));
+  function toggleAll() {
+    const next = allOn ? [] : people.map((u) => u.id);
+    set({ assignees: next, assignee: next[0] || '' });
+  }
+
   async function save() {
     setBusy(true); setErr('');
     try {
@@ -1199,9 +1206,17 @@ function TaskForm({ draft, setDraft, boot, editing, onClose, onSaved }: {
           )}
 
           <div className="block">
-            <span className={labelCls}>
-              For *{(d.assignees || []).length > 1 ? ' — ' + (d.assignees || []).length + ' people' : ''}
-            </span>
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <span className="text-[12px] font-semibold text-ink-2">
+                For *{(d.assignees || []).length > 1 ? ' — ' + (d.assignees || []).length + ' people' : ''}
+              </span>
+              {!editing && people.length > 0 && (
+                <button type="button" onClick={toggleAll}
+                  className="text-[12px] font-semibold text-accent hover:underline shrink-0">
+                  {allOn ? 'Deselect all' : 'Select all'}
+                </button>
+              )}
+            </div>
             {pickedBranches.length === 0 ? (
               <div className={inputCls + ' opacity-50 flex items-center'}>Pick a branch first</div>
             ) : people.length === 0 ? (
