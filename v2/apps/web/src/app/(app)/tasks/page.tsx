@@ -542,13 +542,107 @@ export default function TasksPage() {
   );
 }
 
+/* ---- saving and previewing an attachment, in the browser AND the app ----
+
+   In a plain browser a download is an <a download>. Inside the Capacitor shell
+   the Android WebView ignores that attribute and saves nothing, so the native
+   layer exposes AndroidDL.save (see mobile/.../MainActivity.java) and we hand
+   the URL straight to it — it goes to the phone's Downloads. Preview is all
+   web (an image, a player, a PDF frame), so it reads the same in both. */
+interface Preview { url: string; name: string; kind: 'image' | 'pdf' | 'audio' | 'video' | 'other' }
+
+function saveFile(url: string, name: string) {
+  if (!url) return;
+  const bridge = typeof window !== 'undefined'
+    ? (window as unknown as { AndroidDL?: { save?: (u: string, n: string) => void } }).AndroidDL
+    : undefined;
+  if (bridge?.save) { try { bridge.save(url, name); return; } catch { /* fall back to the browser path */ } }
+  const a = document.createElement('a');
+  a.href = dlHref(url, name);
+  a.download = name;
+  a.target = '_blank';
+  a.rel = 'noreferrer';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+function kindOf(name: string, type: string, url: string): Preview['kind'] {
+  const t = (type || '').toLowerCase();
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  if (t.startsWith('image/') || url.startsWith('data:image') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'bmp'].includes(ext)) return 'image';
+  if (t === 'application/pdf' || ext === 'pdf') return 'pdf';
+  if (t.startsWith('video/') || ['mp4', 'mov', 'mkv', 'avi', 'm4v'].includes(ext)) return 'video';
+  if (t.startsWith('audio/') || url.startsWith('data:audio') || ['mp3', 'wav', 'm4a', 'ogg', 'aac'].includes(ext)) return 'audio';
+  if (ext === 'webm') return t.startsWith('video') ? 'video' : 'audio';
+  return 'other';
+}
+
+/* A full-screen look at one attachment — image, video, audio or PDF — with a
+   Download that reaches the phone's storage even inside the app. */
+function AttachPreview({ p, onClose }: { p: Preview | null; onClose: () => void }) {
+  if (!p) return null;
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/90 flex flex-col" onClick={onClose}>
+      <div className="flex items-center gap-2 px-4 h-14 shrink-0
+        pt-[env(safe-area-inset-top)]" onClick={(e) => e.stopPropagation()}>
+        <span className="flex-1 min-w-0 truncate text-white text-[14px] font-medium">{p.name}</span>
+        <button onClick={() => saveFile(p.url, p.name)}
+          className="h-9 px-3.5 rounded-lg bg-white text-navy text-[13px] font-semibold flex items-center gap-1.5">
+          <Icon name="download" size={15} /> Download
+        </button>
+        <button onClick={onClose} aria-label="Close"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-white/90 hover:bg-white/15">
+          <Icon name="x" size={18} />
+        </button>
+      </div>
+      <div className="flex-1 min-h-0 flex items-center justify-center p-3 pb-6" onClick={onClose}>
+        {p.kind === 'image' && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={p.url} alt={p.name} onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-full object-contain rounded" />
+        )}
+        {p.kind === 'video' && (
+          <video src={p.url} controls autoPlay playsInline onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-full rounded bg-black" />
+        )}
+        {p.kind === 'audio' && (
+          <div className="w-full max-w-[440px] bg-white rounded-2xl p-5" onClick={(e) => e.stopPropagation()}>
+            <p className="text-[13px] font-semibold text-ink mb-3 truncate">{p.name}</p>
+            <audio src={p.url} controls autoPlay className="w-full" />
+          </div>
+        )}
+        {p.kind === 'pdf' && (
+          <iframe src={p.url} title={p.name} onClick={(e) => e.stopPropagation()}
+            className="w-full h-full bg-white rounded" />
+        )}
+        {p.kind === 'other' && (
+          <div className="text-center text-white/90 px-6" onClick={(e) => e.stopPropagation()}>
+            <Icon name="file" size={40} className="mx-auto mb-3 opacity-80" />
+            <p className="text-[14px]">This file can&rsquo;t be shown here.</p>
+            <button onClick={() => saveFile(p.url, p.name)}
+              className="mt-3 h-10 px-4 rounded-lg bg-white text-navy text-[13px] font-semibold inline-flex items-center gap-1.5">
+              <Icon name="download" size={15} /> Download to open
+            </button>
+          </div>
+        )}
+      </div>
+      {p.kind === 'pdf' && (
+        <p className="text-center text-white/70 text-[12px] pb-4 px-4" onClick={(e) => e.stopPropagation()}>
+          If the PDF doesn&rsquo;t appear, tap Download to open it in your phone&rsquo;s viewer.
+        </p>
+      )}
+    </div>
+  );
+}
+
 /* ================================================= a pile of media, shown */
 
 function MediaBlock({ label, notes, images, files, voice, tone }: {
   label: string; notes?: string; images: string[]; files: TFile[]; voice: string;
   tone?: 'proof';
 }) {
-  const [zoom, setZoom] = useState('');
+  const [preview, setPreview] = useState<Preview | null>(null);
   const has = !!(notes || images.length || files.length || voice);
   if (!has) return null;
   return (
@@ -559,33 +653,33 @@ function MediaBlock({ label, notes, images, files, voice, tone }: {
       {images.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2.5">
           {images.map((src, i) => (
-            <span key={i} className="relative">
+            <button key={i} type="button"
+              onClick={() => setPreview({ url: src, name: 'photo-' + (i + 1) + '.' + mimeExt(src, 'jpg'), kind: 'image' })}
+              className="w-[96px] h-[72px] rounded border border-line overflow-hidden cursor-zoom-in">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt="" onClick={() => setZoom(src)}
-                className="w-[96px] h-[72px] object-cover rounded border border-line cursor-zoom-in" />
-              <a href={src} download={'photo-' + (i + 1) + '.' + mimeExt(src, 'jpg')} title="Download photo"
-                className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-white/90 border border-line
-                  flex items-center justify-center text-ink hover:text-accent">
-                <Icon name="download" size={12} />
-              </a>
-            </span>
+              <img src={src} alt="" className="w-full h-full object-cover" />
+            </button>
           ))}
         </div>
       )}
       {files.length > 0 && (
         <div className="rounded border border-line divide-y divide-line-soft mb-2.5 bg-white">
           {files.map((f, i) => (
-            <div key={i} className="flex items-center gap-2.5 px-3 py-2">
-              <Icon name="file" size={16} className="text-muted shrink-0" />
-              <span className="flex-1 min-w-0">
-                <span className="block text-[13px] font-medium truncate">{f.name}</span>
-                <span className="block text-[11px] text-muted">{fmtSize(f.size)}</span>
-              </span>
-              <a href={dlHref(f.url || '', f.name)} download={f.name} target="_blank" rel="noreferrer"
+            <div key={i} className="flex items-center gap-2 px-3 py-2">
+              <button type="button"
+                onClick={() => setPreview({ url: f.url || '', name: f.name, kind: kindOf(f.name, f.type, f.url || '') })}
+                className="flex items-center gap-2.5 flex-1 min-w-0 text-left">
+                <Icon name="file" size={16} className="text-muted shrink-0" />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[13px] font-medium truncate">{f.name}</span>
+                  <span className="block text-[11px] text-muted">{fmtSize(f.size)} · tap to preview</span>
+                </span>
+              </button>
+              <button type="button" onClick={() => saveFile(f.url || '', f.name)} title="Download"
                 className="h-8 px-3 rounded border border-line text-[12px] font-semibold flex items-center
                   gap-1.5 hover:bg-wash shrink-0 bg-white">
                 <Icon name="download" size={13} /> Download
-              </a>
+              </button>
             </div>
           ))}
         </div>
@@ -593,20 +687,15 @@ function MediaBlock({ label, notes, images, files, voice, tone }: {
       {voice && (
         <div className="flex items-center gap-2">
           <audio controls src={voice} className="flex-1 h-10" />
-          <a href={voice} download={'voice.' + mimeExt(voice, 'webm')} title="Download voice note"
+          <button type="button" onClick={() => saveFile(voice, 'voice.' + mimeExt(voice, 'webm'))}
+            title="Download voice note"
             className="w-9 h-9 rounded border border-line flex items-center justify-center text-ink
               hover:text-accent shrink-0 bg-white">
             <Icon name="download" size={14} />
-          </a>
+          </button>
         </div>
       )}
-      {zoom && (
-        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4"
-          onClick={(e) => { e.stopPropagation(); setZoom(''); }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={zoom} alt="" className="max-w-full max-h-full rounded" />
-        </div>
-      )}
+      <AttachPreview p={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }
