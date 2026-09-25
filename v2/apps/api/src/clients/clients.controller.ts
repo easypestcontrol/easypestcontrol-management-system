@@ -29,6 +29,14 @@ function pick(body: Record<string, unknown>) {
   return data;
 }
 
+/* The customer book is a shared sales asset, not a branch secret the way a
+   lead or an invoice is: the whole office — admin, ops, sales, accounts — sees
+   every customer so a salesperson knows who is already on the books. The
+   branch STAMP still rides on each customer (it routes their work); it just
+   doesn't hide them from the office. Field roles stay branch-scoped, and the
+   admin's ?branch dropdown still narrows the view. */
+const OFFICE = new Set(['admin', 'ops', 'sales', 'accounts']);
+
 @Controller('clients')
 @UseGuards(AuthGuard)
 export class ClientsController {
@@ -41,7 +49,10 @@ export class ClientsController {
     const today = now.getFullYear() + '-'
       + String(now.getMonth() + 1).padStart(2, '0') + '-'
       + String(now.getDate()).padStart(2, '0');
-    const scope = clampScope(await branchScope(this.prisma, req.user), branch);
+    const scope = clampScope(
+      OFFICE.has(req.user?.role || '') ? null : await branchScope(this.prisma, req.user),
+      branch,
+    );
     const where = {
       ...branchWhere(scope),
       ...(q
@@ -110,7 +121,9 @@ export class ClientsController {
   async one(@Param('id') id: string, @Req() req: AuthedReq) {
     const c = await this.prisma.client.findUnique({ where: { id } });
     if (!c) throw new NotFoundException('No such customer');
-    if (!inScope(await branchScope(this.prisma, req.user), c.branch)) {
+    // The office sees the whole book (see OFFICE); field roles stay branch-walled.
+    if (!OFFICE.has(req.user?.role || '')
+      && !inScope(await branchScope(this.prisma, req.user), c.branch)) {
       throw new NotFoundException('No such customer');
     }
     const [contracts, jobs, invoices] = await Promise.all([
