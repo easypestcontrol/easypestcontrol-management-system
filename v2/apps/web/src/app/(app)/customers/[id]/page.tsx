@@ -16,6 +16,8 @@ import { isOpen, phoneKey } from '../../leads/lib';
 import CustomerMobile from './mobile';
 import ActionMenu from '@/components/action-menu';
 import Confirm, { type ConfirmSpec } from '@/components/confirm';
+import { ShareSheet } from '@/components/share-link';
+import QRCode from 'qrcode';
 
 interface PlanLine { svId: string; crew: number; techIds: string[]; visits: number }
 interface Contract {
@@ -49,6 +51,22 @@ export default function CustomerDetail() {
   const [ask, setAsk] = useState<ConfirmSpec | null>(null);
   const [missing, setMissing] = useState(false);
   const [note, setNote] = useState('');
+  /* The customer's portal: an unguessable link the office hands out on a QR
+     or over WhatsApp. The link is minted by the API (the secret lives there),
+     the QR is drawn here from it. */
+  const [portal, setPortal] = useState<{ path: string; qr: string } | null>(null);
+  async function sharePortal() {
+    if (!c) return;
+    try {
+      const r = await api.get<{ path: string }>('/portal/link/' + c.id);
+      const qr = await QRCode.toDataURL(window.location.origin + r.path, {
+        width: 512, margin: 1, color: { dark: '#111827', light: '#FFFFFF' },
+      });
+      setPortal({ path: r.path, qr });
+    } catch {
+      setNote('Could not make the portal link — try again in a moment.');
+    }
+  }
 
   const load = () =>
     api.get<Detail>('/clients/' + id).then(setC).catch(() => setMissing(true));
@@ -119,6 +137,7 @@ export default function CustomerDetail() {
     if (!c) return [];
     return [
       { label: 'Edit', onClick: () => setEditing(true) },
+      { label: 'Share portal link', onClick: sharePortal },
       {
         label: 'Move to lead',
         onClick: () => setAsk({
@@ -215,6 +234,17 @@ export default function CustomerDetail() {
       {/* Opened to ring them, or to answer what they owe. Both are one tap. */}
       <CustomerMobile c={c} actions={actions()} note={note} />
 
+    {/* Outside the desk-only wrapper on purpose: a sheet mounted inside a
+        max-lg:hidden ancestor never shows on a phone, however its own state
+        is set — the same trap that once made three "nothing happens" bugs. */}
+    {portal && (
+      <ShareSheet path={portal.path} qr={portal.qr} qrName={'portal-' + c.id}
+        title="Customer portal" phone={c.phone}
+        text={'Hi ' + (c.contact || c.name) + ', here is your ' + (boot?.company?.name || 'customer')
+          + ' portal — your contracts, services and invoices in one place. Open the link and sign in with your mobile number:'}
+        onClose={() => setPortal(null)} />
+    )}
+
     <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
       <div className="flex items-center gap-4 px-6 h-[64px] border-b border-line">
@@ -233,6 +263,10 @@ export default function CustomerDetail() {
             <span className="text-muted-2 text-[12px]">{c.id}</span>
           </div>
         </div>
+        <button onClick={sharePortal} title="The customer's portal link, as a QR and a WhatsApp message"
+          className="flex items-center gap-1.5 h-8 px-3.5 rounded border border-line text-[13px] font-medium hover:bg-wash">
+          <Icon name="upload" size={14} /> Portal QR
+        </button>
         <button onClick={() => router.push('/contracts/new?client=' + c.id)}
           className="flex items-center gap-1.5 h-8 px-3.5 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90">
           <Icon name="plus" size={14} /> New contract

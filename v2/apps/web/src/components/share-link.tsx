@@ -17,8 +17,13 @@ import { Icon } from '@/components/icons';
  * shape — a round icon tile on the invoice, a wide one on a finished service.
  * The trigger changes; what a share IS does not.
  */
-export function ShareSheet({ path, title, phone, text, onClose }: {
+export function ShareSheet({ path, title, phone, text, onClose, qr, qrName }: {
   path: string; title?: string; phone?: string; text?: string; onClose: () => void;
+  /** A QR of the link, as a data URL. Shown above the link and offered as a
+      download, because wa.me can send text but not a picture — the person
+      sharing saves the image and attaches it themselves. */
+  qr?: string;
+  qrName?: string;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -59,6 +64,14 @@ export function ShareSheet({ path, title, phone, text, onClose }: {
               </button>
             </div>
 
+            {qr && (
+              <div className="flex justify-center mb-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={qr} alt="QR code for this link"
+                  className="w-[200px] h-[200px] rounded-[12px] border border-line-soft bg-white p-2" />
+              </div>
+            )}
+
             {/* the link itself — visible, selectable, never hidden in a prompt */}
             <p className="break-all text-[12px] leading-relaxed rounded border border-line bg-wash
               px-3 py-2.5 select-all">
@@ -76,6 +89,13 @@ export function ShareSheet({ path, title, phone, text, onClose }: {
                 className="h-12 rounded border border-navy text-navy text-[14px] font-semibold hover:bg-wash">
                 {copied ? 'Link copied ✓' : 'Copy link'}
               </button>
+              {qr && (
+                <a href={qr} download={(qrName || 'qr') + '.png'}
+                  className="h-12 rounded border border-line text-ink text-[14px] font-semibold
+                    flex items-center justify-center hover:bg-wash">
+                  Download QR image
+                </a>
+              )}
             </div>
             <p className="text-[11.5px] text-muted mt-3">
               {known
