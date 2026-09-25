@@ -145,6 +145,9 @@ export default function CustomerDetail() {
     if (!c) return [];
     return [
       { label: 'Edit', onClick: () => setEditing(true) },
+      // The statement of account: every invoice and receipt with a running
+      // balance, as a report that views on screen and exports as a PDF to send.
+      { label: 'Statement of account', onClick: () => router.push('/reports/customer-statement?client=' + c.id) },
       {
         label: 'Move to lead',
         onClick: () => setAsk({

@@ -11,6 +11,7 @@ import { StorageService } from '../storage/storage.service';
 // service both have to obey, and a trip that outlives its job is money the
 // office cannot account for.
 import { TripsService } from '../trips/trips.service';
+import { ReportsService } from '../reports/reports.service';
 
 @Global()
 @Module({
@@ -22,7 +23,7 @@ import { TripsService } from '../trips/trips.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthGuard, PrismaService, StorageService, TripsService],
-  exports: [AuthService, AuthGuard, PrismaService, StorageService, TripsService],
+  providers: [AuthService, AuthGuard, PrismaService, StorageService, TripsService, ReportsService],
+  exports: [AuthService, AuthGuard, PrismaService, StorageService, TripsService, ReportsService],
 })
 export class AuthModule {}

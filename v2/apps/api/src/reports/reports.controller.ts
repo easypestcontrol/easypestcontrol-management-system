@@ -1,13 +1,19 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
-import { daysBetween, docTotals, toISO } from 'shared';
+import { BadRequestException, Controller, Get, Param, Query, Req, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
+import { addDays, daysBetween, docTotals, toISO } from 'shared';
 import { PrismaService } from '../prisma.service';
-import { AuthGuard } from '../auth/auth.guard';
+import { AuthGuard, Roles } from '../auth/auth.guard';
 import { branchScope, branchWhere, clampScope } from '../branch.util';
+import { ReportsService } from './reports.service';
+import { fileName, toCsv, toPdf, toXlsx } from './render';
+import type { ReportMeta, ReportResult } from './report.types';
 
 /*
- * Reports — every series the reports screen paints, in one call.
+ * Reports — the overview every dashboard-style chart is painted from, and the
+ * catalogue of tabular reports that view on screen and export as PDF, Excel
+ * or CSV (the Zoho Books shape: one index, every report the same frame).
  *
- * v1 parity (reports.js / dashboard.js / store.js):
+ * v1 parity for the overview (reports.js / dashboard.js / store.js):
  *   - revenue by month: billed = Σ invoice totals by date prefix 'YYYY-MM'
  *     (store.js:1033-1049), collected = Σ payments by the payment's own date
  *   - service mix: completed jobs count once per serviceId, top 6 (store.js:1052-1060)
@@ -63,10 +69,101 @@ function execRating(exec: unknown): number {
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
+/** The reports are the office's: the same roles the sidebar shows them to. */
+const REPORT_ROLES = ['admin', 'ops', 'accounts'] as const;
+
 @Controller('reports')
 @UseGuards(AuthGuard)
 export class ReportsController {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private reports: ReportsService) {}
+
+  /* ---------------------------------------------------------- catalogue */
+
+  /** Every tabular report, grouped by section, with the filters each takes. */
+  @Get('catalogue')
+  @Roles(...REPORT_ROLES)
+  async catalogue(): Promise<{ sections: Array<{ name: string; reports: ReportMeta[] }> }> {
+    const all = await this.reports.catalogue();
+    const order: string[] = [];
+    for (const r of all) if (!order.includes(r.section)) order.push(r.section);
+    return { sections: order.map((name) => ({ name, reports: all.filter((r) => r.section === name) })) };
+  }
+
+  /** Customers a statement can be run for, inside this person's branches. */
+  @Get('options/clients')
+  @Roles(...REPORT_ROLES)
+  async clientOptions(@Req() req: { user?: { sub?: string; role?: string } }, @Query('branch') branch?: string) {
+    const scope = clampScope(await branchScope(this.prisma, req.user), branch);
+    return { options: await this.reports.clientOptions(scope) };
+  }
+
+  /**
+   * Run one report. `format` picks the shape: json for the screen, pdf /
+   * xlsx / csv as a file download. Any other query key is a filter the
+   * report declared (status, mode, group, client). `compare=1` adds the
+   * previous period's headline figures.
+   */
+  @Get('run/:key')
+  @Roles(...REPORT_ROLES)
+  async run(
+    @Param('key') key: string,
+    @Req() req: { user?: { sub?: string; role?: string } },
+    @Query() q: Record<string, string>,
+    @Res() res: Response,
+  ) {
+    const meta = this.reports.meta(key);
+    const today = toISO(new Date());
+    const from = ISO_DAY.test(q.from || '') ? q.from : today.slice(0, 7) + '-01';
+    const to = ISO_DAY.test(q.to || '') && q.to >= from ? q.to : today;
+    if (daysBetween(from, to) > 366 * 3) throw new BadRequestException('Pick a range of three years or less');
+    const scope = clampScope(await branchScope(this.prisma, req.user), q.branch);
+    const filters: Record<string, string> = {};
+    for (const f of meta.filters || []) if (q[f.key]) filters[f.key] = String(q[f.key]);
+    const me = req.user?.sub ? await this.prisma.user.findUnique({ where: { id: req.user.sub }, select: { name: true } }) : null;
+
+    const result = await this.reports.run(key, { from, to, scope, filters }, me?.name || 'the office');
+    if (q.compare === '1' && meta.range === 'period') {
+      const span = daysBetween(from, to) + 1;
+      const prev = await this.reports.run(key, { from: addDays(from, -span), to: addDays(to, -span), scope, filters }, me?.name || '');
+      result.prev = prev.stats;
+    }
+
+    const format = String(q.format || 'json').toLowerCase();
+    if (format === 'json') { res.json(result); return; }
+
+    const co = await this.prisma.company.findFirst();
+    const coInfo = {
+      name: co?.name || 'Easy Pest Control', gstin: co?.gstin || '',
+      addr: [co?.addr, co?.city, co?.pin].filter(Boolean).join(', '), phone: co?.phone || '',
+    };
+    let body: Buffer; let type: string; let ext: string;
+    if (format === 'pdf') {
+      body = await toPdf(result, coInfo, !!meta.landscape || result.columns.length > 8);
+      type = 'application/pdf'; ext = 'pdf';
+    } else if (format === 'xlsx') {
+      body = await toXlsx(result, coInfo);
+      type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'; ext = 'xlsx';
+    } else if (format === 'csv') {
+      body = toCsv(result);
+      type = 'text/csv; charset=utf-8'; ext = 'csv';
+    } else {
+      throw new BadRequestException('format must be json, pdf, xlsx or csv');
+    }
+    this.send(res, body, type, fileName(result, ext), q.inline === '1');
+  }
+
+  private send(res: Response, body: Buffer, type: string, name: string, inline: boolean) {
+    const ascii = name.replace(/[^\x20-\x7E]/g, '_');
+    res.setHeader('Content-Type', type);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('Content-Disposition',
+      `${inline ? 'inline' : 'attachment'}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`);
+    res.setHeader('Content-Length', String(body.length));
+    res.end(body);
+  }
+
+  /* ----------------------------------------------------------- overview */
 
   @Get('summary')
   async summary(
@@ -244,3 +341,5 @@ export class ReportsController {
     };
   }
 }
+
+export type { ReportResult };
