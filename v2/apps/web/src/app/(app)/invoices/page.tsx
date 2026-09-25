@@ -171,22 +171,38 @@ export default function Invoices() {
           clear. Paid invoices never appear in these buckets. */}
       {data && data.counts.all > 0 && (
         <div className="px-4 lg:px-6 py-3 border-b border-line-soft grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-          {data.ageing.map((b, i) => (
-            <button key={b.label} onClick={() => { setBucket(bucket === i ? -1 : i); setSel(new Set()); }}
-              className={'text-left rounded-lg border px-3.5 py-2.5 shadow-card transition-colors '
-                + (bucket === i ? 'border-navy bg-wash' : 'border-line hover:border-navy/50 bg-white')}>
-              <span className="block text-[10.5px] uppercase tracking-wider text-muted-2 font-semibold">
-                {b.label}
-              </span>
-              <span className={'block text-[16px] font-bold mt-0.5 '
-                + (i >= 2 && b.v > 0 ? 'text-accent' : i === 0 ? 'text-muted' : 'text-ink')}>
-                {money(b.v)}
-              </span>
-              <span className="block text-[11px] text-muted-2 mt-0.5">
-                {b.n} invoice{b.n === 1 ? '' : 's'}{bucket === i ? ' · filtering — tap to clear' : ' · tap to filter'}
-              </span>
-            </button>
-          ))}
+          {data.ageing.map((b, i) => {
+            /* Age is severity, so it is drawn as severity: a coloured dot and,
+               once money is actually owed, a coloured figure — calm green while
+               nothing is due, amber as it slips, the brand red past sixty days.
+               The whole tile tints when it is the active filter. */
+            const AGE = [
+              { dot: 'bg-mint-ink', val: 'text-ink', on: 'border-mint-ink/40 bg-mint' },
+              { dot: 'bg-amber-ink', val: 'text-amber-ink', on: 'border-amber-ink/40 bg-amber' },
+              { dot: 'bg-amber-ink', val: 'text-accent', on: 'border-red-line bg-red-wash' },
+              { dot: 'bg-rose-ink', val: 'text-accent', on: 'border-red-line bg-red-wash' },
+            ][i] || { dot: 'bg-muted-2', val: 'text-ink', on: 'border-navy bg-wash' };
+            const owed = b.v > 0;
+            return (
+              <button key={b.label} onClick={() => { setBucket(bucket === i ? -1 : i); setSel(new Set()); }}
+                className={'text-left rounded-xl border px-3.5 py-2.5 shadow-card transition-colors '
+                  + (bucket === i ? AGE.on : 'border-line hover:border-navy/50 bg-white')}>
+                <span className="flex items-center gap-1.5">
+                  <span className={'w-1.5 h-1.5 rounded-full shrink-0 ' + (owed ? AGE.dot : 'bg-line')} />
+                  <span className="text-[10.5px] uppercase tracking-wider text-muted-2 font-semibold">
+                    {b.label}
+                  </span>
+                </span>
+                <span className={'block text-[17px] font-bold mt-1 tabular-nums '
+                  + (owed ? AGE.val : 'text-muted-2')}>
+                  {money(b.v)}
+                </span>
+                <span className="block text-[11px] text-muted-2 mt-0.5">
+                  {b.n} invoice{b.n === 1 ? '' : 's'}{bucket === i ? ' · filtering — tap to clear' : ' · tap to filter'}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -201,10 +217,10 @@ export default function Invoices() {
         <span className="flex items-center gap-2 text-[12px] text-muted">
           From
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-            className="h-10 lg:h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none" />
+            className="h-10 lg:h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_rgba(220,38,38,0.12)]" />
           to
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-            className="h-10 lg:h-8 px-2 rounded border border-line text-[12.5px] bg-white outline-none" />
+            className="h-10 lg:h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_rgba(220,38,38,0.12)]" />
           {(from || to || bucket >= 0) && (
             <button onClick={() => { setFrom(''); setTo(''); setBucket(-1); }}
               className="h-8 px-2.5 rounded border border-line text-[12px] font-medium hover:bg-wash">
