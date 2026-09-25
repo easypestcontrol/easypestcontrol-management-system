@@ -9,12 +9,21 @@
 interface CapLocalNotifications {
   requestPermissions(): Promise<{ display?: string }>;
   createChannel?(c: {
-    id: string; name: string; description?: string; importance: number;
+    id: string; name: string; description?: string;
+    importance: number; visibility?: number; vibration?: boolean; sound?: string;
   }): Promise<void>;
   schedule(opts: {
     notifications: Array<{ id: number; title: string; body: string; channelId?: string }>;
   }): Promise<unknown>;
 }
+
+/* An Android channel's sound and importance are frozen the instant it is first
+   created — the app can never change them again; only the person can, in
+   Settings. The original 'pestops-alerts' channel was created silent on early
+   installs and stayed silent no matter what we set here. Bumping the id hands
+   every device a brand-new channel that rings. Change the suffix again if a
+   future install is ever created wrong. */
+const CHANNEL = 'pestops-alerts-2';
 
 function plugin(): CapLocalNotifications | null {
   if (typeof window === 'undefined') return null;
@@ -33,12 +42,15 @@ export async function ensureNotifyReady(): Promise<void> {
   ready = true;
   try {
     await p.requestPermissions();
-    // Sound is a channel property on Android; no sound named = system default.
+    // No sound named = the system default tone (the plugin leaves the channel's
+    // default in place). importance 4 is HIGH: a heads-up banner that rings.
     await p.createChannel?.({
-      id: 'pestops-alerts',
+      id: CHANNEL,
       name: 'PestOps alerts',
       description: 'Services, schedules and money',
-      importance: 5, // heads-up banner
+      importance: 4,   // HIGH — heads-up banner with the default sound
+      visibility: 1,   // show on the lock screen
+      vibration: true, // buzz as well as ring
     });
   } catch { ready = false; }
 }
@@ -49,7 +61,7 @@ export function localNotify(id: number, title: string, body: string): void {
   if (!p) return;
   void ensureNotifyReady().then(() =>
     p.schedule({
-      notifications: [{ id: id % 2147483647, title, body, channelId: 'pestops-alerts' }],
+      notifications: [{ id: id % 2147483647, title, body, channelId: CHANNEL }],
     }).catch(() => {}),
   );
 }
