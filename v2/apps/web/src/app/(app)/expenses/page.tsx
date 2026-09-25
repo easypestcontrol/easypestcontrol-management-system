@@ -65,7 +65,7 @@ function ManagerView() {
   const thisMonth = ym === todayISO().slice(0, 7);
   const tiles = [
     { l: 'This month', v: money(T.total), sub: T.count + (T.count === 1 ? ' expense' : ' expenses'), icon: 'receipt' as const, bg: 'bg-sky', ink: 'text-sky-ink' },
-    { l: 'Pending', v: money(T.pending), sub: 'not yet verified', icon: 'alert' as const, bg: 'bg-rose', ink: 'text-rose-ink', hot: T.pending > 0 },
+    { l: 'Pending', v: money(T.pending), sub: T.pendingCount ? T.pendingCount + ' to verify' : 'nothing to verify', icon: 'alert' as const, bg: 'bg-rose', ink: 'text-rose-ink', hot: T.pendingCount > 0 },
     { l: 'To pay', v: money(T.due), sub: 'approved, still owed', icon: 'check' as const, bg: 'bg-amber', ink: 'text-amber-ink', hot: T.due > 0 },
     { l: 'Paid', v: money(T.paid), sub: 'reimbursed', icon: 'invoice' as const, bg: 'bg-mint', ink: 'text-mint-ink' },
   ];
@@ -157,7 +157,7 @@ function ManagerView() {
   );
 }
 
-const empty = (): Summary => ({ count: 0, employees: 0, total: 0, pending: 0, approved: 0, partial: 0, reimbursed: 0, rejected: 0, paid: 0, due: 0, unsettled: 0 });
+const empty = (): Summary => ({ count: 0, employees: 0, total: 0, pending: 0, approved: 0, partial: 0, reimbursed: 0, rejected: 0, paid: 0, due: 0, unsettled: 0, pendingCount: 0 });
 
 /* ------------------------------------------------------ employee: mine */
 function EmployeeView() {

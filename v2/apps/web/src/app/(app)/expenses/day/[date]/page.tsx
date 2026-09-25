@@ -102,7 +102,7 @@ export default function DayPage() {
   const inTheWay = [pendingLines ? pendingLines + ' to approve or reject' : '', dueOpen > 0 ? money(dueOpen) + ' to pay' : ''].filter(Boolean).join(' · ');
   const tiles = [
     { l: 'Expenses', v: String(S.count), sub: S.employees + (S.employees === 1 ? ' person' : ' people') + ' · ' + d.reports.length + (d.reports.length === 1 ? ' branch' : ' branches') },
-    { l: 'Pending', v: money(S.pending), sub: 'to verify', cls: S.pending > 0 ? 'text-rose-ink' : '' },
+    { l: 'Pending', v: money(S.pending), sub: S.pendingCount ? S.pendingCount + ' to verify' : 'nothing to verify', cls: S.pendingCount > 0 ? 'text-rose-ink' : '' },
     { l: 'To pay', v: money(S.due), sub: 'approved, owed', cls: S.due > 0 ? 'text-amber-ink' : '' },
     { l: 'Paid', v: money(S.paid), sub: 'reimbursed', cls: S.paid > 0 ? 'text-mint-ink' : '' },
   ];
@@ -266,4 +266,4 @@ export default function DayPage() {
   );
 }
 
-const empty = (): Summary => ({ count: 0, employees: 0, total: 0, pending: 0, approved: 0, partial: 0, reimbursed: 0, rejected: 0, paid: 0, due: 0, unsettled: 0 });
+const empty = (): Summary => ({ count: 0, employees: 0, total: 0, pending: 0, approved: 0, partial: 0, reimbursed: 0, rejected: 0, paid: 0, due: 0, unsettled: 0, pendingCount: 0 });

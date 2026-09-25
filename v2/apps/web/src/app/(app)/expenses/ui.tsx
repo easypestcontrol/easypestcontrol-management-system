@@ -40,7 +40,7 @@ export interface Summary {
   count: number; employees: number; total: number;
   pending: number; approved: number; partial: number; reimbursed: number; rejected: number;
   paid: number; due: number;
-  unsettled: number;
+  unsettled: number; pendingCount: number;
 }
 
 export interface Exp {

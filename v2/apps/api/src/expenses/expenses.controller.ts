@@ -47,6 +47,9 @@ interface Summary {
   /** Lines the office has not finished with: not yet verified, or verified
       and still owed. A report closes only when this is zero. */
   unsettled: number;
+  /** Lines still to verify, as a COUNT: a Rs 0 trip line is pending all the
+      same, and rupees alone would hide it. */
+  pendingCount: number;
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -140,6 +143,7 @@ export class ExpensesController {
       paid: expenses.reduce((a, e) => a + (e.paidAmount || 0), 0),
       due: expenses.filter((e) => PAYABLE.includes(e.status)).reduce((a, e) => a + e.amount - (e.paidAmount || 0), 0),
       unsettled: expenses.filter((e) => this.unsettled(e)).length,
+      pendingCount: expenses.filter((e) => e.status === 'pending' || e.status === 'processing').length,
     };
   }
 
