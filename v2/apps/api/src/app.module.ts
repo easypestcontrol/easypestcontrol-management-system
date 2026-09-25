@@ -14,6 +14,7 @@ import { QuotationsController } from './quotations/quotations.controller';
 import { PublicQuotesController } from './quotations/public-quotes.controller';
 import { PublicDocsController } from './public-docs.controller';
 import { PortalController } from './portal/portal.controller';
+import { ClientErrorsController } from './client-errors.controller';
 import { TasksController } from './tasks/tasks.controller';
 import { ContractsController } from './contracts/contracts.controller';
 import { DispatchController } from './dispatch/dispatch.controller';
@@ -56,6 +57,7 @@ import { MandateController } from './pay/mandate.controller';
     PublicQuotesController,
     PublicDocsController,
     PortalController,
+    ClientErrorsController,
     TasksController,
     ContractsController,
     DispatchController,
