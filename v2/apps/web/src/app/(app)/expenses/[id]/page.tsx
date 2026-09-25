@@ -62,10 +62,6 @@ export default function ReportPage() {
   }, 'Approve every pending expense of ' + g.name + ' — ' + money(pending.reduce((a, e) => a + e.amount, 0)) + '?');
   const payPerson = (g: Group, payable: Exp[], due: number) =>
     setPay({ ids: payable.map((e) => e.id), title: g.name + ' · ' + niceDate(r?.date || ''), due });
-  const toggleClose = () => act(async () => {
-    const out = await api.post<{ status: string; pulled: number }>('/expenses/reports/' + id + '/close', {});
-    if (out.status === 'open' && out.pulled) setNote(out.pulled + ' trip expense(s) came in when the report reopened.');
-  });
   async function openReceipt(e: Exp) {
     try {
       const full = await api.get<{ images: string[] }>('/expenses/' + e.id);
@@ -102,16 +98,13 @@ export default function ReportPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={() => setDiary(true)} className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">History</button>
-          <button disabled={busy} onClick={toggleClose} className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">
-            {locked ? 'Reopen' : 'Close report'}
-          </button>
         </div>
       </div>
       {err && <p className="text-[12.5px] text-accent mb-3">{err}</p>}
       {note && <p className="text-[12.5px] text-mint-ink font-medium mb-3">{note}</p>}
       {locked && (
         <div className="rounded-[12px] border border-line bg-wash px-4 py-3 mb-4 text-[12.5px] text-muted">
-          This report is closed: nothing can be added, changed, approved or paid. <b className="text-ink">Reopen</b> it to work on it — any trip that finished that day while it was closed comes in with it.
+          This report is closed: nothing can be added, changed, approved or paid. The day is closed and reopened as a whole — <Link href={'/expenses/day/' + r.date} className="font-semibold text-accent hover:underline">open {niceDate(r.date)}</Link> and use Reopen all reports; any trip that finished that day while it was closed comes in with it.
         </div>
       )}
 

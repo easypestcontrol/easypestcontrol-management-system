@@ -8,8 +8,9 @@
    time, its people listed underneath, each person a line the office can
    approve or pay whole, or open to see the expenses themselves. Four sizes
    of decision, all here: the whole day, one branch, one person, one line.
-   A closed report is shown but not touched — reopening it is the only way
-   back in, and it says so.
+   Closing is the exception: the office settles a DAY, so the one Close all /
+   Reopen all at the top is the only switch, and a closed card says so
+   rather than offering its own.
    ========================================================================== */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -81,10 +82,6 @@ export default function DayPage() {
   }, reopen
     ? 'Reopen all ' + n + ' report(s) for ' + niceDate(date) + '? Their people can add and change expenses again.'
     : 'Close all ' + n + ' report(s) for ' + niceDate(date) + '? Nothing can be added, changed, approved or paid until they are reopened.');
-  const toggleClose = (r: Report) => act(async () => {
-    const out = await api.post<{ status: string; pulled: number }>('/expenses/reports/' + r.id + '/close', {});
-    if (out.status === 'open' && out.pulled) setNote(out.pulled + ' trip expense(s) came in when the report reopened.');
-  });
   async function openReceipt(e: Exp) {
     try {
       const full = await api.get<{ images: string[] }>('/expenses/' + e.id);
@@ -217,12 +214,11 @@ export default function DayPage() {
                       {rs.rejected > 0 && <span className="px-2 py-0.5 rounded-full bg-wash text-muted border border-line">{money(rs.rejected)} rejected</span>}
                     </div>
                   </div>
+                  {/* Closing is a day-level act - the one button at the top -
+                      so a branch card never offers its own. */}
                   <div className="flex gap-2 flex-wrap">
                     {locked ? (
-                      <>
-                        <span className="text-[12px] text-muted self-center">Closed — reopen to change anything</span>
-                        <button disabled={busy} onClick={() => toggleClose(r)} className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">Reopen</button>
-                      </>
+                      <span className="text-[12px] text-muted self-center">Closed for the day — use Reopen all reports above to change anything</span>
                     ) : (
                       <>
                         {rs.pending > 0 && (
@@ -233,7 +229,6 @@ export default function DayPage() {
                           <button disabled={busy} onClick={() => setPay({ reportId: r.id, title: r.branchName + ' · ' + niceDate(date), due: rs.due })}
                             className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">Pay all</button>
                         )}
-                        <button disabled={busy} onClick={() => toggleClose(r)} className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">Close report</button>
                       </>
                     )}
                   </div>
