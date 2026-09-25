@@ -16,7 +16,11 @@
 
 @theme {
   --color-navy: #141414;
-  --color-accent: #FF0000;
+  /* The brand red. Moved from pure #FF0000 to #B91C1C — the calmer, deeper red
+     of the reference console. It is the one token every button, active state,
+     link and alarm in the app reads from, so this single line carries the new
+     accent across all forty-odd screens at once. */
+  --color-accent: #B91C1C;
 
   --color-ink: #141414;
   --color-ink-2: rgb(20 20 20 / 0.78);
@@ -31,8 +35,8 @@
   --color-wash: rgb(20 20 20 / 0.035);
   --color-wash-2: rgb(20 20 20 / 0.06);
 
-  --color-red-wash: rgb(255 0 0 / 0.06);
-  --color-red-line: rgb(255 0 0 / 0.30);
+  --color-red-wash: rgb(185 28 28 / 0.06);
+  --color-red-line: rgb(185 28 28 / 0.30);
 
   /* --------------------------------------------------------------------
      The phone's surfaces.
@@ -75,8 +79,8 @@
      second stop is a shade under it so the panel keeps some depth rather
      than reading as a flat rectangle.
      -------------------------------------------------------------------- */
-  --color-hero: #FF0000;
-  --color-hero-2: #E00000;
+  --color-hero: #B91C1C;
+  --color-hero-2: #991B1B;
   /* The tiles that sit ON the band. At 0.16 white over #FF0000 they came out
      a washed pink that fought the red behind them; darkening instead of
      lightening keeps them in the same family, and a hairline of white does
@@ -88,7 +92,7 @@
   --color-side-text: rgb(20 20 20 / 0.80);
   --color-side-muted: rgb(20 20 20 / 0.45);
   --color-side-hover: rgb(20 20 20 / 0.045);
-  --color-side-active: rgb(255 0 0 / 0.07);
+  --color-side-active: rgb(185 28 28 / 0.07);
   --color-side-line: rgb(20 20 20 / 0.10);
 
   --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -116,7 +120,7 @@
      was already asking for. */
   --radius: 0.5rem;        /* 8px  - inputs, buttons, chips */
   --radius-sm: 0.375rem;   /* 6px  - swatches, tiny tags */
-  --radius-md: 0.875rem;   /* 14px - section cards */
+  --radius-md: 1rem;       /* 16px - section cards, the reference's softer corner */
   --radius-lg: 1.125rem;   /* 18px - feature cards */
   --radius-xl: 1.375rem;
 }
