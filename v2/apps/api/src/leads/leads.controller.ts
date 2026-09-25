@@ -22,7 +22,7 @@ import {
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { docTotals } from 'shared';
-import { branchScope, branchWhere, clampScope, inScope } from '../branch.util';
+import { branchScope, clampScope, inScope } from '../branch.util';
 
 interface LogEntry { at: string; text: string; by: string }
 interface AuthedReq { user: { sub: string; role: string } }
@@ -106,18 +106,37 @@ export class LeadsController {
     @Query('owner') owner?: string,
     @Query('branch') branch?: string,
   ) {
-    const scope = clampScope(await branchScope(this.prisma, req.user), branch);
-    const where: Record<string, unknown> = { ...branchWhere(scope) };
-    if (stage && (STAGES as readonly string[]).indexOf(stage) >= 0) where.stage = stage;
-    if (owner) where.owner = owner;
-    if (q) {
-      where.OR = [
-        { name: { contains: q, mode: 'insensitive' } },
-        { phone: { contains: q } },
-        { area: { contains: q, mode: 'insensitive' } },
-        { source: { contains: q, mode: 'insensitive' } },
-      ];
+    const raw = await branchScope(this.prisma, req.user);
+    const scope = clampScope(raw, branch);
+    const and: Record<string, unknown>[] = [];
+
+    /* The branch wall, with the one exception the wall itself cannot express:
+       a lead is ALWAYS visible to the person it is assigned to. Leads are
+       routinely captured with a blank branch (the capture form does not force
+       one), and an unstamped row is admin-only — so a lead handed to a
+       salesperson used to reach the office and never reach them. Admins
+       (raw === null) keep the plain branch filter, so their ?branch= dropdown
+       is unchanged. */
+    if (raw !== null) {
+      and.push({ OR: [{ branch: { in: scope || [] } }, { owner: req.user.sub }] });
+    } else if (scope !== null) {
+      and.push({ branch: { in: scope } });
     }
+
+    if (stage && (STAGES as readonly string[]).indexOf(stage) >= 0) and.push({ stage });
+    if (owner) and.push({ owner });
+    if (q) {
+      and.push({
+        OR: [
+          { name: { contains: q, mode: 'insensitive' } },
+          { phone: { contains: q } },
+          { area: { contains: q, mode: 'insensitive' } },
+          { source: { contains: q, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    const where = and.length ? { AND: and } : {};
     // v1 unshifts new leads onto the front — newest first.
     return this.prisma.lead.findMany({ where: where as never, orderBy: { createdAt: 'desc' } });
   }
@@ -126,7 +145,10 @@ export class LeadsController {
   async one(@Param('id') id: string, @Req() req: AuthedReq) {
     const l = await this.prisma.lead.findUnique({ where: { id } });
     if (!l) throw new NotFoundException('No such lead');
-    if (!inScope(await branchScope(this.prisma, req.user), l.branch)) {
+    /* In branch scope, or assigned to you — the owner can always open their own
+       lead even when it was captured without a branch (see list()). */
+    if (!inScope(await branchScope(this.prisma, req.user), l.branch)
+      && l.owner !== req.user.sub) {
       throw new NotFoundException('No such lead');
     }
 
@@ -239,7 +261,7 @@ export class LeadsController {
       });
     }
 
-    return this.prisma.lead.create({
+    const created = await this.prisma.lead.create({
       data: {
         id: 'LD-' + seq.value,
         name,
@@ -263,6 +285,19 @@ export class LeadsController {
         log: log as never,
       },
     });
+
+    /* The owner hears about it: a bell row now, a phone push the moment FCM is
+       live (push.ts watches this table). Only when the lead lands on someone
+       else's desk, so capturing your own lead does not notify you. */
+    if (owner && owner !== req.user.sub) {
+      await this.prisma.notification.create({
+        data: {
+          userId: owner, at: nowStamp(),
+          text: `New lead ${created.id}: ${name}${created.area ? ', ' + created.area : ''}.`,
+        },
+      }).catch(() => { /* the lead is saved; a failed bell must not fail it */ });
+    }
+    return created;
   }
 
   /**
@@ -305,6 +340,17 @@ export class LeadsController {
       data.log = this.logOf(l.log,
         'Assigned to ' + (u?.name || owner) + (b ? ' · ' + b.name : ''),
         req.user.sub) as never;
+
+      /* Handed to someone else: tell them (bell + push). Not on a self-assign,
+         and not when only the branch moved. */
+      if (ownerChanged && owner && owner !== req.user.sub) {
+        await this.prisma.notification.create({
+          data: {
+            userId: owner, at: nowStamp(),
+            text: `Lead ${l.id} assigned to you: ${l.name}${l.area ? ', ' + l.area : ''}.`,
+          },
+        }).catch(() => { /* the reassignment stands even if the bell fails */ });
+      }
     }
     return this.prisma.lead.update({ where: { id }, data: data as never });
   }
