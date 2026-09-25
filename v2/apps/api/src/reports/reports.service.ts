@@ -20,53 +20,12 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { daysBetween, docTotals, money } from 'shared';
 import { PrismaService } from '../prisma.service';
-import type { Col, FilterSpec, ReportMeta, ReportResult, Row, RunParams, Stat } from './report.types';
-
-const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const niceDate = (iso: string) =>
-  /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${Number(iso.slice(8, 10))} ${MON[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}` : iso;
-const monthLabel = (ym: string) => `${MON[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
-const r0 = (n: number) => Math.round(n || 0);
-const r1 = (n: number) => Math.round((n || 0) * 10) / 10;
-
-/** Pest control services carry one SAC on every line today. */
-const SAC = '998531';
-
-interface Item { desc?: string; qty?: number; rate?: number; svId?: string }
-
-/** An invoice with its money worked out and its status derived. */
-interface Inv {
-  id: string; clientId: string; clientName: string; contractId: string; kind: string;
-  date: string; due: string; period: string; stored: string; status: string;
-  items: Item[]; sub: number; disc: number; taxable: number; gst: number;
-  cgst: number; sgst: number; igst: number; interState: boolean; total: number;
-  paid: number; balance: number;
-  payments: Array<{ id: string; date: string; amount: number; mode: string; ref: string; by: string; at: string; settled: boolean }>;
-}
-
-interface Ctx extends RunParams {
-  today: string;
-  co: { name: string; gstin: string; state: string; gstRate: number };
-  clients: Map<string, { id: string; name: string; gstin: string; openingBalance: number; phone: string; branch: string }>;
-  users: Map<string, string>;
-  services: Map<string, { name: string; code: string }>;
-  invoices: Inv[];
-}
-
-/** Which of the four ageing buckets a lateness falls in. */
-const bucketOf = (late: number) => (late <= 0 ? 0 : late <= 30 ? 1 : late <= 60 ? 2 : 3);
-const BUCKETS = ['Not due', '1–30 days', '31–60 days', '60+ days'];
-
-/** Issued = counts as a sale: not a draft, not withdrawn. */
-const issued = (i: Inv) => i.status !== 'draft' && i.status !== 'cancelled';
-
-const inRange = (d: string, from: string, to: string) => d >= from && d <= to;
-
-/* --------------------------------------------------------------- reports */
-
-interface Def extends ReportMeta {
-  run: (c: Ctx) => Partial<ReportResult> & { columns: Col[]; rows: Row[]; stats: Stat[] };
-}
+import { TripsService } from '../trips/trips.service';
+import type { Col, FilterSpec, ReportMeta, ReportResult, Row, RunParams } from './report.types';
+import {
+  BUCKETS, Ctx, Def, Inv, Item, Need, SAC, bucketOf, inRange, issued, monthLabel, niceDate, r0, r1,
+} from './report-base';
+import { MORE_DEFS, expenseCategoryOptions, loadExtra } from './reports-more';
 
 const STATUS_FILTER: FilterSpec = {
   key: 'status', label: 'Status', kind: 'select',
@@ -170,7 +129,7 @@ const DEFS: Def[] = [
     run(c) {
       const rows = new Map<string, Row>();
       for (const i of c.invoices.filter((x) => issued(x) && inRange(x.date, c.from, c.to))) {
-        const owner = (i as Inv & { owner?: string }).owner || '';
+        const owner = i.owner || '';
         const key = owner || '—';
         const r = rows.get(key) || {
           person: owner ? c.users.get(owner) || owner : 'Unassigned', invoices: 0, taxable: 0, gst: 0, total: 0,
@@ -436,7 +395,7 @@ const DEFS: Def[] = [
       options: [{ key: '', label: 'Every status' }, { key: 'draft', label: 'Draft' }, { key: 'sent', label: 'Sent' }, { key: 'approved', label: 'Approved' }, { key: 'rejected', label: 'Rejected' }],
     }], landscape: true,
     run(c) {
-      const qs = (c as Ctx & { quotes: Row[] }).quotes.filter((q) => inRange(String(q.date), c.from, c.to));
+      const qs = c.quotes.filter((q) => inRange(String(q.date), c.from, c.to));
       const st = c.filters.status || '';
       const list = qs.filter((q) => !st || q.status === st);
       const sum = (k: 'taxable' | 'gst' | 'total') => r0(list.reduce((s, r) => s + (r[k] as number), 0));
@@ -673,20 +632,27 @@ const DEFS: Def[] = [
   },
 ];
 
-const BY_KEY = new Map(DEFS.map((d) => [d.key, d]));
+const ALL: Def[] = [...DEFS, ...MORE_DEFS];
+const BY_KEY = new Map(ALL.map((d) => [d.key, d]));
 
 /* --------------------------------------------------------------- service */
 
 @Injectable()
 export class ReportsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private trips: TripsService) {}
 
   /** The index: every report, in section order, with its filters. */
   async catalogue(): Promise<ReportMeta[]> {
-    const modes = await this.prisma.payment.findMany({ select: { mode: true }, distinct: ['mode'], orderBy: { mode: 'asc' } });
-    return DEFS.map(({ run: _run, ...meta }) => {
+    const [modes, cats] = await Promise.all([
+      this.prisma.payment.findMany({ select: { mode: true }, distinct: ['mode'], orderBy: { mode: 'asc' } }),
+      expenseCategoryOptions(this.prisma),
+    ]);
+    return ALL.map(({ run: _run, needs: _needs, ...meta }) => {
       if (meta.key === 'payments-received') {
         return { ...meta, filters: [{ key: 'mode', label: 'Mode', kind: 'select' as const, options: [{ key: '', label: 'Every mode' }, ...modes.map((m) => ({ key: m.mode, label: m.mode }))] }] };
+      }
+      if (meta.key === 'expense-details') {
+        return { ...meta, filters: (meta.filters || []).map((f) => (f.key === 'category' ? { ...f, options: cats } : f)) };
       }
       return meta;
     });
@@ -695,7 +661,7 @@ export class ReportsService {
   meta(key: string): ReportMeta {
     const d = BY_KEY.get(key);
     if (!d) throw new NotFoundException('No such report');
-    const { run: _run, ...meta } = d;
+    const { run: _run, needs: _needs, ...meta } = d;
     return meta;
   }
 
@@ -711,7 +677,7 @@ export class ReportsService {
   async run(key: string, p: RunParams, byName: string): Promise<ReportResult> {
     const def = BY_KEY.get(key);
     if (!def) throw new NotFoundException('No such report');
-    const ctx = await this.load(p);
+    const ctx = await this.load(p, def.needs || []);
     const out = def.run(ctx);
     const branchName = p.scope === null ? 'All branches'
       : (await this.prisma.branch.findMany({ where: { id: { in: p.scope } }, select: { name: true } })).map((b) => b.name).join(', ') || 'No branch';
@@ -735,17 +701,18 @@ export class ReportsService {
   }
 
   /** The books, loaded once per run and shared by every report. */
-  private async load(p: RunParams): Promise<Ctx & { quotes: Row[] }> {
+  private async load(p: RunParams, needs: Need[]): Promise<Ctx> {
     const bw = p.scope === null ? {} : { branch: { in: p.scope } };
-    const [co, invoices, clients, users, services, contracts, quotes, leads] = await Promise.all([
+    const [co, invoices, clients, users, services, contracts, quotes, leads, branchRows] = await Promise.all([
       this.prisma.company.findFirst(),
       this.prisma.invoice.findMany({ where: bw, include: { payments: true } }),
       this.prisma.client.findMany({ select: { id: true, name: true, gstin: true, openingBalance: true, phone: true, branch: true } }),
-      this.prisma.user.findMany({ select: { id: true, name: true } }),
+      this.prisma.user.findMany({ select: { id: true, name: true, branches: true } }),
       this.prisma.service.findMany({ select: { id: true, name: true, code: true } }),
       this.prisma.contract.findMany({ select: { id: true, owner: true } }),
       this.prisma.quotation.findMany({ where: bw, include: { items: true }, orderBy: [{ date: 'desc' }, { id: 'desc' }] }),
       this.prisma.lead.findMany({ select: { id: true, clientId: true, owner: true, name: true } }),
+      this.prisma.branch.findMany({ select: { id: true, name: true } }),
     ]);
     const homeState = co?.state || 'Tamil Nadu';
     const gstRate = co?.gstRate || 18;
@@ -761,7 +728,7 @@ export class ReportsService {
     const leadOwner = new Map<string, string>();
     for (const l of leads) if (l.clientId && l.owner && !leadOwner.has(l.clientId)) leadOwner.set(l.clientId, l.owner);
 
-    const inv: Array<Inv & { owner: string }> = invoices.map((i) => {
+    const inv: Inv[] = invoices.map((i) => {
       const items = (Array.isArray(i.items) ? i.items : []) as Item[];
       const t = docTotals(items, i.discount || 0, i.placeOfSupply || homeState, homeState, gstRate);
       const paid = i.payments.reduce((s, x) => s + x.amount, 0);
@@ -796,12 +763,16 @@ export class ReportsService {
       };
     });
 
+    const userBranches = new Map(users.map((u) => [u.id, u.branches || []]));
+    const clientBranch = new Map(clients.map((c) => [c.id, c.branch]));
+    const x = needs.length ? await loadExtra(this.prisma, this.trips, p, needs, userBranches, clientBranch) : {};
     return {
       ...p, today: todayISO,
       co: { name: co?.name || '', gstin: co?.gstin || '', state: homeState, gstRate },
-      clients: clientMap, users: userMap,
+      clients: clientMap, users: userMap, userBranches,
+      branches: new Map(branchRows.map((b) => [b.id, b.name])),
       services: new Map(services.map((s) => [s.id, { name: s.name, code: s.code }])),
-      invoices: inv, quotes: quoteRows,
+      invoices: inv, quotes: quoteRows, x,
     };
   }
 }

@@ -41,7 +41,10 @@ export type RangeKind =
   /** The rows are the events inside from..to (invoices raised, receipts taken). */
   | 'period'
   /** The rows are a position on a date: balances "as of" `to`. */
-  | 'asOf';
+  | 'asOf'
+  /** The rows are what is true right now (stock on the shelf, live contracts):
+      no date to choose, the report says when it was run. */
+  | 'now';
 
 export interface ReportMeta {
   key: string;

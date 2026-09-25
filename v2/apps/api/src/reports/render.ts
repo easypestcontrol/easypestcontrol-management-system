@@ -24,6 +24,7 @@ const nice = (iso: string) => `${Number(iso.slice(8, 10))} ${MON[Number(iso.slic
 
 /** "1 Sep 2026 – 25 Sep 2026" or "As of 25 Sep 2026". */
 export function rangeText(r: ReportResult): string {
+  if (r.range.kind === 'now') return 'As at ' + nice(r.range.to);
   return r.range.kind === 'asOf' ? 'As of ' + nice(r.range.to) : nice(r.range.from) + ' – ' + nice(r.range.to);
 }
 
@@ -35,9 +36,16 @@ function stamp(iso: string): string {
 
 const NUMERIC = new Set(['money', 'int', 'num', 'pct', 'days']);
 
+/** Roboto has no arrows and no emoji; a glyph it lacks prints as a box. */
+function pdfSafe(s: string): string {
+  return s.replace(/[\u2190-\u21ff]/g, '-')
+    .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\uFE0F]/gu, '')
+    .replace(/ {2,}/g, ' ');
+}
+
 /** A safe file name: the title and the range, nothing the OS objects to. */
 export function fileName(r: ReportResult, ext: string): string {
-  const base = (r.title + ' ' + (r.range.kind === 'asOf' ? 'as of ' + r.range.to : r.range.from + ' to ' + r.range.to))
+  const base = (r.title + ' ' + (r.range.kind === 'period' ? r.range.from + ' to ' + r.range.to : 'as of ' + r.range.to))
     .replace(/[\\/:*?"<>|·]+/g, '-').replace(/\s+/g, ' ').trim();
   return base + '.' + ext;
 }
@@ -51,8 +59,8 @@ export async function toPdf(r: ReportResult, co: { name: string; gstin: string; 
     alignment: NUMERIC.has(c.type) ? 'right' : 'left', margin: [0, 3, 0, 3],
   }));
   const cell = (row: Row, c: Col, bold = false, fill?: string): TableCell => ({
-    text: fmtCell(row[c.key], c.type), fontSize: 8.5, bold,
-    alignment: NUMERIC.has(c.type) ? 'right' : 'left', noWrap: !!c.tight && !bold, margin: [0, 2, 0, 2],
+    text: pdfSafe(fmtCell(row[c.key], c.type)), fontSize: 8.5, bold,
+    alignment: NUMERIC.has(c.type) ? 'right' : 'left', noWrap: (!!c.tight || c.type === 'date') && !bold, margin: [0, 2, 0, 2],
     ...(fill ? { fillColor: fill } : {}),
   });
   const body: TableCell[][] = [head, ...r.rows.map((row) => cols.map((c) => cell(row, c)))];
@@ -116,7 +124,7 @@ export async function toPdf(r: ReportResult, co: { name: string; gstin: string; 
               { text: r.title, fontSize: 15, bold: true, alignment: 'right' },
               { text: rangeText(r), fontSize: 9.5, alignment: 'right', margin: [0, 3, 0, 0] },
               { text: r.branchName, fontSize: 8.5, color: '#4b5563', alignment: 'right' },
-              ...r.filterText.map((t) => ({ text: t, fontSize: 8.5, color: '#4b5563', alignment: 'right' as const })),
+              ...r.filterText.map((t) => ({ text: pdfSafe(t), fontSize: 8.5, color: '#4b5563', alignment: 'right' as const })),
             ],
           },
         ],
@@ -132,7 +140,7 @@ export async function toPdf(r: ReportResult, co: { name: string; gstin: string; 
           paddingLeft: () => 5, paddingRight: () => 5,
         },
       },
-      ...(r.note ? [{ text: r.note, fontSize: 8, italics: true, color: '#6b7280', margin: [0, 10, 0, 0] as [number, number, number, number] }] : []),
+      ...(r.note ? [{ text: pdfSafe(r.note), fontSize: 8, italics: true, color: '#6b7280', margin: [0, 10, 0, 0] as [number, number, number, number] }] : []),
       ...(r.description ? [{ text: r.description, fontSize: 8, color: '#9ca3af', margin: [0, 4, 0, 0] as [number, number, number, number] }] : []),
     ],
   };

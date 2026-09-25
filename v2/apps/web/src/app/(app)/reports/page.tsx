@@ -15,11 +15,12 @@ import { api } from '@/lib/api';
 import { Icon, type IconName } from '@/components/icons';
 import { BackBar, Screen } from '@/components/mobile';
 
-interface Meta { key: string; title: string; section: string; description: string; range: 'period' | 'asOf' }
+interface Meta { key: string; title: string; section: string; description: string; range: 'period' | 'asOf' | 'now' }
 interface Catalogue { sections: Array<{ name: string; reports: Meta[] }> }
 
 const SECTION_ICON: Record<string, IconName> = {
   Sales: 'invoice', Receivables: 'receipt', 'Payments received': 'check', Taxes: 'report',
+  Expenses: 'fuel', Purchases: 'tools', Inventory: 'inventory', Operations: 'service', Money: 'dashboard', Activity: 'bell',
 };
 
 export default function ReportsIndex() {
@@ -109,7 +110,7 @@ export default function ReportsIndex() {
                     <span className="flex items-center justify-between gap-2">
                       <span className="text-[14.5px] font-semibold">{r.title}</span>
                       <span className="text-[10.5px] font-medium uppercase tracking-[0.05em] text-muted-2 whitespace-nowrap">
-                        {r.range === 'asOf' ? 'as of a date' : 'date range'}
+                        {r.range === 'asOf' ? 'as of a date' : r.range === 'now' ? 'right now' : 'date range'}
                       </span>
                     </span>
                     <span className="text-[12.5px] text-muted leading-snug">{r.description}</span>

@@ -33,10 +33,10 @@ interface Col { key: string; label: string; type: ColType; tight?: boolean }
 type Row = Record<string, string | number> & { href?: string };
 interface Stat { label: string; value: number; type: ColType }
 interface FilterSpec { key: string; label: string; kind: 'select' | 'client'; options?: Array<{ key: string; label: string }>; required?: boolean }
-interface Meta { key: string; title: string; section: string; description: string; range: 'period' | 'asOf'; filters?: FilterSpec[] }
+interface Meta { key: string; title: string; section: string; description: string; range: 'period' | 'asOf' | 'now'; filters?: FilterSpec[] }
 interface Result {
   key: string; title: string; section: string; description: string;
-  range: { from: string; to: string; kind: 'period' | 'asOf' };
+  range: { from: string; to: string; kind: 'period' | 'asOf' | 'now' };
   branchName: string; filterText: string[]; columns: Col[]; rows: Row[]; totals?: Row;
   stats: Stat[]; prev?: Stat[]; generatedAt: string; generatedBy: string; note?: string;
 }
@@ -196,7 +196,7 @@ export default function ReportView() {
     if (!data) return;
     setExportOpen(false);
     const url = window.location.origin + '/api/reports/run/' + key + '?' + query({ format, t: getToken() || '' });
-    const span = data.range.kind === 'asOf' ? 'as of ' + data.range.to : data.range.from + ' to ' + data.range.to;
+    const span = data.range.kind === 'period' ? data.range.from + ' to ' + data.range.to : 'as of ' + data.range.to;
     saveFile(url, (data.title + ' ' + span).replace(/[\\/:*?"<>|]+/g, '-') + '.' + format);
   };
   const previewPdf = () => {
@@ -207,7 +207,9 @@ export default function ReportView() {
 
   const title = data?.title || meta?.title || 'Report';
   const isAsOf = meta?.range === 'asOf';
-  const rangeLabel = !data ? '' : data.range.kind === 'asOf' ? 'As of ' + nice(data.range.to) : nice(data.range.from) + ' – ' + nice(data.range.to);
+  const isNow = meta?.range === 'now';
+  const rangeLabel = !data ? '' : data.range.kind === 'now' ? 'As at ' + nice(data.range.to)
+    : data.range.kind === 'asOf' ? 'As of ' + nice(data.range.to) : nice(data.range.from) + ' – ' + nice(data.range.to);
 
   /* the report's own filters, drawn from the spec */
   const filterEls = (meta?.filters || []).map((f) => {
@@ -318,7 +320,7 @@ export default function ReportView() {
       {/* ------------------------------------------------------------ phone */}
       <Screen>
         <BackBar title={title} sub={rangeLabel || meta?.description} fallback="/reports" right={<div className="pr-2">{exportMenu}</div>} />
-        {isAsOf ? (
+        {isNow ? null : isAsOf ? (
           <Filters value={asOf} onChange={(v) => pickAsOf(v as AsOfPreset)}
             options={[...ASOF.map((x) => ({ key: x.id, label: x.label })), { key: 'custom', label: 'Pick a date' }]} />
         ) : (
@@ -326,7 +328,7 @@ export default function ReportView() {
             options={[...PRESETS.map((x) => ({ key: x.id, label: x.label })), { key: 'custom', label: 'Custom' }]} />
         )}
         <div className="bg-white px-4 pb-3 flex flex-wrap items-center gap-2 border-b border-line-soft">
-          {(isAsOf ? asOf === 'custom' : preset === 'custom') && (
+          {!isNow && (isAsOf ? asOf === 'custom' : preset === 'custom') && (
             <>
               {!isAsOf && <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={inputCls + ' !w-auto'} />}
               <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={inputCls + ' !w-auto'} />
@@ -399,7 +401,9 @@ export default function ReportView() {
 
         {/* the range, the lens, the filters */}
         <div className="flex flex-wrap items-center gap-3 px-6 py-3 border-b border-line-soft bg-white">
-          {isAsOf ? (
+          {isNow ? (
+            <span className="text-[12.5px] text-muted">A snapshot of right now</span>
+          ) : isAsOf ? (
             <>
               <div className="flex rounded border border-line overflow-hidden">
                 {ASOF.map((p) => (
