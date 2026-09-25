@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api, getToken, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import Confirm from '@/components/confirm';
+import { AttachEditor, AttachList, type TFile } from '@/components/attach';
 import TrainingMobile, { LessonScreen } from './mobile';
 
 const API_BASE = '/api'; // the Next proxy forwards to the API
@@ -18,6 +19,7 @@ const API_BASE = '/api'; // the Next proxy forwards to the API
 interface Lesson {
   id: string; title: string; role: string; body: string;
   hasVideo: boolean; link: string; by: string; createdAt: string; canManage: boolean;
+  files: TFile[];
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -185,6 +187,12 @@ function Viewer({ lesson, onClose, onEdit, onDelete }: {
           {lesson.body && (
             <p className="text-[13.5px] leading-relaxed whitespace-pre-line">{lesson.body}</p>
           )}
+          {lesson.files?.length > 0 && (
+            <div className="mt-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1.5">Files</p>
+              <AttachList files={lesson.files} />
+            </div>
+          )}
           {lesson.canManage && (
             <div className="mt-5 flex items-center gap-2">
               <button onClick={onEdit}
@@ -215,6 +223,7 @@ function LessonDialog({ lesson, onClose, onDone }: {
   const [link, setLink] = useState(lesson?.link || '');
   const [file, setFile] = useState<File | null>(null);
   const [removeVideo, setRemoveVideo] = useState(false);
+  const [files, setFiles] = useState<TFile[]>(lesson?.files || []);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
@@ -226,8 +235,8 @@ function LessonDialog({ lesson, onClose, onDone }: {
     // The lesson must still open after the edit: text, a link, a fresh file,
     // or an existing video that is being kept.
     const keepsVideo = editing && hadVideo && !removeVideo && !file;
-    if (!body.trim() && !link.trim() && !file && !keepsVideo) {
-      setErr('Add some text, a video file, or a link'); return;
+    if (!body.trim() && !link.trim() && !file && !keepsVideo && files.length === 0) {
+      setErr('Add some text, a video, a link, or a file'); return;
     }
     if (file && file.size > 100 * 1024 * 1024) { setErr('Keep videos under 100 MB'); return; }
     setBusy(true);
@@ -243,7 +252,7 @@ function LessonDialog({ lesson, onClose, onDone }: {
       }
       const payload: Record<string, unknown> = {
         title: title.trim(), role, body: body.trim(), link: link.trim(),
-        videoB64, videoName: file?.name || '',
+        videoB64, videoName: file?.name || '', files,
       };
       if (editing) {
         if (removeVideo && !file) payload.removeVideo = true;
@@ -317,6 +326,12 @@ function LessonDialog({ lesson, onClose, onDone }: {
                 placeholder="YouTube or any URL" className={input} />
             </label>
           </div>
+
+          <div>
+            <span className={label}>Files — images, PDFs, documents</span>
+            <AttachEditor files={files} onChange={setFiles} onError={setErr} />
+          </div>
+
           {err && <p className="text-accent text-[12.5px]">{err}</p>}
         </div>
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-line">

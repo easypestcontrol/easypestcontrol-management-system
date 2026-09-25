@@ -18,10 +18,12 @@ import { useState } from 'react';
 import { getToken } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { BackBar, Card, Fab, Screen, SearchBox } from '@/components/mobile';
+import { AttachList, type TFile } from '@/components/attach';
 
 export interface Lesson {
   id: string; title: string; role: string; body: string;
   hasVideo: boolean; link: string; by: string; createdAt: string; canManage: boolean;
+  files: TFile[];
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -84,6 +86,13 @@ export function LessonScreen({ lesson, onClose, onEdit, onDelete }: {
         {lesson.body && (
           <section className="bg-white rounded-[20px] px-4 py-4">
             <p className="text-[15px] leading-relaxed whitespace-pre-line">{lesson.body}</p>
+          </section>
+        )}
+
+        {lesson.files?.length > 0 && (
+          <section className="bg-white rounded-[20px] px-4 py-4">
+            <p className="text-[12px] font-bold uppercase tracking-[0.06em] text-muted-2 mb-2">Files</p>
+            <AttachList files={lesson.files} />
           </section>
         )}
 

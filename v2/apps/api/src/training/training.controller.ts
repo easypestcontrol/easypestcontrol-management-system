@@ -14,17 +14,74 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
+import { StorageService } from '../storage/storage.service';
 
 const ROLES = ['all', 'tech', 'sales', 'ops', 'accounts', 'admin'];
 const VIDEO_DIR = path.join(process.cwd(), 'uploads', 'training');
 const MAX_VIDEO = 100 * 1024 * 1024; // 100 MB
+
+/* Handouts on a lesson: images, PDFs, documents. They go to storage (R2, or
+   inline where R2 is not configured) and the lesson keeps name/type/size/ref. */
+const MAX_FILES = 10;
+const MAX_FILE_B = 15 * 1024 * 1024;
+const INERT_TYPES = ['text/html', 'application/xhtml+xml', 'image/svg+xml', 'text/javascript', 'application/javascript'];
+
+interface LessonFile { name: string; type: string; size: number; ref: string }
+interface FileIn { name: string; type: string; size: number; data?: string; url?: string }
+
+function fileName(raw: unknown) {
+  return String(raw || '').replace(/[\\/:*?"<>|\r\n\t]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || 'file';
+}
+function cleanFiles(raw: unknown): FileIn[] {
+  if (!Array.isArray(raw)) return [];
+  const out: FileIn[] = [];
+  for (const v of raw) {
+    if (!v || typeof v !== 'object') continue;
+    const f = v as Record<string, unknown>;
+    const name = fileName(f.name);
+    const data = String(f.data || '');
+    if (data) {
+      const [head, b64] = data.split(';base64,');
+      if (!data.startsWith('data:') || !b64) continue;
+      const size = Buffer.byteLength(b64, 'base64');
+      if (size > MAX_FILE_B) continue;
+      let type = head.slice(5).split(';')[0] || 'application/octet-stream';
+      if (INERT_TYPES.includes(type.toLowerCase())) type = 'application/octet-stream';
+      out.push({ name, type, size, data: 'data:' + type + ';base64,' + b64 });
+    } else if (typeof f.url === 'string' && f.url) {
+      out.push({ name, type: String(f.type || ''), size: Number(f.size) || 0, url: f.url });
+    }
+    if (out.length >= MAX_FILES) break;
+  }
+  return out;
+}
+const filesOf = (t: { files?: unknown }): LessonFile[] => (Array.isArray(t.files) ? t.files as LessonFile[] : []);
+const filesOut = (list: LessonFile[]) =>
+  list.map((f) => ({ name: f.name, type: f.type, size: f.size, url: StorageService.url(f.ref) }));
 
 interface Jwt { user?: { sub?: string; role?: string } }
 
 @Controller('training')
 @UseGuards(AuthGuard)
 export class TrainingController {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private storage: StorageService) {}
+
+  /** New files go to storage; a kept file is matched by the URL it was served
+      with (recomputed here, never trusted from the body); dropped files are
+      removed. */
+  private async storeFiles(incoming: FileIn[], id: string, existing: LessonFile[]): Promise<LessonFile[]> {
+    const kept: LessonFile[] = [];
+    for (const f of incoming) {
+      if (f.data) {
+        kept.push({ name: f.name, type: f.type, size: f.size, ref: await this.storage.put(f.data, 'training/' + id) });
+      } else if (f.url) {
+        const was = existing.find((e) => StorageService.url(e.ref) === f.url);
+        if (was && !kept.includes(was)) kept.push(was);
+      }
+    }
+    for (const e of existing) if (!kept.includes(e)) await this.storage.remove(e.ref);
+    return kept.slice(0, MAX_FILES);
+  }
 
   /** Lessons for me — managers see everything (they maintain the library). */
   @Get()
@@ -44,6 +101,7 @@ export class TrainingController {
     return rows.map((t) => ({
       id: t.id, title: t.title, role: t.role, body: t.body,
       hasVideo: !!t.video, link: t.link,
+      files: filesOut(filesOf(t)),
       by: nameOf.get(t.by) || '—',
       createdAt: t.createdAt.toISOString().slice(0, 10),
       canManage: manage,
@@ -59,8 +117,9 @@ export class TrainingController {
     const text = String(body.body || '').trim();
     const link = String(body.link || '').trim();
     const b64 = String(body.videoB64 || '');
-    if (!text && !link && !b64) {
-      throw new BadRequestException('Add some text, a video file, or a video link');
+    const incomingFiles = cleanFiles(body.files);
+    if (!text && !link && !b64 && !incomingFiles.length) {
+      throw new BadRequestException('Add some text, a video, a link, or a file');
     }
 
     const seq = await this.prisma.seq.upsert({
@@ -82,8 +141,9 @@ export class TrainingController {
       fs.writeFileSync(path.join(VIDEO_DIR, video), raw);
     }
 
+    const files = await this.storeFiles(incomingFiles, id, []);
     await this.prisma.training.create({
-      data: { id, title, role, body: text, link, video, by: req.user?.sub || '' },
+      data: { id, title, role, body: text, link, video, files: files as never, by: req.user?.sub || '' },
     });
 
     // The audience hears about their new lesson. 'tech' includes seniors —
@@ -139,12 +199,15 @@ export class TrainingController {
       data.video = '';
     }
 
+    if ('files' in body) data.files = await this.storeFiles(cleanFiles(body.files), id, filesOf(t));
+
     // Whatever is edited, a lesson must still carry something to open.
     const finalBody = 'body' in data ? (data.body as string) : t.body;
     const finalLink = 'link' in data ? (data.link as string) : t.link;
     const finalVideo = 'video' in data ? (data.video as string) : t.video;
-    if (!finalBody && !finalLink && !finalVideo) {
-      throw new BadRequestException('A lesson needs some text, a video, or a link');
+    const finalFiles = 'files' in data ? (data.files as LessonFile[]) : filesOf(t);
+    if (!finalBody && !finalLink && !finalVideo && !finalFiles.length) {
+      throw new BadRequestException('A lesson needs some text, a video, a link, or a file');
     }
     if (!Object.keys(data).length) throw new BadRequestException('Nothing to change');
 
@@ -160,6 +223,7 @@ export class TrainingController {
     if (t.video) {
       try { fs.unlinkSync(path.join(VIDEO_DIR, t.video)); } catch { /* already gone */ }
     }
+    for (const f of filesOf(t)) await this.storage.remove(f.ref);
     await this.prisma.training.delete({ where: { id } });
     return { ok: true };
   }

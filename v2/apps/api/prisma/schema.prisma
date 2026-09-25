@@ -752,6 +752,7 @@ model Training {
   body      String   @default("") // the text of the lesson
   video     String   @default("") // uploaded file name under uploads/training
   link      String   @default("") // or an external video URL
+  files     Json     @default("[]") // handouts: images/PDFs/docs — [{name,type,size,ref}], ref an R2 key or inline data URL
   by        String   @default("")
   createdAt DateTime @default(now())
 }
