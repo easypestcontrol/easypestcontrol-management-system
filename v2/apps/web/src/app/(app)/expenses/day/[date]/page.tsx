@@ -4,9 +4,12 @@
    One day, every branch — the office's working screen.
 
    The calendar says where the money is; this is where it gets verified,
-   approved and paid. Three sizes of decision, all here: the whole day at
-   once, one branch's report, or one line. A closed report is shown but not
-   touched — reopening it is the only way back in, and it says so.
+   approved and paid. The branches are a tab strip; one branch is open at a
+   time, its people listed underneath, each person a line the office can
+   approve or pay whole, or open to see the expenses themselves. Four sizes
+   of decision, all here: the whole day, one branch, one person, one line.
+   A closed report is shown but not touched — reopening it is the only way
+   back in, and it says so.
    ========================================================================== */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -15,9 +18,8 @@ import Link from 'next/link';
 import { money } from 'shared';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
-import { initials } from '../../../contracts/lib';
 import { niceDate, shiftDay, todayISO, type Exp, type Summary } from '../../ui';
-import { ExpenseRow, ReceiptModal } from '../../expense-row';
+import { PersonGroup, ReceiptModal, groupByPerson, type Group } from '../../expense-row';
 import PayDialog, { type PayTarget } from '../../pay-dialog';
 import OpenReport from '../../open-report';
 
@@ -31,6 +33,7 @@ export default function DayPage() {
   const { date } = useParams<{ date: string }>();
   const router = useRouter();
   const [d, setD] = useState<Day | null>(null);
+  const [sel, setSel] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [note, setNote] = useState('');
@@ -39,7 +42,12 @@ export default function DayPage() {
   const [receipt, setReceipt] = useState<{ title: string; images: string[] } | null>(null);
 
   const load = useCallback(() => {
-    api.get<Day>('/expenses/day/' + date).then(setD).catch(() => setD({ date, rate: 0, summary: empty(), reports: [] }));
+    api.get<Day>('/expenses/day/' + date).then((x) => {
+      setD(x);
+      // Keep the branch that was open; on a fresh day, start where the work is.
+      setSel((cur) => (x.reports.some((r) => r.id === cur) ? cur
+        : (x.reports.find((r) => r.summary.pending > 0) || x.reports[0])?.id || ''));
+    }).catch(() => setD({ date, rate: 0, summary: empty(), reports: [] }));
   }, [date]);
   useEffect(() => { load(); }, [load]);
 
@@ -56,12 +64,16 @@ export default function DayPage() {
     if (reason == null || !reason.trim()) return;
     return act(() => api.post('/expenses/' + e.id + '/review', { approve: false, reason: reason.trim() }));
   };
-  const approveMany = (body: { date?: string; reportId?: string }, what: string, sum: number) => act(
+  const approveMany = (body: { date?: string; reportId?: string; ids?: string[] }, what: string, sum: number) => act(
     async () => {
       const out = await api.post<{ approved: number; amount: number; skipped: number }>('/expenses/approve', body);
       setNote(out.approved + ' approved, ' + money(out.amount) + (out.skipped ? ' · ' + out.skipped + ' skipped (closed report)' : ''));
     },
     'Approve every pending expense ' + what + ' — ' + money(sum) + '?');
+  const approvePerson = (g: Group, pending: Exp[]) =>
+    approveMany({ ids: pending.map((e) => e.id) }, 'of ' + g.name, pending.reduce((a, e) => a + e.amount, 0));
+  const payPerson = (g: Group, payable: Exp[], due: number) =>
+    setPay({ ids: payable.map((e) => e.id), title: g.name + ' · ' + niceDate(date), due });
   const toggleClose = (r: Report) => act(async () => {
     const out = await api.post<{ status: string; pulled: number }>('/expenses/reports/' + r.id + '/close', {});
     if (out.status === 'open' && out.pulled) setNote(out.pulled + ' trip expense(s) came in when the report reopened.');
@@ -84,6 +96,9 @@ export default function DayPage() {
     { l: 'To pay', v: money(S.due), sub: 'approved, owed', cls: S.due > 0 ? 'text-amber-ink' : '' },
     { l: 'Paid', v: money(S.paid), sub: 'reimbursed', cls: S.paid > 0 ? 'text-mint-ink' : '' },
   ];
+  const r = d.reports.find((x) => x.id === sel) || d.reports[0];
+  const rowHandlers = { onApprove: approveOne, onReject: rejectOne, onReceipt: openReceipt,
+    onPay: (x: Exp) => setPay({ ids: [x.id], single: true, title: x.category + ' · ' + x.employeeName, due: x.amount - (x.paidAmount || 0) }) };
 
   return (
     <div className="p-4 lg:p-6 max-w-[1100px] max-lg:pb-[calc(env(safe-area-inset-bottom)+96px)]">
@@ -141,73 +156,82 @@ export default function DayPage() {
         <div className="card p-10 text-center text-muted text-[13px]">
           No expenses on this day. Open a report for a branch and its people can add theirs.
         </div>
-      ) : d.reports.map((r) => {
-        const locked = r.status === 'closed';
-        const groups: Array<{ userId: string; name: string; color: string; rows: Exp[]; sum: number }> = [];
-        for (const e of r.expenses) {
-          let g = groups.find((x) => x.userId === e.userId);
-          if (!g) { g = { userId: e.userId, name: e.employeeName, color: e.employeeColor, rows: [], sum: 0 }; groups.push(g); }
-          g.rows.push(e); g.sum += e.amount;
-        }
-        const rs = r.summary;
-        return (
-          <div key={r.id} className="card mb-4 overflow-hidden">
-            <div className="px-4 py-3 border-b border-line-soft flex items-center gap-3 flex-wrap">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-[15px] font-bold truncate">{r.branchName}</h2>
-                  <span className={'text-[10px] font-bold px-2 py-0.5 rounded-full ' + (locked ? 'bg-wash text-muted border border-line' : 'bg-mint text-mint-ink')}>{locked ? 'CLOSED' : 'OPEN'}</span>
-                  <Link href={'/expenses/' + r.id} className="text-[11.5px] text-muted hover:text-accent">{r.id} →</Link>
-                </div>
-                <div className="mt-1 flex flex-wrap gap-1.5 text-[10.5px] font-semibold">
-                  <span className="px-2 py-0.5 rounded-full bg-wash text-ink-2 border border-line">{money(rs.total)} · {rs.count}</span>
-                  {rs.pending > 0 && <span className="px-2 py-0.5 rounded-full bg-rose text-rose-ink">{money(rs.pending)} pending</span>}
-                  {rs.due > 0 && <span className="px-2 py-0.5 rounded-full bg-amber text-amber-ink">{money(rs.due)} to pay</span>}
-                  {rs.paid > 0 && <span className="px-2 py-0.5 rounded-full bg-mint text-mint-ink">{money(rs.paid)} paid</span>}
-                  {rs.rejected > 0 && <span className="px-2 py-0.5 rounded-full bg-wash text-muted border border-line">{money(rs.rejected)} rejected</span>}
-                </div>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {locked ? (
-                  <>
-                    <span className="text-[12px] text-muted self-center">Closed — reopen to change anything</span>
-                    <button disabled={busy} onClick={() => toggleClose(r)} className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">Reopen</button>
-                  </>
-                ) : (
-                  <>
-                    {rs.pending > 0 && (
-                      <button disabled={busy} onClick={() => approveMany({ reportId: r.id }, 'in ' + r.branchName, rs.pending)}
-                        className="h-9 px-3.5 rounded bg-accent text-white text-[12.5px] font-bold hover:brightness-90">Approve all in {r.branchName}</button>
-                    )}
-                    {rs.due > 0 && (
-                      <button disabled={busy} onClick={() => setPay({ reportId: r.id, title: r.branchName + ' · ' + niceDate(date), due: rs.due })}
-                        className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">Pay all</button>
-                    )}
-                    <button disabled={busy} onClick={() => toggleClose(r)} className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">Close report</button>
-                  </>
-                )}
-              </div>
-            </div>
+      ) : (
+        <>
+          {/* ------------------------------------------------ the branches */}
+          <div role="tablist" aria-label="Branches" className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1 mb-3">
+            {d.reports.map((x) => {
+              const on = x.id === (r?.id || '');
+              return (
+                <button key={x.id} role="tab" aria-selected={on} onClick={() => setSel(x.id)}
+                  className={'h-10 px-4 rounded-[12px] border text-[13px] font-semibold whitespace-nowrap flex items-center gap-2 shrink-0 transition-colors '
+                    + (on ? 'bg-accent text-white border-accent' : 'bg-white border-line hover:bg-wash')}>
+                  {x.branchName}
+                  {x.summary.pending > 0 && (
+                    <span className={'text-[10.5px] font-bold px-1.5 py-0.5 rounded-full ' + (on ? 'bg-white/20 text-white' : 'bg-rose text-rose-ink')}>
+                      {x.expenses.filter((e) => e.status === 'pending').length} pending
+                    </span>
+                  )}
+                  {x.status === 'closed' && <span className={'text-[10px] font-bold ' + (on ? 'text-white/80' : 'text-muted')}>CLOSED</span>}
+                </button>
+              );
+            })}
+          </div>
 
-            {groups.length === 0 ? (
-              <p className="px-4 py-6 text-center text-muted text-[13px]">No expenses in this report yet.</p>
-            ) : groups.map((g) => (
-              <div key={g.userId}>
-                <div className="flex items-center gap-2.5 px-4 py-2 bg-wash border-b border-line-soft">
-                  <span className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9.5px] font-bold" style={{ background: g.color }}>{initials(g.name)}</span>
-                  <span className="text-[13px] font-semibold flex-1">{g.name}</span>
-                  <span className="text-[12px] text-muted tabular-nums">{money(g.sum)}</span>
+          {r && (() => {
+            const locked = r.status === 'closed';
+            const groups = groupByPerson(r.expenses);
+            const rs = r.summary;
+            return (
+              <div className="card overflow-hidden">
+                <div className="px-4 py-3 border-b border-line-soft flex items-center gap-3 flex-wrap">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-[15px] font-bold truncate">{r.branchName}</h2>
+                      <span className={'text-[10px] font-bold px-2 py-0.5 rounded-full ' + (locked ? 'bg-wash text-muted border border-line' : 'bg-mint text-mint-ink')}>{locked ? 'CLOSED' : 'OPEN'}</span>
+                      <Link href={'/expenses/' + r.id} className="text-[11.5px] text-muted hover:text-accent">{r.id} →</Link>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1.5 text-[10.5px] font-semibold">
+                      <span className="px-2 py-0.5 rounded-full bg-wash text-ink-2 border border-line">{money(rs.total)} · {rs.count} · {groups.length} {groups.length === 1 ? 'person' : 'people'}</span>
+                      {rs.pending > 0 && <span className="px-2 py-0.5 rounded-full bg-rose text-rose-ink">{money(rs.pending)} pending</span>}
+                      {rs.due > 0 && <span className="px-2 py-0.5 rounded-full bg-amber text-amber-ink">{money(rs.due)} to pay</span>}
+                      {rs.paid > 0 && <span className="px-2 py-0.5 rounded-full bg-mint text-mint-ink">{money(rs.paid)} paid</span>}
+                      {rs.rejected > 0 && <span className="px-2 py-0.5 rounded-full bg-wash text-muted border border-line">{money(rs.rejected)} rejected</span>}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {locked ? (
+                      <>
+                        <span className="text-[12px] text-muted self-center">Closed — reopen to change anything</span>
+                        <button disabled={busy} onClick={() => toggleClose(r)} className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">Reopen</button>
+                      </>
+                    ) : (
+                      <>
+                        {rs.pending > 0 && (
+                          <button disabled={busy} onClick={() => approveMany({ reportId: r.id }, 'in ' + r.branchName, rs.pending)}
+                            className="h-9 px-3.5 rounded bg-accent text-white text-[12.5px] font-bold hover:brightness-90">Approve all in {r.branchName}</button>
+                        )}
+                        {rs.due > 0 && (
+                          <button disabled={busy} onClick={() => setPay({ reportId: r.id, title: r.branchName + ' · ' + niceDate(date), due: rs.due })}
+                            className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">Pay all</button>
+                        )}
+                        <button disabled={busy} onClick={() => toggleClose(r)} className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">Close report</button>
+                      </>
+                    )}
+                  </div>
                 </div>
-                {g.rows.map((e) => (
-                  <ExpenseRow key={e.id} e={e} busy={busy} locked={locked}
-                    onApprove={approveOne} onReject={rejectOne} onReceipt={openReceipt}
-                    onPay={(x) => setPay({ ids: [x.id], single: true, title: x.category + ' · ' + x.employeeName, due: x.amount - (x.paidAmount || 0) })} />
+
+                {groups.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-muted text-[13px]">No expenses in this report yet.</p>
+                ) : groups.map((g) => (
+                  <PersonGroup key={r.id + ':' + g.userId} g={g} busy={busy} locked={locked}
+                    onApproveAll={approvePerson} onPayAll={payPerson} {...rowHandlers} />
                 ))}
               </div>
-            ))}
-          </div>
-        );
-      })}
+            );
+          })()}
+        </>
+      )}
 
       {pay && <PayDialog target={pay} onClose={() => setPay(null)}
         onDone={(out) => { setPay(null); setNote(out.paid + ' paid' + (out.failed ? ', ' + out.failed + ' failed — see the line' : '')); load(); }} />}

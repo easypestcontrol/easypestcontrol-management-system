@@ -3,11 +3,17 @@
 /* One expense as a row the office acts on — the same row on the day page and
    in a branch's report, so the two never drift. Pending lines can be approved
    or rejected; approved, part-paid and bounced lines can be paid. A closed
-   report shows the lines and no buttons. */
+   report shows the lines and no buttons.
 
+   PersonGroup is the person above the rows: their day in one line (how much,
+   how much of it pending, owed, paid), a per-person Approve all and Pay all,
+   and a chevron that opens the lines themselves. */
+
+import { useState } from 'react';
 import Link from 'next/link';
 import { money } from 'shared';
 import { Icon } from '@/components/icons';
+import { initials } from '../contracts/lib';
 import { PAYABLE, catIcon, chip, type Exp } from './ui';
 
 export function ExpenseRow({ e, busy, locked, onApprove, onReject, onPay, onReceipt }: {
@@ -72,6 +78,90 @@ export function ExpenseRow({ e, busy, locked, onApprove, onReject, onPay, onRece
           </button>
         )}
       </span>
+    </div>
+  );
+}
+
+export interface Group { userId: string; name: string; color: string; rows: Exp[]; sum: number }
+
+/** Rows grouped by the person, in the order they came. */
+export function groupByPerson(rows: Exp[]): Group[] {
+  const groups: Group[] = [];
+  for (const e of rows) {
+    let g = groups.find((x) => x.userId === e.userId);
+    if (!g) { g = { userId: e.userId, name: e.employeeName, color: e.employeeColor, rows: [], sum: 0 }; groups.push(g); }
+    g.rows.push(e); g.sum += e.amount;
+  }
+  return groups;
+}
+
+export function PersonGroup({ g, busy, locked, defaultOpen = false, onApproveAll, onPayAll, onApprove, onReject, onPay, onReceipt }: {
+  g: Group;
+  busy: boolean;
+  locked: boolean;
+  /** Open on first render; the day page starts closed, a single report open. */
+  defaultOpen?: boolean;
+  onApproveAll: (g: Group, pending: Exp[]) => void;
+  onPayAll: (g: Group, payable: Exp[], due: number) => void;
+  onApprove: (e: Exp) => void;
+  onReject: (e: Exp) => void;
+  onPay: (e: Exp) => void;
+  onReceipt: (e: Exp) => void;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const pending = g.rows.filter((e) => e.status === 'pending');
+  const payable = g.rows.filter((e) => PAYABLE.includes(e.status));
+  const pendingSum = pending.reduce((a, e) => a + e.amount, 0);
+  const due = payable.reduce((a, e) => a + e.amount - (e.paidAmount || 0), 0);
+  const paid = g.rows.reduce((a, e) => a + (e.paidAmount || 0), 0);
+  const bits = [
+    g.rows.length + (g.rows.length === 1 ? ' expense' : ' expenses'),
+    pendingSum > 0 ? money(pendingSum) + ' pending' : '',
+    due > 0 ? money(due) + ' to pay' : '',
+    paid > 0 ? money(paid) + ' paid' : '',
+  ].filter(Boolean);
+
+  return (
+    <div className="border-b border-line-soft last:border-0">
+      {/* At a desk one line: name, total, the two buttons, the chevron. On a
+          phone the buttons take a line of their own under the name, so the
+          name never shrinks to an initial to make room for them. */}
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 px-3 lg:px-4 py-2.5 bg-wash">
+        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
+          className="flex items-center gap-2.5 flex-1 min-w-0 text-left">
+          <span className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10.5px] font-bold shrink-0"
+            style={{ background: g.color }}>{initials(g.name)}</span>
+          <span className="min-w-0">
+            <span className="block text-[13.5px] font-semibold truncate">{g.name}</span>
+            <span className="block text-[11.5px] text-muted truncate">{bits.join(' · ')}</span>
+          </span>
+        </button>
+        <span className="text-[12.5px] font-bold tabular-nums shrink-0">{money(g.sum)}</span>
+        {!locked && (pending.length > 0 || due > 0) && (
+          <span className="flex gap-2 shrink-0 max-lg:basis-full max-lg:order-last">
+            {pending.length > 0 && (
+              <button disabled={busy} onClick={() => onApproveAll(g, pending)}
+                className="h-9 lg:h-8 px-3 lg:px-2.5 rounded bg-accent text-white text-[12px] lg:text-[11.5px] font-bold whitespace-nowrap hover:brightness-90">
+                Approve all ({pending.length})
+              </button>
+            )}
+            {due > 0 && (
+              <button disabled={busy} onClick={() => onPayAll(g, payable, due)}
+                className="h-9 lg:h-8 px-3 lg:px-2.5 rounded border border-line bg-white text-[12px] lg:text-[11.5px] font-semibold whitespace-nowrap hover:bg-wash">
+                Pay all
+              </button>
+            )}
+          </span>
+        )}
+        <button type="button" onClick={() => setOpen(!open)} aria-label={open ? 'Hide ' + g.name + "'s expenses" : 'Show ' + g.name + "'s expenses"}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-muted hover:bg-white shrink-0">
+          <Icon name="chevDown" size={16} className={'transition-transform ' + (open ? 'rotate-180' : '')} />
+        </button>
+      </div>
+      {open && g.rows.map((e) => (
+        <ExpenseRow key={e.id} e={e} busy={busy} locked={locked}
+          onApprove={onApprove} onReject={onReject} onPay={onPay} onReceipt={onReceipt} />
+      ))}
     </div>
   );
 }

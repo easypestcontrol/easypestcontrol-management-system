@@ -11,9 +11,8 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { money } from 'shared';
 import { api, ApiError } from '@/lib/api';
-import { initials } from '../../contracts/lib';
 import { niceDate, type Exp, type Summary } from '../ui';
-import { ExpenseRow, ReceiptModal } from '../expense-row';
+import { PersonGroup, ReceiptModal, groupByPerson, type Group } from '../expense-row';
 import PayDialog, { type PayTarget } from '../pay-dialog';
 
 interface Report {
@@ -57,6 +56,12 @@ export default function ReportPage() {
     const out = await api.post<{ approved: number; amount: number }>('/expenses/approve', { reportId: id });
     setNote(out.approved + ' approved, ' + money(out.amount));
   }, 'Approve every pending expense in this report?');
+  const approvePerson = (g: Group, pending: Exp[]) => act(async () => {
+    const out = await api.post<{ approved: number; amount: number }>('/expenses/approve', { ids: pending.map((e) => e.id) });
+    setNote(out.approved + ' approved for ' + g.name + ', ' + money(out.amount));
+  }, 'Approve every pending expense of ' + g.name + ' — ' + money(pending.reduce((a, e) => a + e.amount, 0)) + '?');
+  const payPerson = (g: Group, payable: Exp[], due: number) =>
+    setPay({ ids: payable.map((e) => e.id), title: g.name + ' · ' + niceDate(r?.date || ''), due });
   const toggleClose = () => act(async () => {
     const out = await api.post<{ status: string; pulled: number }>('/expenses/reports/' + id + '/close', {});
     if (out.status === 'open' && out.pulled) setNote(out.pulled + ' trip expense(s) came in when the report reopened.');
@@ -76,12 +81,7 @@ export default function ReportPage() {
   );
   if (!r) return <div className="p-6 text-muted text-[13px]">Loading…</div>;
 
-  const groups: Array<{ userId: string; name: string; color: string; rows: Exp[]; sum: number }> = [];
-  for (const e of r.expenses) {
-    let g = groups.find((x) => x.userId === e.userId);
-    if (!g) { g = { userId: e.userId, name: e.employeeName, color: e.employeeColor, rows: [], sum: 0 }; groups.push(g); }
-    g.rows.push(e); g.sum += e.amount;
-  }
+  const groups = groupByPerson(r.expenses);
   const S = r.summary;
   const locked = r.status === 'closed';
 
@@ -149,20 +149,16 @@ export default function ReportPage() {
         <div className="card p-10 text-center text-muted text-[13px]">
           No expenses yet — the branch&rsquo;s people add theirs into this report.
         </div>
-      ) : groups.map((g) => (
-        <div key={g.userId} className="card mb-3 overflow-hidden">
-          <div className="flex items-center gap-2.5 px-4 py-2.5 bg-wash border-b border-line-soft">
-            <span className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10.5px] font-bold" style={{ background: g.color }}>{initials(g.name)}</span>
-            <span className="text-[13.5px] font-semibold flex-1">{g.name}</span>
-            <span className="text-[12.5px] text-muted tabular-nums">{money(g.sum)}</span>
-          </div>
-          {g.rows.map((e) => (
-            <ExpenseRow key={e.id} e={e} busy={busy} locked={locked}
+      ) : (
+        <div className="card overflow-hidden">
+          {groups.map((g) => (
+            <PersonGroup key={g.userId} g={g} busy={busy} locked={locked} defaultOpen
+              onApproveAll={approvePerson} onPayAll={payPerson}
               onApprove={approve} onReject={reject} onReceipt={openReceipt}
               onPay={(x) => setPay({ ids: [x.id], single: true, title: x.category + ' · ' + x.employeeName, due: x.amount - (x.paidAmount || 0) })} />
           ))}
         </div>
-      ))}
+      )}
 
       {pay && <PayDialog target={pay} onClose={() => setPay(null)}
         onDone={(out) => { setPay(null); setNote(out.paid + ' paid' + (out.failed ? ', ' + out.failed + ' failed — see the line' : '')); load(); }} />}
