@@ -159,11 +159,15 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             {cards.map((c) => (
               <Link key={c.label} href={c.href}
-                className="card card-hover p-4 flex flex-col justify-between min-h-[134px]">
+                className="card card-hover p-5 flex flex-col">
                 {/* The colour lives in the tile, the way the reference does it —
                     a big soft square per figure, so six white cards read as six
-                    different things at a glance rather than one grid to scan. */}
-                <span className={'w-11 h-11 rounded-[13px] flex items-center justify-center shrink-0 '
+                    different things at a glance rather than one grid to scan.
+                    `mb-5` is the gap the reference keeps between the tile and
+                    the figure; an earlier justify-between collapsed to nothing
+                    once the three text lines outgrew the card's min height, and
+                    the icon ended up sitting on the number. */}
+                <span className={'w-11 h-11 rounded-[13px] flex items-center justify-center shrink-0 mb-5 '
                   + TINT[c.tint].bg}>
                   <Icon name={c.icon} size={21} className={TINT[c.tint].fg} />
                 </span>
@@ -172,8 +176,8 @@ export default function Dashboard() {
                     + (c.alert ? 'text-hero' : 'text-ink')}>
                     {c.value}
                   </span>
-                  <span className="block mt-1.5 text-[13px] font-semibold text-ink-2 leading-tight">{c.label}</span>
-                  <span className="block mt-0.5 text-[11.5px] text-muted-2 truncate">{c.foot}</span>
+                  <span className="block mt-2 text-[13px] font-semibold text-ink-2 leading-tight">{c.label}</span>
+                  <span className="block mt-1 text-[11.5px] text-muted-2 truncate">{c.foot}</span>
                 </span>
               </Link>
             ))}
