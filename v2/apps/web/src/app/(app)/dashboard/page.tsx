@@ -131,8 +131,9 @@ export default function Dashboard() {
     <div className="max-lg:hidden p-4 lg:p-6">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-[20px] font-semibold">Home</h1>
-          <p className="max-lg:hidden text-muted text-[13px] mt-0.5">The state of the business, right now.</p>
+          {/* The reference's page header: text-2xl bold over a text-sm gray line. */}
+          <h1 className="text-2xl font-bold tracking-tight">Home</h1>
+          <p className="max-lg:hidden text-muted text-sm mt-1">The state of the business, right now.</p>
         </div>
         {bf.el}
       </div>
@@ -175,7 +176,7 @@ export default function Dashboard() {
                     + (c.alert ? 'text-hero' : 'text-ink')}>
                     {c.value}
                   </span>
-                  <span className="block mt-1 text-xs font-medium text-muted-2 leading-tight">{c.label}</span>
+                  <span className="block mt-1 text-[13px] font-medium text-muted leading-tight">{c.label}</span>
                   <span className="block mt-0.5 text-[11px] text-muted-2 truncate">{c.foot}</span>
                 </span>
               </Link>

@@ -101,7 +101,7 @@ function Stat({ label, value, foot, alert, icon = 'report', tint = 'sky' }: {
       </span>
       <p className={'text-2xl font-bold tracking-tight leading-none tabular-nums '
         + (alert ? 'text-accent' : 'text-ink')}>{value}</p>
-      <p className="text-xs font-medium text-muted-2 mt-1 leading-tight">{label}</p>
+      <p className="text-[13px] font-medium text-muted mt-1 leading-tight">{label}</p>
       <p className="text-[11px] text-muted-2 mt-0.5">{foot}</p>
     </div>
   );
@@ -206,7 +206,7 @@ export default function Reports() {
       {/* ------------------------------------------------------- header */}
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
         <div className="flex items-baseline gap-3">
-          <h1 className="text-[17px] font-semibold">Reports</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Reports</h1>
           <span className="text-muted-2 text-[12.5px] hidden sm:inline">
             Live figures from every module — no spreadsheets involved
           </span>
