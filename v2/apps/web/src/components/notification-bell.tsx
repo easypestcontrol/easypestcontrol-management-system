@@ -15,11 +15,21 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { refToPath } from '@/lib/push';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { HeroButton } from '@/components/mobile';
 
 interface Note { id: number; at: string; text: string; read: boolean }
+
+/** Where a notification leads. Every writer ends its text with the record it
+    is about, "(EXR-3)" - the same convention a push notification uses - so a
+    tap opens that record rather than just dimming the row. */
+export function notePath(text: string): string {
+  const m = /\(([A-Z]{2,4}-[A-Za-z0-9-]+)\)\.?\s*$/.exec(String(text || ''));
+  return m ? refToPath(m[1]) : '';
+}
 
 /**
  * "2026-09-08 14:12" or "2026-09-08T14:12" → "Today, 2:12 pm" / "8 Sep, 2:12 pm".
@@ -83,6 +93,7 @@ export default function NotificationBell() {
    * six things you had not dealt with yet. Now the one you tap clears itself
    * and leaves the list; the rest are still there when you come back.
    */
+  const router = useRouter();
   function clear(n: Note) {
     setRows((list) => (list || []).filter((r) => r.id !== n.id));
     if (!n.read) setUnread((u) => Math.max(0, u - 1));
@@ -129,7 +140,8 @@ export default function NotificationBell() {
                 </div>
               ) : (
                 rows.map((n) => (
-                  <button key={n.id} type="button" onClick={() => clear(n)}
+                  <button key={n.id} type="button"
+                    onClick={() => { clear(n); const p = notePath(n.text); if (p) { setOpen(false); router.push(p); } }}
                     className="w-full text-left flex items-start gap-3 px-5 py-3.5
                       border-b border-line-soft last:border-b-0 active:bg-wash">
                     <span className={'w-9 h-9 rounded-full shrink-0 flex items-center justify-center '

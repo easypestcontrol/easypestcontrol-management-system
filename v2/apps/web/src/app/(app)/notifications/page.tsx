@@ -13,15 +13,17 @@
    ========================================================================== */
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { BackBar } from '@/components/mobile';
-import { notifTime } from '@/components/notification-bell';
+import { notePath, notifTime } from '@/components/notification-bell';
 
 interface Note { id: number; at: string; text: string; read: boolean }
 
 export default function Notifications() {
   const [rows, setRows] = useState<Note[] | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     let dead = false;
@@ -59,7 +61,9 @@ export default function Notifications() {
         ) : (
           <ul className="card divide-y divide-line-soft overflow-hidden">
             {rows.map((n) => (
-              <li key={n.id} className="flex items-start gap-3 px-4 py-3.5">
+              <li key={n.id}>
+                <button type="button" onClick={() => { const p = notePath(n.text); if (p) router.push(p); }}
+                  className={'w-full text-left flex items-start gap-3 px-4 py-3.5 ' + (notePath(n.text) ? 'hover:bg-wash active:bg-wash' : 'cursor-default')}>
                 <span className={'chipbox shrink-0 ' + (n.read ? 'bg-wash' : 'bg-rose')}>
                   <Icon name="bell" size={16} className={n.read ? 'text-muted-2' : 'text-rose-ink'} />
                 </span>
@@ -68,9 +72,10 @@ export default function Notifications() {
                     {n.text}
                   </span>
                   <span className="block text-[12px] text-muted-2 mt-0.5 whitespace-nowrap">
-                    {notifTime(n.at)}
+                    {notifTime(n.at)}{notePath(n.text) ? ' · open' : ''}
                   </span>
                 </span>
+                </button>
               </li>
             ))}
           </ul>

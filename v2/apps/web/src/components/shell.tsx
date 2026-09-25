@@ -17,6 +17,7 @@ import { Icon, type IconName } from './icons';
 import { homeFor, isFieldTech } from 'shared';
 import { ensureNotifyReady, localNotify } from '@/lib/local-notify';
 import { initPush, forgetPush } from '@/lib/push';
+import { notePath, notifTime } from '@/components/notification-bell';
 import SelectUpgrade from '@/components/select-upgrade';
 
 type NavItem = { href: string; label: string; icon: IconName; roles?: string[] };
@@ -546,7 +547,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
           {/* ------------------------------------------------ bell */}
           <div className="relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={openBell}
+            <button onClick={openBell} aria-label="Notifications"
               className="w-9 h-9 rounded-[12px] flex items-center justify-center text-muted hover:bg-wash relative transition-colors">
               <Icon name="bell" size={18} />
               {notes.unread > 0 && (
@@ -562,12 +563,18 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                 </p>
                 {notes.rows.length === 0 ? (
                   <p className="p-4 text-muted text-[12.5px]">Nothing yet — assignments and approvals land here.</p>
-                ) : notes.rows.map((n) => (
-                  <div key={n.id} className="px-3.5 py-2.5 border-b border-line-soft last:border-0">
-                    <p className="text-[12.5px] text-ink-2 leading-snug">{n.text}</p>
-                    <p className="text-[10.5px] text-muted-2 mt-0.5">{n.at}</p>
-                  </div>
-                ))}
+                ) : notes.rows.map((n) => {
+                  // A row opens what it is about - the record named at its end.
+                  const to = notePath(n.text);
+                  return (
+                    <button key={n.id} type="button" disabled={!to}
+                      onClick={() => { setBellOpen(false); if (to) router.push(to); }}
+                      className={'w-full text-left px-3.5 py-2.5 border-b border-line-soft last:border-0 ' + (to ? 'hover:bg-wash' : 'cursor-default')}>
+                      <p className="text-[12.5px] text-ink-2 leading-snug">{n.text}</p>
+                      <p className="text-[10.5px] text-muted-2 mt-0.5">{notifTime(n.at)}{to ? ' · open' : ''}</p>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

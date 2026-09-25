@@ -94,14 +94,23 @@ export class TripsService {
     return running.length;
   }
 
+  /**
+   * Turn a finished trip into its expense - always.
+   *
+   * The rules the office set: a trip that started and finished produces a
+   * line even at 0 km (an amount of zero, so the day shows the trip was
+   * made and nothing is owed), and it lands in the day's report even when
+   * that report is CLOSED - the office is told, by name, and reopens the day
+   * to review it. What still produces nothing: a trip that was cancelled,
+   * one the office rejected, or one that already has its line.
+   */
   async autoExpenseForTrip(tripId: string): Promise<'created' | 'exists' | 'no-report' | 'skip'> {
     const t = await this.prisma.trip.findUnique({ where: { id: tripId } });
     if (!t || t.status === 'active' || t.status === 'cancelled') return 'skip';
-    if (t.review === 'rejected' || t.distanceM <= 0) return 'skip';
+    if (t.review === 'rejected') return 'skip';
     const existing = await this.prisma.expense.findFirst({ where: { tripId } });
     if (existing) return 'exists';
     const rate = await this.kmRate();
-    if (!rate) return 'skip';
     // The day the trip FINISHED is the day its money belongs to - that is
     // the folder the office reviews it in. And the folder opens itself, the
     // way a manual expense opens it: bookkeeping is not a decision. Only a
@@ -125,7 +134,7 @@ export class TripsService {
         },
       });
     }
-    if (report.status === 'closed') return 'no-report';
+    const wasClosed = report.status === 'closed';
 
     const km = +(t.distanceM / 1000).toFixed(1);
     const eseq = await this.prisma.seq.upsert({
@@ -146,10 +155,22 @@ export class TripsService {
     const hist = Array.isArray(report.history) ? (report.history as Array<unknown>) : [];
     await this.prisma.expenseReport.update({
       where: { id: report.id },
-      data: { history: [...hist, { at: nowStamp(), text: expId + ' auto-generated from trip ' + t.id + ' (' + km + ' km)' }] as never },
+      data: { history: [...hist, { at: nowStamp(), text: expId + ' auto-generated from trip ' + t.id + ' (' + km + ' km)' + (wasClosed ? ' - into a CLOSED report' : '') }] as never },
     }).catch(() => {});
+    const amount = Math.round(km * rate);
     await this.notify(t.userId, 'Trip allowance added to your expenses: ' + km + ' km \u00d7 \u20b9' + rate +
-      ' = \u20b9' + Math.round(km * rate).toLocaleString('en-IN') + '. (' + expId + ')');
+      ' = \u20b9' + amount.toLocaleString('en-IN') + '. (' + expId + ')');
+    // A line in a closed report is one the office did not know was coming.
+    // Every admin and manager hears, by the employee's name, with the report
+    // to open - reopening the day and reviewing it is one click from there.
+    if (wasClosed) {
+      const [who, office] = await Promise.all([
+        this.prisma.user.findUnique({ where: { id: t.userId }, select: { name: true } }),
+        this.prisma.user.findMany({ where: { role: { in: ['admin', 'ops'] }, active: true }, select: { id: true } }),
+      ]);
+      const text = (who?.name || t.userId) + "'s trip " + t.id + ' added \u20b9' + amount.toLocaleString('en-IN') + ' (' + km + ' km) to the CLOSED report for ' + date + ' - reopen the day to review it. (' + report.id + ')';
+      for (const u of office) await this.notify(u.id, text);
+    }
     return 'created';
   }
 

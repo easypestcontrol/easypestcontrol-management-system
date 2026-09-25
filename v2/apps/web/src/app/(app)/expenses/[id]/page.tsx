@@ -62,6 +62,13 @@ export default function ReportPage() {
   }, 'Approve every pending expense of ' + g.name + ' — ' + money(pending.reduce((a, e) => a + e.amount, 0)) + '?');
   const payPerson = (g: Group, payable: Exp[], due: number) =>
     setPay({ ids: payable.map((e) => e.id), title: g.name + ' · ' + niceDate(r?.date || ''), due });
+  /* The one switch, reachable from here: the office is sent to this report
+     by the bell when a trip lands in a closed day, and should not have to go
+     looking for the button that lets them review it. */
+  const reopenDay = () => act(async () => {
+    const out = await api.post<{ changed: number; pulled: number }>('/expenses/day/' + (r?.date || '') + '/close', { reopen: true });
+    setNote(out.changed + ' report(s) reopened for ' + niceDate(r?.date || '') + (out.pulled ? ' \u00b7 ' + out.pulled + ' trip expense(s) came in' : ''));
+  }, 'Reopen every branch\u2019s report for ' + niceDate(r?.date || '') + '?');
   async function openReceipt(e: Exp) {
     try {
       const full = await api.get<{ images: string[] }>('/expenses/' + e.id);
@@ -103,8 +110,14 @@ export default function ReportPage() {
       {err && <p className="text-[12.5px] text-accent mb-3">{err}</p>}
       {note && <p className="text-[12.5px] text-mint-ink font-medium mb-3">{note}</p>}
       {locked && (
-        <div className="rounded-[12px] border border-line bg-wash px-4 py-3 mb-4 text-[12.5px] text-muted">
-          This report is closed: nothing can be added, changed, approved or paid. The day is closed and reopened as a whole — <Link href={'/expenses/day/' + r.date} className="font-semibold text-accent hover:underline">open {niceDate(r.date)}</Link> and use Reopen all reports; any trip that finished that day while it was closed comes in with it.
+        <div className="rounded-[12px] border border-line bg-wash px-4 py-3 mb-4 flex items-center gap-3 flex-wrap">
+          <p className="text-[12.5px] text-muted flex-1 min-w-[240px]">
+            This report is closed: nothing can be added, changed, approved or paid. The day is closed and reopened as a whole — <Link href={'/expenses/day/' + r.date} className="font-semibold text-accent hover:underline">see {niceDate(r.date)}</Link>. A trip that finished that day still lands here, and the office is told.
+          </p>
+          <button disabled={busy} onClick={reopenDay}
+            className="h-9 px-3.5 rounded bg-accent text-white text-[12.5px] font-bold hover:brightness-90 shrink-0">
+            Reopen the day
+          </button>
         </div>
       )}
 
