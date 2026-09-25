@@ -19,15 +19,17 @@ import { Facts, ListScreen, Sheet, btnPrimary } from '@/components/mobile';
 
 interface BranchRow {
   id: string; name: string; code: string; phone: string; areas: string[];
+  kmRate: number;
   staff: number; leads: number;
 }
 
-interface Draft { name: string; code: string; phone: string; areas: string[] }
+interface Draft { name: string; code: string; phone: string; areas: string[]; kmRate: string }
 
 function toDraft(b: BranchRow | null): Draft {
   return {
     name: b?.name || '', code: b?.code || '', phone: b?.phone || '',
     areas: b?.areas ? [...b.areas] : [],
+    kmRate: b?.kmRate ? String(b.kmRate) : '',
   };
 }
 
@@ -91,6 +93,7 @@ export default function Branches() {
 
     const body = {
       name, code, phone: draft.phone.trim(),
+      kmRate: Math.max(0, Number(draft.kmRate) || 0),
       // anything still sitting in the input counts too
       areas: areaInput.trim()
         ? [...draft.areas, ...areaInput.split(',').map((x) => x.trim()).filter(Boolean)]
@@ -150,7 +153,7 @@ export default function Branches() {
           onClick: () => setPreview(b),
           title: b.name,
           right: b.code,
-          meta: [b.phone, b.areas.length
+          meta: [b.phone, b.kmRate ? '\u20b9' + b.kmRate + '/km' : '', b.areas.length
             ? b.areas.length + (b.areas.length === 1 ? ' area' : ' areas') : '']
             .filter(Boolean).join(' \u00b7 '),
           tone: (b.staff ? 'plain' : 'warn') as 'plain' | 'warn',
@@ -179,6 +182,7 @@ export default function Branches() {
           <Facts rows={[
             ['Short code', preview.code],
             ['Phone', preview.phone],
+            ['Trip allowance', preview.kmRate ? '\u20b9' + preview.kmRate + ' per km' : 'not set'],
             ['People posted', preview.staff],
             ['Leads', preview.leads],
             ['Areas covered', preview.areas.length],
@@ -234,6 +238,7 @@ export default function Branches() {
           <thead>
             <tr>
               <th>Branch</th><th>Phone</th><th>Areas covered</th>
+              <th style={{ textAlign: 'right' }}>{'\u20b9'} / km</th>
               <th style={{ textAlign: 'right' }}>Staff</th>
               <th style={{ textAlign: 'right' }}>Leads</th>
             </tr>
@@ -269,6 +274,7 @@ export default function Branches() {
                     </span>
                   )}
                 </td>
+                <td style={{ textAlign: 'right' }} className="tabular-nums">{b.kmRate ? '\u20b9' + b.kmRate : <span className="text-muted-2">{'\u2014'}</span>}</td>
                 <td style={{ textAlign: 'right' }} className="font-medium">{b.staff}</td>
                 <td style={{ textAlign: 'right' }} className="text-muted">{b.leads}</td>
               </tr>
@@ -319,10 +325,19 @@ export default function Branches() {
                   <input className={inputCls + ' uppercase'} value={draft.code} placeholder="e.g. ANR"
                     maxLength={6} onChange={(e) => set('code', e.target.value.toUpperCase())} />
                 </label>
-                <label className="block sm:col-span-2">
+                <label className="block">
                   <span className={labelCls}>Phone</span>
                   <input className={inputCls} value={draft.phone} placeholder="+91 "
                     onChange={(e) => set('phone', e.target.value)} />
+                </label>
+                {/* What a kilometre driven for this branch pays the driver. It
+                    used to be one figure for the whole company, in Settings;
+                    branches pay differently, so it is set where the branch is. */}
+                <label className="block">
+                  <span className={labelCls}>Trip allowance ({'\u20b9'} per km)</span>
+                  <input className={inputCls} type="number" inputMode="decimal" min={0} step="0.5"
+                    value={draft.kmRate} placeholder="e.g. 6"
+                    onChange={(e) => set('kmRate', e.target.value)} />
                 </label>
               </div>
 

@@ -125,6 +125,7 @@ model Branch {
   code  String   @default("")
   phone String   @default("")
   areas String[] @default([]) // locality names this branch covers — drives job->branch mapping
+  kmRate Float   @default(0) // rupees per km for trip allowances; 0 = the company-wide rate still applies
 }
 
 model User {

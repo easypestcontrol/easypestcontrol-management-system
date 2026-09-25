@@ -20,7 +20,7 @@ import {
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 
-const EDITABLE = ['name', 'code', 'phone', 'areas'] as const;
+const EDITABLE = ['name', 'code', 'phone', 'areas', 'kmRate'] as const;
 
 function pick(body: Record<string, unknown>) {
   const data: Record<string, unknown> = {};
@@ -144,6 +144,8 @@ export class BranchesController {
         code,
         phone: String(body.phone || '').trim(),
         areas: cleanAreas(body.areas),
+        // What a kilometre driven for this branch is worth to the person who drove it.
+        kmRate: Math.max(0, Number(body.kmRate) || 0),
       },
     });
   }
@@ -172,6 +174,8 @@ export class BranchesController {
     if ('name' in data) data.name = String(data.name).trim();
     if ('phone' in data) data.phone = String(data.phone || '').trim();
     if ('areas' in data) data.areas = cleanAreas(data.areas);
+    if ('kmRate' in data) data.kmRate = Math.max(0, Number(data.kmRate) || 0);
+    if ('kmRate' in data) data.kmRate = Math.max(0, Number(data.kmRate) || 0);
 
     return this.prisma.branch.update({ where: { id }, data });
   }

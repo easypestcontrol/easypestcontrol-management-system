@@ -107,9 +107,9 @@ export class ExpensesController {
     }).catch(() => {});
   }
 
-  private async kmRate(): Promise<number> {
-    const co = await this.prisma.company.findFirst({ select: { kmRate: true } });
-    return co?.kmRate || 0;
+  /** A branch's rupees-per-km (its own, else the company fallback). */
+  private kmRate(branch?: string): Promise<number> {
+    return this.trips.kmRate(branch);
   }
 
   private async branchName(id: string): Promise<string> {
@@ -337,7 +337,7 @@ export class ExpensesController {
       id: r.id, title: r.title, date: r.date, branch: r.branch,
       branchName: await this.branchName(r.branch), status: r.status,
       description: r.description, createdBy: r.createdBy,
-      history: r.history, rate: await this.kmRate(),
+      history: r.history, rate: await this.kmRate(r.branch),
       summary: this.summarise(r.expenses),
       expenses: r.expenses.map((e) => this.shape(e, uOf)),
     };

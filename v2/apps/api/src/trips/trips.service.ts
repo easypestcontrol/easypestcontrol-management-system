@@ -34,10 +34,31 @@ export class TripsService {
     await this.prisma.notification.create({ data: { userId, at: nowStamp(), text } }).catch(() => {});
   }
 
-  /** The rupees-per-km rate the whole business runs on — shared with Expenses. */
-  async kmRate(): Promise<number> {
+  /**
+   * The rupees-per-km rate a trip is worth: the BRANCH's own, set where the
+   * branch is created (Master data > Branches). The old company-wide figure
+   * stays only as the fallback for a branch that has not set one yet, so no
+   * branch silently drops to zero the day the field moves.
+   */
+  async kmRate(branch?: string): Promise<number> {
+    if (branch) {
+      const b = await this.prisma.branch.findUnique({ where: { id: branch }, select: { kmRate: true } });
+      if (b?.kmRate) return b.kmRate;
+    }
     const co = await this.prisma.company.findFirst({ select: { kmRate: true } });
     return co?.kmRate || 0;
+  }
+
+  /** Every branch's rate in one read, '' being the company fallback. */
+  async rateMap(): Promise<Map<string, number>> {
+    const [bs, co] = await Promise.all([
+      this.prisma.branch.findMany({ select: { id: true, kmRate: true } }),
+      this.prisma.company.findFirst({ select: { kmRate: true } }),
+    ]);
+    const base = co?.kmRate || 0;
+    const m = new Map<string, number>([['', base]]);
+    for (const b of bs) m.set(b.id, b.kmRate || base);
+    return m;
   }
 
   /**
@@ -110,7 +131,7 @@ export class TripsService {
     if (t.review === 'rejected') return 'skip';
     const existing = await this.prisma.expense.findFirst({ where: { tripId } });
     if (existing) return 'exists';
-    const rate = await this.kmRate();
+    const rate = await this.kmRate(t.branch);
     // The day the trip FINISHED is the day its money belongs to - that is
     // the folder the office reviews it in. And the folder opens itself, the
     // way a manual expense opens it: bookkeeping is not a decision. Only a

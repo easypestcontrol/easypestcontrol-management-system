@@ -266,7 +266,6 @@ export default function Settings() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {field('Company name', 'name')}
                   {field('Phone', 'phone')}
-                  {field('Trip allowance (₹ per km, for expenses)', 'kmRate')}
                   {field('Email', 'email')}
                   {field('GSTIN', 'gstin')}
                   {field('Home state (decides CGST/SGST vs IGST)', 'state')}

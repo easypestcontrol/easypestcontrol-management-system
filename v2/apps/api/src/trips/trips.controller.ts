@@ -49,9 +49,9 @@ export class TripsController {
     return this.trips.notify(userId, text);
   }
 
-  /** The ₹/km rate the whole business runs on — shared with Expenses. */
-  private kmRate(): Promise<number> {
-    return this.trips.kmRate();
+  /** The ₹/km rate for a branch (its own, else the company fallback). */
+  private kmRate(branch?: string): Promise<number> {
+    return this.trips.kmRate(branch);
   }
 
   private autoExpenseForTrip(tripId: string) {
@@ -513,7 +513,11 @@ export class TripsController {
     const ids = await this.scopedUserIds(req, branch);
     const day = todayISO();
     const start = new Date(day + 'T00:00:00');
-    const rate = await this.kmRate();
+    // Each trip is worth its own branch's rate; the headline `rate` is the
+    // company fallback, kept for screens that still print one figure.
+    const rates = await this.trips.rateMap();
+    const rateOf = (b: string) => rates.get(b) ?? rates.get('') ?? 0;
+    const rate = rates.get('') ?? 0;
     const rows = await this.prisma.trip.findMany({
       where: {
         ...(ids ? { userId: { in: ids } } : {}),
@@ -534,14 +538,14 @@ export class TripsController {
         trips: rows.length,
         onRoad: active.length,
         distanceKm: Math.round(distM / 1000),
-        cost: Math.round((distM / 1000) * rate),
+        cost: doneToday.filter((t) => t.review !== 'rejected').reduce((a, t) => a + Math.round((t.distanceM / 1000) * rateOf(t.branch)), 0),
         needsReview: doneToday.filter((t) => t.review === 'pending').length,
       },
       rows: rows.map((t) => ({
         ...this.shape(t),
         userName: uOf.get(t.userId)?.name || 'Former staff',
         userColor: uOf.get(t.userId)?.color || '#888',
-        cost: Math.round((t.distanceM / 1000) * rate),
+        cost: Math.round((t.distanceM / 1000) * rateOf(t.branch)),
       })),
     };
   }
@@ -559,7 +563,7 @@ export class TripsController {
     }
     const [u, rate] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: t.userId }, select: { name: true, color: true } }),
-      this.kmRate(),
+      this.kmRate(t.branch),
     ]);
     return {
       ...this.shape(t),
@@ -629,7 +633,9 @@ export class TripsController {
     const ids = await this.scopedUserIds(req, branch);
     const start = new Date(day + 'T00:00:00');
     const end = new Date(day + 'T23:59:59.999');
-    const rate = await this.kmRate();
+    const rates = await this.trips.rateMap();
+    const rateOf = (b: string) => rates.get(b) ?? rates.get('') ?? 0;
+    const rate = rates.get('') ?? 0;
     const rows = await this.prisma.trip.findMany({
       where: {
         ...(ids ? { userId: { in: ids } } : {}),
@@ -639,10 +645,10 @@ export class TripsController {
     });
     const users = await this.prisma.user.findMany({ select: { id: true, name: true, color: true } });
     const uOf = new Map(users.map((u) => [u.id, u]));
-    const per = new Map<string, { trips: number; distM: number; review: number; claimed: number }>();
+    const per = new Map<string, { branch: string; trips: number; distM: number; review: number; claimed: number }>();
     for (const t of rows) {
       if (t.review === 'rejected') continue;
-      const g = per.get(t.userId) || { trips: 0, distM: 0, review: 0, claimed: 0 };
+      const g = per.get(t.userId) || { branch: t.branch, trips: 0, distM: 0, review: 0, claimed: 0 };
       g.trips += 1; g.distM += t.distanceM;
       if (t.review === 'pending') g.review += 1;
       if (t.claimId) g.claimed += 1;
@@ -654,7 +660,7 @@ export class TripsController {
       color: uOf.get(uid)?.color || '#888',
       trips: g.trips,
       distanceKm: +(g.distM / 1000).toFixed(1),
-      cost: Math.round((g.distM / 1000) * rate),
+      cost: Math.round((g.distM / 1000) * rateOf(g.branch)),
       toReview: g.review,
       claimed: g.claimed,
     })).sort((a, b) => b.cost - a.cost);
@@ -691,7 +697,8 @@ export class TripsController {
   async pushToClaim(@Body() body: Record<string, unknown>, @Req() req: Request & Jwt) {
     const day = String(body.date || todayISO()).slice(0, 10);
     const ids = await this.scopedUserIds(req, String(body.branch || '') || undefined);
-    if (!(await this.kmRate())) throw new BadRequestException('Set the \u20b9-per-km rate first (Settings \u2192 Organisation)');
+    const anyRate = [...(await this.trips.rateMap()).values()].some(Boolean);
+    if (!anyRate) throw new BadRequestException('Set the \u20b9-per-km rate on the branch first (Master data \u2192 Branches)');
     const start = new Date(day + 'T00:00:00');
     const end = new Date(day + 'T23:59:59.999');
     const rows = await this.prisma.trip.findMany({
