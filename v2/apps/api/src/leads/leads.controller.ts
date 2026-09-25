@@ -316,6 +316,15 @@ export class LeadsController {
 
     const data = pick(body);
 
+    /* Assignment is the office's call, not the field's. A salesperson may work
+       their own lead, but never hand it to someone else or move it to another
+       branch — so their owner/branch edits are dropped here regardless of what
+       the client sends. The UI hides the controls; this is the wall behind it. */
+    if (req.user.role !== 'admin' && req.user.role !== 'ops') {
+      delete data.owner;
+      delete data.branch;
+    }
+
     /* Re-tick the services and the lead is worth something different. Same
        sum as at capture, so an edited lead and a new one agree. */
     if ('interest' in data) {

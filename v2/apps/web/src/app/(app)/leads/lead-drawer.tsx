@@ -61,8 +61,10 @@ function Sec({ title, right, children }: {
   );
 }
 
-export default function LeadDrawer({ id, boot, onClose, onChanged }: {
+export default function LeadDrawer({ id, boot, canAssign, onClose, onChanged }: {
   id: string; boot: Bootstrap;
+  /** admin/ops only — everyone else sees the owner/branch but cannot change them. */
+  canAssign?: boolean;
   onClose: () => void; onChanged: () => void;
 }) {
   const [l, setL] = useState<LeadDetail | null>(null);
@@ -358,7 +360,7 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <label className="block">
               <span className="block text-[11px] text-muted mb-1">Branch / territory</span>
-              <select value={branch} onChange={(e) => setBranch(e.target.value)}
+              <select value={branch} disabled={!canAssign} onChange={(e) => setBranch(e.target.value)}
                 className="w-full h-11 lg:h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]">
                 <option value="">— no branch —</option>
                 {boot.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -366,18 +368,22 @@ export default function LeadDrawer({ id, boot, onClose, onChanged }: {
             </label>
             <label className="block">
               <span className="block text-[11px] text-muted mb-1">Assigned to</span>
-              <select value={owner} onChange={(e) => setOwner(e.target.value)}
+              <select value={owner} disabled={!canAssign} onChange={(e) => setOwner(e.target.value)}
                 className="w-full h-11 lg:h-8 px-2 rounded-lg border border-line text-[12.5px] bg-wash outline-none transition-colors focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]">
                 {owners.map((u) => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
               </select>
             </label>
           </div>
-          <button onClick={() => run(() => api.patch('/leads/' + id, { owner, branch }))}
-            className="mt-2.5 h-11 lg:h-8 px-3 rounded bg-accent text-white text-[14px] lg:text-[12.5px] font-semibold hover:brightness-90">
-            Save assignment
-          </button>
+          {canAssign ? (
+            <button onClick={() => run(() => api.patch('/leads/' + id, { owner, branch }))}
+              className="mt-2.5 h-11 lg:h-8 px-3 rounded bg-accent text-white text-[14px] lg:text-[12.5px] font-semibold hover:brightness-90">
+              Save assignment
+            </button>
+          ) : null}
           <p className="text-[11.5px] text-muted-2 mt-1.5">
-            The salesperson who follows this lead up. They see it on their pipeline and get the reminders.
+            {canAssign
+              ? 'The salesperson who follows this lead up. They see it on their pipeline and get the reminders.'
+              : 'Reassigning a lead or moving its branch is handled by the office.'}
           </p>
         </Sec>
 

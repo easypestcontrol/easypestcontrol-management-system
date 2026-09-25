@@ -322,6 +322,7 @@ export default function Leads() {
     </div>
       {openId && boot && (
         <LeadDrawer id={openId} boot={boot}
+          canAssign={me?.role === 'admin' || me?.role === 'ops'}
           onClose={() => setOpenId(null)} onChanged={reload} />
       )}
       {showNew && boot && (
