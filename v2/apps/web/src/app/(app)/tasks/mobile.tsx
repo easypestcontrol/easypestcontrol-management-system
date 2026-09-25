@@ -22,7 +22,7 @@ import { BackBar, Card, Chip, Fab, Screen, SearchBox, type Tone } from '@/compon
 export interface TaskRow {
   id: string; title: string; notes: string; assignee: string; branch: string;
   due: string; dueTime: string; priority: string; status: string; doneAt: string;
-  imageCount: number; hasVoice: boolean;
+  imageCount: number; hasVoice: boolean; fileCount: number;
   assigneeName: string; assigneeColor: string; createdByName: string;
 }
 
@@ -286,6 +286,11 @@ export default function TasksMobile({ rows, canManage, onOpen, onToggle, onNew }
                           {t.imageCount > 0 && (
                             <span className="flex items-center gap-1 text-[12px] text-muted-2 shrink-0">
                               <Icon name="upload" size={12} />{t.imageCount}
+                            </span>
+                          )}
+                          {t.fileCount > 0 && (
+                            <span className="flex items-center gap-1 text-[12px] text-muted-2 shrink-0">
+                              <Icon name="file" size={12} />{t.fileCount}
                             </span>
                           )}
                           {t.hasVoice && (

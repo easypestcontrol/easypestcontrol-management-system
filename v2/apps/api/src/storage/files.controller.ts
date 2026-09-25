@@ -19,11 +19,22 @@ import type { Response } from 'express';
 import { AuthGuard, Public } from '../auth/auth.guard';
 import { StorageService } from './storage.service';
 
-function send(res: Response, file: { body: Buffer; type: string } | null) {
+function send(res: Response, file: { body: Buffer; type: string } | null, download?: string) {
   if (!file) throw new NotFoundException('No such file');
   res.setHeader('Content-Type', file.type);
+  // Never let a browser guess a stored type into something it would run.
+  res.setHeader('X-Content-Type-Options', 'nosniff');
   // Immutable: the key is a UUID, so the bytes behind it never change.
   res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  if (download !== undefined) {
+    // A download rather than a tab: the browser saves it under the name the
+    // office gave it. `filename*` carries any script; plain `filename` is
+    // the ASCII fallback for the few clients that read only that.
+    const name = download.replace(/[\rN"\\]/g, ' ').trim() || 'file';
+    const ascii = name.replace(/[^\x20-\x7E]/g, '_');
+    res.setHeader('Content-Disposition',
+      `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`);
+  }
   res.end(file.body);
 }
 
@@ -51,13 +62,15 @@ export class FilesController {
   async one(
     @Param('key') key: string | string[],
     @Query('s') sig: string,
+    /** Present (`?dl=<name>`) when the click was "Download", not "show me". */
+    @Query('dl') dl: string | undefined,
     @Res() res: Response,
   ) {
     const path = Array.isArray(key) ? key.join('/') : key;
     // An unsigned request is not "unauthorised", it is a request for a file
     // this API never handed out. Say what a stranger should hear.
     if (!StorageService.verify(path, sig)) throw new NotFoundException('No such file');
-    send(res, await this.storage.get(path));
+    send(res, await this.storage.get(path), dl);
   }
 }
 

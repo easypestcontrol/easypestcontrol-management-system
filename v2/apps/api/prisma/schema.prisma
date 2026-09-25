@@ -707,10 +707,20 @@ model Task {
   due       String   @default("") // YYYY-MM-DD
   dueTime   String   @default("") // HH:MM
   priority  String   @default("normal") // low | normal | high
-  status    String   @default("open") // open | done
-  doneAt    String   @default("")
+  status    String   @default("open") // open | submitted (awaiting approval) | done
+  doneAt    String   @default("") // YYYY-MM-DD HH:MM the task was approved / finally completed
   images    Json     @default("[]") // reference photos, data URLs, shrunk client-side
   voice     String   @default("") // one voice note, data URL (audio/webm or picked file)
+  files     Json     @default("[]") // any other documents: [{name,type,size,ref}] - ref is an R2 key or an inline data URL
+  // --- completion proof + admin verification ------------------------------
+  submittedAt String @default("") // YYYY-MM-DD HH:MM the assignee sent it in for approval
+  submittedBy String @default("") // user id who submitted the completion
+  doneNotes   String @default("") // the assignee's note: what was actually done
+  doneImages  Json   @default("[]") // proof photos, data URLs, shrunk client-side
+  doneVoice   String @default("") // one proof voice note, data URL
+  doneFiles   Json   @default("[]") // proof documents/video: [{name,type,size,ref}]
+  approvedBy  String @default("") // the manager who verified it
+  reviewNote  String @default("") // the manager's note when approving or sending it back
   createdAt DateTime @default(now())
 }
 

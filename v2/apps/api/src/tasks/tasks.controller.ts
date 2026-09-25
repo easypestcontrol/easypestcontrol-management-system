@@ -17,6 +17,7 @@ import {
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { branchScope, branchWhere, clampScope, inScope } from '../branch.util';
+import { StorageService } from '../storage/storage.service';
 
 interface AuthedReq { user?: { sub?: string; role?: string } }
 
@@ -43,6 +44,55 @@ function cleanVoice(raw: unknown): string {
   return v;
 }
 
+/** Any other document on a task: a PDF, a spreadsheet, a signed letter.
+    Photos keep their own list because they are shown, not just kept. A file
+    goes to storage (R2, or inline where R2 is not configured) and the task
+    keeps its name, type, size and where it went. */
+const MAX_FILES = 10;
+const MAX_FILE_B = 15 * 1024 * 1024;
+/** Types a browser would run rather than show. Kept, but never under a type
+    that lets them execute on the app's own origin when served back. */
+const INERT_TYPES = ['text/html', 'application/xhtml+xml', 'image/svg+xml', 'text/javascript', 'application/javascript'];
+
+interface TaskFile { name: string; type: string; size: number; ref: string }
+/** What the form sends: a new file carries `data`; one already on the task
+    comes back as the `url` it was served with. */
+interface FileIn { name: string; type: string; size: number; data?: string; url?: string }
+
+function fileName(raw: unknown) {
+  return String(raw || '').replace(/[\\/:*?"<>|\r\n\t]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || 'file';
+}
+
+function cleanFiles(raw: unknown): FileIn[] {
+  if (!Array.isArray(raw)) return [];
+  const out: FileIn[] = [];
+  for (const v of raw) {
+    if (!v || typeof v !== 'object') continue;
+    const f = v as Record<string, unknown>;
+    const name = fileName(f.name);
+    const data = String(f.data || '');
+    if (data) {
+      const [head, b64] = data.split(';base64,');
+      if (!data.startsWith('data:') || !b64) continue;
+      // The decoded length, padding accounted for: what the file really weighs.
+      const size = Buffer.byteLength(b64, 'base64');
+      if (size > MAX_FILE_B) continue;
+      let type = head.slice(5).split(';')[0] || 'application/octet-stream';
+      if (INERT_TYPES.includes(type.toLowerCase())) type = 'application/octet-stream';
+      out.push({ name, type, size, data: 'data:' + type + ';base64,' + b64 });
+    } else if (typeof f.url === 'string' && f.url) {
+      out.push({ name, type: String(f.type || ''), size: Number(f.size) || 0, url: f.url });
+    }
+    if (out.length >= MAX_FILES) break;
+  }
+  return out;
+}
+
+const filesOf = (t: { files?: unknown }): TaskFile[] => (Array.isArray(t.files) ? t.files as TaskFile[] : []);
+/** Files the way the wire carries them: a URL a browser can fetch, never a key. */
+const filesOut = (list: TaskFile[]) =>
+  list.map((f) => ({ name: f.name, type: f.type, size: f.size, url: StorageService.url(f.ref) }));
+
 const pad2 = (n: number) => String(n).padStart(2, '0');
 function nowStamp(): string {
   const d = new Date();
@@ -52,7 +102,27 @@ function nowStamp(): string {
 @Controller('tasks')
 @UseGuards(AuthGuard)
 export class TasksController {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private storage: StorageService) {}
+
+  /**
+   * Put new files away and keep the ones that stayed. A kept file is matched
+   * by the URL it was served with, recomputed here and never trusted from
+   * the body, so a form cannot point a task at somebody else's object. What
+   * was dropped is deleted from storage.
+   */
+  private async storeFiles(incoming: FileIn[], id: string, existing: TaskFile[]): Promise<TaskFile[]> {
+    const kept: TaskFile[] = [];
+    for (const f of incoming) {
+      if (f.data) {
+        kept.push({ name: f.name, type: f.type, size: f.size, ref: await this.storage.put(f.data, 'tasks/' + id) });
+      } else if (f.url) {
+        const was = existing.find((e) => StorageService.url(e.ref) === f.url);
+        if (was && !kept.includes(was)) kept.push(was);
+      }
+    }
+    for (const e of existing) if (!kept.includes(e)) await this.storage.remove(e.ref);
+    return kept.slice(0, MAX_FILES);
+  }
 
   private canManage(role?: string) {
     return role === 'admin' || role === 'ops';
@@ -93,11 +163,12 @@ export class TasksController {
       // The list stays lean: attachment FLAGS ride here, the payloads come
       // from the detail endpoint when a task is opened.
       rows: rows.map((t) => {
-        const { images, voice, ...lean } = t;
+        const { images, voice, files, ...lean } = t;
         return {
           ...lean,
           imageCount: Array.isArray(images) ? images.length : 0,
           hasVoice: !!voice,
+          fileCount: filesOf({ files }).length,
           assigneeName: uOf.get(t.assignee)?.name || t.assignee || '—',
           assigneeColor: uOf.get(t.assignee)?.color || '#141414',
           createdByName: uOf.get(t.createdBy)?.name || t.createdBy || '—',
@@ -126,6 +197,7 @@ export class TasksController {
     const uOf = new Map(users.map((u) => [u.id, u]));
     return {
       ...t,
+      files: filesOut(filesOf(t)),
       assigneeName: uOf.get(t.assignee)?.name || t.assignee || '—',
       assigneeColor: uOf.get(t.assignee)?.color || '#141414',
       createdByName: uOf.get(t.createdBy)?.name || t.createdBy || '—',
@@ -153,9 +225,10 @@ export class TasksController {
       throw new ForbiddenException('That branch is outside your scope');
     }
 
+    const id = await this.nextId();
     const t = await this.prisma.task.create({
       data: {
-        id: await this.nextId(),
+        id,
         title,
         notes: String(body.notes || '').trim(),
         assignee,
@@ -166,6 +239,7 @@ export class TasksController {
         priority: PRIORITIES.includes(String(body.priority)) ? String(body.priority) : 'normal',
         images: cleanImages(body.images) as never,
         voice: cleanVoice(body.voice),
+        files: (await this.storeFiles(cleanFiles(body.files), id, [])) as never,
       },
     });
 
@@ -212,6 +286,7 @@ export class TasksController {
       }
       if ('images' in body) data.images = cleanImages(body.images);
       if ('voice' in body) data.voice = cleanVoice(body.voice);
+      if ('files' in body) data.files = await this.storeFiles(cleanFiles(body.files), id, filesOf(t));
       if ('assignee' in body) {
         const a = String(body.assignee || '').trim();
         if (a && !(await this.prisma.user.findUnique({ where: { id: a } }))) {
@@ -233,7 +308,7 @@ export class TasksController {
         },
       });
     }
-    return up;
+    return { ...up, files: filesOut(filesOf(up)) };
   }
 
   @Delete(':id')
@@ -244,6 +319,8 @@ export class TasksController {
     if (!inScope(await branchScope(this.prisma, req.user), t.branch)) {
       throw new NotFoundException('No such task');
     }
+    // Its documents go with it; storage is not a place things are forgotten.
+    for (const f of filesOf(t)) await this.storage.remove(f.ref);
     await this.prisma.task.delete({ where: { id } });
     return { ok: true };
   }

@@ -23,10 +23,13 @@ import TimePicker from '@/components/time-picker';
 interface Row {
   id: string; title: string; notes: string; assignee: string; createdBy: string;
   branch: string; due: string; dueTime: string; priority: string; status: string;
-  doneAt: string; imageCount: number; hasVoice: boolean;
+  doneAt: string; imageCount: number; hasVoice: boolean; fileCount: number;
   assigneeName: string; assigneeColor: string; createdByName: string;
 }
-interface Full extends Row { images: string[]; voice: string }
+/** A document on a task. New from the form it carries `data`; back from the
+    API it carries the `url` it is served at. */
+interface TFile { name: string; type: string; size: number; url?: string; data?: string }
+interface Full extends Row { images: string[]; voice: string; files: TFile[] }
 interface Payload { rows: Row[]; canManage: boolean }
 
 interface Draft {
@@ -35,12 +38,12 @@ interface Draft {
      each of them can finish their own — see the note at save(). */
   assignees?: string[];
   due: string; dueTime: string; priority: string;
-  images: string[]; voice: string;
+  images: string[]; voice: string; files: TFile[];
 }
 
 const blank = (): Draft => ({
   title: '', notes: '', branch: '', assignee: '', assignees: [],
-  due: '', dueTime: '', priority: 'normal', images: [], voice: '',
+  due: '', dueTime: '', priority: 'normal', images: [], voice: '', files: [],
 });
 
 /* ---------------------------------------------------------------- helpers */
@@ -58,6 +61,19 @@ const todayISO = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+
+/** A document may be as big as a scanned contract; anything past this is a
+    video, and a task is not the place for one. Mirrors the API's cap. */
+const MAX_FILE_B = 15 * 1024 * 1024;
+const fmtSize = (n: number) =>
+  n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B';
+/** The extension a data URL's type implies: "image/jpeg" -> "jpeg". */
+const mimeExt = (dataUrl: string, fallback: string) =>
+  (dataUrl.startsWith('data:') ? dataUrl.slice(5).split(';')[0].split('/')[1] || '' : '').split('+')[0] || fallback;
+/** The download form of a served file: the API attaches it under its name.
+    An inline data URL needs nothing; the `download` attribute does the rest. */
+const dlHref = (url: string, name: string) =>
+  url.startsWith('data:') ? url : url + (url.includes('?') ? '&' : '?') + 'dl=' + encodeURIComponent(name);
 const initials = (n: string) => n.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 
 /** Downscale a photo so six of them never bloat a row. */
@@ -165,7 +181,7 @@ export default function TasksPage() {
       title: t.title, notes: t.notes, branch: t.branch, assignee: t.assignee,
       assignees: t.assignee ? [t.assignee] : [],
       due: t.due, dueTime: t.dueTime, priority: t.priority,
-      images: t.images || [], voice: t.voice || '',
+      images: t.images || [], voice: t.voice || '', files: t.files || [],
     });
   }
 
@@ -184,6 +200,11 @@ export default function TasksPage() {
       {t.imageCount > 0 && (
         <span className="inline-flex items-center gap-0.5 text-[10.5px] text-muted" title={t.imageCount + ' photo(s)'}>
           <Icon name="upload" size={11} />{t.imageCount}
+        </span>
+      )}
+      {t.fileCount > 0 && (
+        <span className="inline-flex items-center gap-0.5 text-[10.5px] text-muted" title={t.fileCount + ' file(s)'}>
+          <Icon name="file" size={11} />{t.fileCount}
         </span>
       )}
       {t.hasVoice && <span className="text-[10.5px] text-muted" title="Voice note">🎙</span>}
@@ -445,9 +466,38 @@ function TaskDetail({ t, canManage, branchName, onClose, onToggle, onEdit, onRem
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1.5">Photos</p>
               <div className="flex flex-wrap gap-2">
                 {t.images.map((src, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={i} src={src} alt="" onClick={() => setZoom(src)}
-                    className="w-[96px] h-[72px] object-cover rounded border border-line cursor-zoom-in" />
+                  <span key={i} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="" onClick={() => setZoom(src)}
+                      className="w-[96px] h-[72px] object-cover rounded border border-line cursor-zoom-in" />
+                    <a href={src} download={'photo-' + (i + 1) + '.' + mimeExt(src, 'jpg')} title="Download photo"
+                      className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-white/90 border border-line
+                        flex items-center justify-center text-ink hover:text-accent">
+                      <Icon name="download" size={12} />
+                    </a>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(t.files || []).length > 0 && (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1.5">Files</p>
+              <div className="rounded border border-line divide-y divide-line-soft">
+                {t.files.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2.5 px-3 py-2">
+                    <Icon name="file" size={16} className="text-muted shrink-0" />
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-[13px] font-medium truncate">{f.name}</span>
+                      <span className="block text-[11px] text-muted">{fmtSize(f.size)}</span>
+                    </span>
+                    <a href={dlHref(f.url || '', f.name)} download={f.name} target="_blank" rel="noreferrer"
+                      className="h-8 px-3 rounded border border-line text-[12px] font-semibold flex items-center
+                        gap-1.5 hover:bg-wash shrink-0">
+                      <Icon name="download" size={13} /> Download
+                    </a>
+                  </div>
                 ))}
               </div>
             </div>
@@ -456,7 +506,14 @@ function TaskDetail({ t, canManage, branchName, onClose, onToggle, onEdit, onRem
           {t.voice && (
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1.5">Voice note</p>
-              <audio controls src={t.voice} className="w-full h-10" />
+              <div className="flex items-center gap-2">
+                <audio controls src={t.voice} className="flex-1 h-10" />
+                <a href={t.voice} download={'voice-note.' + mimeExt(t.voice, 'webm')} title="Download voice note"
+                  className="w-9 h-9 rounded border border-line flex items-center justify-center text-ink
+                    hover:text-accent shrink-0">
+                  <Icon name="download" size={14} />
+                </a>
+              </div>
             </div>
           )}
         </div>
@@ -557,11 +614,24 @@ function TaskForm({ draft, setDraft, boot, editing, onClose, onSaved }: {
     reader.readAsDataURL(f);
   }
 
-  async function addImages(files: FileList) {
-    const room = 6 - d.images.length;
-    const picked = Array.from(files).slice(0, room);
-    const shrunk = await Promise.all(picked.map((f) => shrinkImage(f, 900)));
-    set({ images: [...d.images, ...shrunk] });
+  /* One picker for everything. A photo is shrunk and shown; anything else, a
+     PDF, a spreadsheet, a signed letter, is kept as it is, named, and offered
+     back as a download. */
+  async function addFiles(list: FileList) {
+    const all = Array.from(list);
+    const photos = all.filter((f) => f.type.startsWith('image/')).slice(0, 6 - d.images.length);
+    const docs = all.filter((f) => !f.type.startsWith('image/'));
+    const tooBig = docs.filter((f) => f.size > MAX_FILE_B);
+    const fits = docs.filter((f) => f.size <= MAX_FILE_B).slice(0, 10 - d.files.length);
+    const shrunk = await Promise.all(photos.map((f) => shrinkImage(f, 900)));
+    const read = await Promise.all(fits.map((f) => new Promise<TFile>((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res({ name: f.name, type: f.type || 'application/octet-stream', size: f.size, data: String(r.result || '') });
+      r.onerror = () => rej(r.error);
+      r.readAsDataURL(f);
+    })));
+    set({ images: [...d.images, ...shrunk], files: [...d.files, ...read] });
+    if (tooBig.length) setErr(tooBig.map((f) => f.name).join(', ') + (tooBig.length > 1 ? ' are' : ' is') + ' over 15 MB');
   }
 
   async function save() {
@@ -631,16 +701,34 @@ function TaskForm({ draft, setDraft, boot, editing, onClose, onSaved }: {
                   </button>
                 </span>
               ))}
-              {d.images.length < 6 && (
+              {(d.images.length < 6 || d.files.length < 10) && (
                 <label className="w-[72px] h-[56px] rounded border border-dashed border-line flex flex-col
                   items-center justify-center text-muted hover:border-navy cursor-pointer">
                   <Icon name="plus" size={14} />
-                  <span className="text-[9.5px] mt-0.5">Photo</span>
-                  <input type="file" accept="image/*" multiple hidden
-                    onChange={(e) => { if (e.target.files?.length) addImages(e.target.files); e.target.value = ''; }} />
+                  <span className="text-[9.5px] mt-0.5">Add file</span>
+                  {/* Anything: photos, PDFs, sheets, letters. addFiles sorts out
+                      which path each one takes. */}
+                  <input type="file" multiple hidden
+                    onChange={(e) => { if (e.target.files?.length) addFiles(e.target.files); e.target.value = ''; }} />
                 </label>
               )}
             </div>
+            {d.files.length > 0 && (
+              <div className="flex flex-col gap-1.5 mb-2.5">
+                {d.files.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 h-9 px-2.5 rounded border border-line bg-wash">
+                    <Icon name="file" size={14} className="text-muted shrink-0" />
+                    <span className="flex-1 min-w-0 text-[12.5px] truncate">{f.name}</span>
+                    <span className="text-[11px] text-muted shrink-0">{fmtSize(f.size)}</span>
+                    <button onClick={() => set({ files: d.files.filter((_, j) => j !== i) })}
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-muted hover:text-accent shrink-0"
+                      aria-label="Remove file">
+                      <Icon name="x" size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {d.voice ? (
               <div className="flex items-center gap-2">
