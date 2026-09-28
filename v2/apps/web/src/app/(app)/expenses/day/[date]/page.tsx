@@ -22,6 +22,7 @@ import { Icon } from '@/components/icons';
 import { niceDate, shiftDay, todayISO, type Exp, type Summary } from '../../ui';
 import { PersonGroup, ReceiptModal, groupByPerson, type Group } from '../../expense-row';
 import PayDialog, { type PayTarget } from '../../pay-dialog';
+import { LockedDay } from '../../window';
 
 interface Report {
   id: string; title: string; branch: string; branchName: string; status: string;
@@ -39,14 +40,20 @@ export default function DayPage() {
   const [note, setNote] = useState('');
   const [pay, setPay] = useState<PayTarget | null>(null);
   const [receipt, setReceipt] = useState<{ title: string; images: string[] } | null>(null);
+  // A date outside the window: the server refuses it, and says why.
+  const [locked, setLocked] = useState('');
 
   const load = useCallback(() => {
     api.get<Day>('/expenses/day/' + date).then((x) => {
+      setLocked('');
       setD(x);
       // Keep the branch that was open; on a fresh day, start where the work is.
       setSel((cur) => (x.reports.some((r) => r.id === cur) ? cur
         : (x.reports.find((r) => r.summary.pending > 0) || x.reports[0])?.id || ''));
-    }).catch(() => setD({ date, rate: 0, summary: empty(), reports: [] }));
+    }).catch((e) => {
+      if (e instanceof ApiError && e.status === 403) { setLocked(e.message); return; }
+      setD({ date, rate: 0, summary: empty(), reports: [] });
+    });
   }, [date]);
   useEffect(() => { load(); }, [load]);
 
@@ -89,6 +96,7 @@ export default function DayPage() {
     } catch { setErr('Could not load the receipt'); }
   }
 
+  if (locked) return <LockedDay message={locked} />;
   if (!d) return <div className="p-6 text-muted text-[13px]">Loading…</div>;
   const S = d.summary;
   const openReports = d.reports.filter((r) => r.status !== 'closed');

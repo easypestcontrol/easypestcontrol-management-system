@@ -22,6 +22,7 @@ import { AuthGuard, Roles } from '../auth/auth.guard';
 import { branchScope, branchWhere, clampScope, inScope } from '../branch.util';
 import { open, seal } from '../secrets.util';
 import { TripsService } from '../trips/trips.service';
+import { dateOpen, expenseWindow, lockedMessage, mustBeOpenDate } from './window';
 
 interface AuthedReq { user?: { sub?: string; role?: string } }
 
@@ -235,6 +236,12 @@ export class ExpensesController {
   }
 
   /** The list the form offers. Everyone sees it; only the office edits it. */
+  /** Which dates are open to the person asking. The admin has no window. */
+  @Get('window')
+  window(@Req() req: AuthedReq) {
+    return expenseWindow(req.user?.role);
+  }
+
   @Get('categories')
   async listCategories() {
     await this.seedCategories();
@@ -282,6 +289,8 @@ export class ExpensesController {
   async createReport(@Body() body: Record<string, unknown>, @Req() req: AuthedReq) {
     const date = String(body.date || '').trim().slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new BadRequestException('Pick a valid date');
+    // Only the admin opens a report outside the window.
+    mustBeOpenDate(req.user?.role, date);
     const branch = String(body.branch || '').trim();
     if (!branch) throw new BadRequestException('Pick a branch');
     if (!inScope(await branchScope(this.prisma, req.user), branch)) {
@@ -335,6 +344,7 @@ export class ExpensesController {
     });
     if (!r) throw new NotFoundException('No such report');
     if (!inScope(await branchScope(this.prisma, req.user), r.branch)) throw new NotFoundException('No such report');
+    mustBeOpenDate(req.user?.role, r.date);
     const users = await this.prisma.user.findMany({ select: { id: true, name: true, color: true } });
     const uOf = new Map(users.map((u) => [u.id, u]));
     return {
@@ -394,6 +404,7 @@ export class ExpensesController {
     });
     return {
       ym: m,
+      window: expenseWindow(req.user?.role),
       totals: this.summarise(everything),
       days: [...days.values()].sort((a, b) => a.date.localeCompare(b.date)),
       recent: recent.map((e) => ({
@@ -414,6 +425,7 @@ export class ExpensesController {
   async day(@Param('date') date: string, @Req() req: AuthedReq, @Query('branch') branch?: string) {
     const d = String(date || '').slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new BadRequestException('Pick a valid date');
+    mustBeOpenDate(req.user?.role, d);
     const scope = clampScope(await branchScope(this.prisma, req.user), branch);
     const [reports, branches, users, rate] = await Promise.all([
       this.prisma.expenseReport.findMany({
@@ -449,6 +461,7 @@ export class ExpensesController {
   async closeDay(@Param('date') date: string, @Body() body: Record<string, unknown>, @Req() req: AuthedReq) {
     const d = String(date || '').slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new BadRequestException('Pick a valid date');
+    mustBeOpenDate(req.user?.role, d);
     const reopen = !!body.reopen;
     const scope = clampScope(await branchScope(this.prisma, req.user), undefined);
     const reports = await this.prisma.expenseReport.findMany({
@@ -492,6 +505,7 @@ export class ExpensesController {
     const date = String(body.date || '').slice(0, 10);
     const ids = Array.isArray(body.ids) ? (body.ids as unknown[]).map(String) : [];
     if (!reportId && !date && !ids.length) throw new BadRequestException('Say what to approve');
+    if (date) mustBeOpenDate(req.user?.role, date);
     const scope = await branchScope(this.prisma, req.user);
     const targets = await this.prisma.expense.findMany({
       where: {
@@ -500,7 +514,12 @@ export class ExpensesController {
       },
       include: { report: { select: { status: true } } },
     });
-    const ok = targets.filter((e) => inScope(scope, e.branch) && e.report.status !== 'closed');
+    const mine = targets.filter((e) => inScope(scope, e.branch));
+    // A locked date is refused outright rather than quietly skipped: the
+    // person should hear why nothing happened.
+    const shut = mine.find((e) => !dateOpen(req.user?.role, e.date));
+    if (shut) throw new ForbiddenException(lockedMessage(shut.date));
+    const ok = mine.filter((e) => e.report.status !== 'closed');
     if (!ok.length) {
       throw new BadRequestException(targets.length
         ? 'That report is closed - reopen it to approve' : 'Nothing pending to approve');
@@ -532,6 +551,7 @@ export class ExpensesController {
     const r = await this.prisma.expenseReport.findUnique({ where: { id } });
     if (!r) throw new NotFoundException('No such report');
     if (!inScope(await branchScope(this.prisma, req.user), r.branch)) throw new NotFoundException('No such report');
+    mustBeOpenDate(req.user?.role, r.date);
     const reopening = r.status === 'closed';
     if (!reopening) {
       const lines = await this.prisma.expense.findMany({ where: { reportId: id }, select: { status: true, amount: true, paidAmount: true } });
@@ -554,6 +574,7 @@ export class ExpensesController {
     const r = await this.prisma.expenseReport.findUnique({ where: { id }, include: { expenses: { select: { id: true } } } });
     if (!r) throw new NotFoundException('No such report');
     if (!inScope(await branchScope(this.prisma, req.user), r.branch)) throw new NotFoundException('No such report');
+    mustBeOpenDate(req.user?.role, r.date);
     if (r.expenses.length) throw new BadRequestException('This report has expenses — close it instead of deleting.');
     await this.prisma.expenseReport.delete({ where: { id } });
     return { ok: true };
@@ -567,6 +588,8 @@ export class ExpensesController {
     const d = String(date || '').slice(0, 10);
     const branch = await this.myBranch(req?.user?.sub || '');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !branch) return { found: false };
+    // A locked date says so before the person has filled the form in.
+    if (!dateOpen(req?.user?.role, d)) return { found: false, locked: true, message: lockedMessage(d) };
     const r = await this.prisma.expenseReport.findUnique({ where: { date_branch: { date: d, branch } } });
     return r ? { found: true, id: r.id, title: r.title, closed: r.status === 'closed' } : { found: false };
   }
@@ -577,6 +600,8 @@ export class ExpensesController {
     const me = req.user?.sub || '';
     const date = String(body.date || '').trim().slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new BadRequestException('Pick a valid date');
+    // A claim is filed within the window; only the admin files further back.
+    mustBeOpenDate(req.user?.role, date);
     const branch = await this.myBranch(me);
     if (!branch) throw new BadRequestException('Your account has no branch — ask the office to set it');
 
@@ -663,7 +688,10 @@ export class ExpensesController {
   ) {
     const scope = clampScope(await branchScope(this.prisma, req.user), branch);
     const where: Record<string, unknown> = { ...branchWhere(scope) };
-    if (from || to) where.date = { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) };
+    const win = expenseWindow(req.user?.role);
+    const lo = win.unlimited ? from : (from && from > win.from ? from : win.from);
+    const hi = win.unlimited ? to : (to && to < win.to ? to : win.to);
+    if (lo || hi) where.date = { ...(lo ? { gte: lo } : {}), ...(hi ? { lte: hi } : {}) };
     if (employee) where.userId = employee;
     if (category) where.category = category;
     if (status) where.status = status;
@@ -696,6 +724,7 @@ export class ExpensesController {
       if (!this.manage(req.user?.role) || !inScope(await branchScope(this.prisma, req.user), e.branch)) {
         throw new NotFoundException('No such expense');
       }
+      mustBeOpenDate(req.user?.role, e.date);
     }
     const [u, report] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: e.userId }, select: { name: true, color: true } }),
@@ -709,6 +738,7 @@ export class ExpensesController {
       images: (Array.isArray(e.images) ? e.images : []) as string[],
       canManage: this.manage(req.user?.role) && !mine,
       mine,
+      dateLocked: !dateOpen(req.user?.role, e.date),
     };
   }
 
@@ -719,6 +749,7 @@ export class ExpensesController {
     if (!e) throw new NotFoundException('No such expense');
     if (e.userId !== (req.user?.sub || '')) throw new ForbiddenException('Not your expense');
     if (e.status !== 'pending') throw new BadRequestException('Only a pending expense can be changed');
+    mustBeOpenDate(req.user?.role, e.date);
     await this.mustBeOpen(e.reportId);
     const data: Record<string, unknown> = {};
     if ('amount' in body) { const a = Math.round(Number(body.amount) || 0); if (a <= 0) throw new BadRequestException('Enter the amount'); data.amount = a; }
@@ -739,6 +770,7 @@ export class ExpensesController {
     if (e.userId !== (req.user?.sub || '')) throw new ForbiddenException('Not your expense');
     if (e.status !== 'pending') throw new BadRequestException('Only a pending expense can be withdrawn');
     if (e.source === 'auto_trip') throw new BadRequestException('A trip expense is withdrawn by rejecting the trip');
+    mustBeOpenDate(req.user?.role, e.date);
     await this.mustBeOpen(e.reportId);
     await this.prisma.expense.delete({ where: { id } });
     await this.hist(e.reportId, e.id + ' withdrawn by the employee');
@@ -753,6 +785,7 @@ export class ExpensesController {
     if (!e) throw new NotFoundException('No such expense');
     if (!inScope(await branchScope(this.prisma, req.user), e.branch)) throw new NotFoundException('No such expense');
     if (e.status !== 'pending') throw new BadRequestException('This expense is not pending');
+    mustBeOpenDate(req.user?.role, e.date);
     await this.mustBeOpen(e.reportId);
     const approve = !!body.approve;
     const reason = String(body.reason || '').trim();
@@ -792,6 +825,7 @@ export class ExpensesController {
     const ids = Array.isArray(body.ids) ? (body.ids as unknown[]).map(String) : [];
     const part = body.amount != null && body.amount !== '' ? Math.round(Number(body.amount) || 0) : 0;
     if (!reportId && !date && !ids.length) throw new BadRequestException('Say what to pay');
+    if (date) mustBeOpenDate(req.user?.role, date);
 
     let targets = await this.prisma.expense.findMany({
       where: {
@@ -802,6 +836,8 @@ export class ExpensesController {
     });
     const scope = await branchScope(this.prisma, req.user);
     targets = targets.filter((e) => inScope(scope, e.branch));
+    const shut = targets.find((e) => !dateOpen(req.user?.role, e.date));
+    if (shut) throw new ForbiddenException(lockedMessage(shut.date));
     if (!targets.length) throw new BadRequestException('Nothing approved and unpaid here');
     if (targets.some((e) => e.report.status === 'closed')) {
       throw new BadRequestException('That report is closed - reopen it to pay');

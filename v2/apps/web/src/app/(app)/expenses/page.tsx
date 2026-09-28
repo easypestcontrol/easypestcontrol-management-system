@@ -24,13 +24,14 @@ import MonthGrid, { type DayCell } from './calendar';
 import OpenReport from './open-report';
 import AddExpense from './add-expense';
 import MyExpensesMobile from './mobile';
+import { WindowNote, isLocked, useExpenseWindow, type ExpenseWindow } from './window';
 
 interface Recent {
   id: string; date: string; category: string; merchant: string; amount: number; paidAmount: number;
   status: string; source: string; branch: string; branchName: string; reportId: string;
   employeeName: string; employeeColor: string;
 }
-interface MonthData { ym: string; totals: Summary; days: DayCell[]; recent: Recent[] }
+interface MonthData { ym: string; window?: ExpenseWindow; totals: Summary; days: DayCell[]; recent: Recent[] }
 interface MineRow {
   id: string; date: string; category: string; merchant: string; note: string; amount: number; paidAmount: number;
   status: string; source: string; tripId: string; rejectReason: string; hasReceipt: boolean;
@@ -63,6 +64,10 @@ function ManagerView() {
 
   const T = data?.totals || empty();
   const thisMonth = ym === todayISO().slice(0, 7);
+  // The admin has no window; everyone else sees the dates outside theirs
+  // padlocked, on the calendar and in the list beside it.
+  const win = data?.window || null;
+  const limited = !!win && !win.unlimited;
   const tiles = [
     { l: 'This month', v: money(T.total), sub: T.count + (T.count === 1 ? ' expense' : ' expenses'), icon: 'receipt' as const, bg: 'bg-sky', ink: 'text-sky-ink' },
     { l: 'Pending', v: money(T.pending), sub: T.pendingCount ? T.pendingCount + ' to verify' : 'nothing to verify', icon: 'alert' as const, bg: 'bg-rose', ink: 'text-rose-ink', hot: T.pendingCount > 0 },
@@ -83,6 +88,8 @@ function ManagerView() {
           <button onClick={() => setOpening(true)} className="h-10 lg:h-9 flex-1 lg:flex-none min-w-0 px-4 rounded bg-accent text-white text-[13px] font-semibold whitespace-nowrap hover:brightness-90">Open report</button>
         </div>
       </div>
+
+      <WindowNote w={win} />
 
       {/* month nav */}
       <div className="flex items-center gap-2 mb-4">
@@ -118,7 +125,8 @@ function ManagerView() {
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-4 items-start">
         <div className="card p-3 lg:p-4">
           {!data ? <div className="text-muted text-[13px] p-6 text-center">Loading…</div>
-            : <MonthGrid ym={ym} days={data.days} onPick={(d) => router.push('/expenses/day/' + d)} />}
+            : <MonthGrid ym={ym} days={data.days} onPick={(d) => router.push('/expenses/day/' + d)}
+                locked={limited ? (d) => isLocked(win, d) : undefined} />}
         </div>
 
         <div className="card">
@@ -131,15 +139,18 @@ function ManagerView() {
               <div className="p-8 text-center text-muted text-[13px]">No expenses this month yet.</div>
             ) : data.recent.map((e) => {
               const c = chip(e.status);
+              const shut = isLocked(win, e.date);
               return (
-                <button key={e.id} onClick={() => router.push('/expenses/day/' + e.date)}
-                  className="w-full text-left flex items-center gap-3 px-4 py-2.5 border-b border-line-soft last:border-0 hover:bg-wash transition-colors">
+                <button key={e.id} disabled={shut} onClick={() => { if (!shut) router.push('/expenses/day/' + e.date); }}
+                  title={shut ? 'Locked — only the admin can open this date' : undefined}
+                  className={'w-full text-left flex items-center gap-3 px-4 py-2.5 border-b border-line-soft last:border-0 transition-colors '
+                    + (shut ? 'opacity-55 cursor-not-allowed' : 'hover:bg-wash')}>
                   <span className="w-8 h-8 rounded-lg bg-rose text-rose-ink flex items-center justify-center shrink-0">
                     <Icon name={catIcon(e.category)} size={14} />
                   </span>
                   <span className="flex-1 min-w-0">
                     <span className="block text-[13px] font-semibold truncate">{e.category}{e.merchant ? ' · ' + e.merchant : ''}</span>
-                    <span className="block text-[11.5px] text-muted truncate">{e.employeeName} · {e.branchName} · {niceDate(e.date)}</span>
+                    <span className="block text-[11.5px] text-muted truncate">{e.employeeName} · {e.branchName} · {niceDate(e.date)}{shut ? ' · locked' : ''}</span>
                   </span>
                   <span className="text-right shrink-0">
                     <span className="block text-[13px] font-bold tabular-nums">{money(e.amount)}</span>
@@ -167,6 +178,7 @@ function EmployeeView() {
   const load = useCallback(() => { api.get<{ rows: MineRow[] }>('/expenses/mine').then((r) => setRows(r.rows)).catch(() => setRows([])); }, []);
   useEffect(() => { load(); }, [load]);
   const shown = (rows || []).filter((r) => f === 'all' || r.status === f);
+  const win = useExpenseWindow();
   const TABS = [['all', 'All'], ['pending', 'Pending'], ['approved', 'Approved'], ['partial', 'Partly paid'], ['reimbursed', 'Paid'], ['rejected', 'Rejected']];
 
   return (
@@ -182,6 +194,8 @@ function EmployeeView() {
         </div>
         <button onClick={() => setAdding(true)} className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90">Add expense</button>
       </div>
+
+      <WindowNote w={win} />
 
       <div className="flex gap-1 overflow-x-auto no-scrollbar mb-4">
         {TABS.map(([k, l]) => (

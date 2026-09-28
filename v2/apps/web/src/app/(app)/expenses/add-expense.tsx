@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { inputCls, todayISO, type Category } from './ui';
+import { isLocked, lockedText, useExpenseWindow, windowText } from './window';
 
 const OTHER = '__other__';
 
@@ -26,7 +27,9 @@ export default function AddExpense({ onClose, onDone, page }: {
   page?: boolean;
 }) {
   const [date, setDate] = useState(todayISO());
-  const [report, setReport] = useState<{ found: boolean; title?: string; closed?: boolean } | null>(null);
+  const [report, setReport] = useState<{ found: boolean; title?: string; closed?: boolean; locked?: boolean; message?: string } | null>(null);
+  const win = useExpenseWindow();
+  const limited = !!win && !win.unlimited;
   const [cats, setCats] = useState<Category[]>([]);
   const [category, setCategory] = useState('');
   const [other, setOther] = useState('');
@@ -49,7 +52,7 @@ export default function AddExpense({ onClose, onDone, page }: {
   useEffect(() => {
     setReport(null);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-    api.get<{ found: boolean; title?: string; closed?: boolean }>('/expenses/report-for?date=' + date)
+    api.get<{ found: boolean; title?: string; closed?: boolean; locked?: boolean; message?: string }>('/expenses/report-for?date=' + date)
       .then(setReport).catch(() => setReport({ found: false }));
   }, [date]);
 
@@ -67,8 +70,10 @@ export default function AddExpense({ onClose, onDone, page }: {
   }
 
   const finalCategory = category === OTHER ? other.trim() : category;
-  // Only a closed folder stops a claim; a missing one opens itself server-side.
-  const canAdd = !report?.closed && Number(amount) > 0 && !!finalCategory;
+  // A closed folder stops a claim, and so does a date outside the window; a
+  // missing folder opens itself server-side.
+  const shut = !!report?.locked || isLocked(win, date);
+  const canAdd = !report?.closed && !shut && Number(amount) > 0 && !!finalCategory;
 
   async function submit() {
     if (busy || !canAdd) return;
@@ -108,11 +113,20 @@ export default function AddExpense({ onClose, onDone, page }: {
         <div className="p-5 flex flex-col gap-3.5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <label className="block">
             <span className="block text-[13px] lg:text-[12px] font-semibold text-ink-2 mb-1.5">Date</span>
-            <input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} className={input} />
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={input}
+              min={limited ? win!.from : undefined} max={limited ? win!.to : undefined} />
+            {limited && <span className="block text-[11.5px] text-muted mt-1">You can claim for {windowText(win!)}.</span>}
           </label>
 
+          {shut && (
+            <div className="rounded-lg border border-red-line bg-rose text-accent px-3 py-2 text-[12.5px] flex items-start gap-2">
+              <Icon name="lock" size={14} className="shrink-0 mt-[1px]" />
+              <span>{report?.message || (win ? lockedText(win, date) : 'This date is locked.')}</span>
+            </div>
+          )}
+
           {/* the branch+date report the system found for me */}
-          {report && (report.found
+          {!shut && report && (report.found
             ? <div className={'rounded-lg border px-3 py-2 text-[12.5px] ' + (report.closed ? 'border-red-line bg-rose text-accent' : 'border-navy/25 bg-wash')}>
                 {report.closed
                   ? <>This report is closed — no new expenses until the office reopens it.</>

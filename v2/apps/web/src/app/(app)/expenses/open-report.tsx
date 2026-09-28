@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError, type Bootstrap } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { inputCls, todayISO } from './ui';
+import { isLocked, lockedText, useExpenseWindow, windowText } from './window';
 
 export default function OpenReport({ date: initial, onClose, onDone }: {
   date?: string;
@@ -18,13 +19,16 @@ export default function OpenReport({ date: initial, onClose, onDone }: {
   const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const win = useExpenseWindow();
+  const limited = !!win && !win.unlimited;
+  const shut = isLocked(win, date);
   useEffect(() => {
     api.get<Bootstrap>('/org/bootstrap').then((b) => {
       setBranches(b.branches); if (b.branches[0]) setBranch(b.branches[0].id);
     }).catch(() => {});
   }, []);
   async function create() {
-    if (busy || !branch) return;
+    if (busy || !branch || shut) return;
     setBusy(true); setErr('');
     try { const r = await api.post<{ id: string }>('/expenses/reports', { date, branch }); onDone(r.id); }
     catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not open the report'); setBusy(false); }
@@ -38,14 +42,18 @@ export default function OpenReport({ date: initial, onClose, onDone }: {
         </div>
         <div className="p-5 flex flex-col gap-3.5">
           <label className="block"><span className="block text-[12px] font-semibold text-ink-2 mb-1">Date</span>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} /></label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls}
+              min={limited ? win!.from : undefined} max={limited ? win!.to : undefined} />
+            {limited && <span className="block text-[11.5px] text-muted mt-1">Open to you: {windowText(win!)}. Only the admin can open other dates.</span>}
+          </label>
           <label className="block"><span className="block text-[12px] font-semibold text-ink-2 mb-1">Branch</span>
             <select value={branch} onChange={(e) => setBranch(e.target.value)} className={inputCls}>
               {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select></label>
           <p className="text-[11.5px] text-muted">One report per branch per day. The branch&rsquo;s people then add their expenses into it.</p>
+          {shut && win && <p className="text-[12.5px] text-accent">{lockedText(win, date)}</p>}
           {err && <p className="text-[12.5px] text-accent">{err}</p>}
-          <button onClick={create} disabled={busy} className="h-11 rounded-md bg-accent text-white text-[14px] font-bold hover:brightness-90 disabled:opacity-50">Open report</button>
+          <button onClick={create} disabled={busy || shut} className="h-11 rounded-md bg-accent text-white text-[14px] font-bold hover:brightness-90 disabled:opacity-50">Open report</button>
         </div>
       </div>
     </div>

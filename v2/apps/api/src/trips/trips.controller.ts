@@ -5,6 +5,7 @@
    When an Ola Maps key is connected (Settings → Integrations) the same data
    feeds the live map.
    ========================================================================== */
+import { mustBeOpenDate } from '../expenses/window';
 import {
   BadRequestException, Body, Controller, Get, NotFoundException,
   Param, Post, Query, Req, UseGuards,
@@ -692,6 +693,8 @@ export class TripsController {
   @Roles('admin', 'ops')
   async pushToClaim(@Body() body: Record<string, unknown>, @Req() req: Request & Jwt) {
     const day = String(body.date || todayISO()).slice(0, 10);
+    // Pushing trips into a day's reports is working on that day.
+    mustBeOpenDate(req.user?.role, day);
     const ids = await this.scopedUserIds(req, String(body.branch || '') || undefined);
     const anyRate = (await this.trips.rateFn()).any;
     if (!anyRate) throw new BadRequestException('Set a \u20b9-per-km rate first - on the person (Team) or the branch (Master data \u2192 Branches)');

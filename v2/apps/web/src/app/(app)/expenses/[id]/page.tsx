@@ -14,6 +14,7 @@ import { api, ApiError } from '@/lib/api';
 import { niceDate, type Exp, type Summary } from '../ui';
 import { PersonGroup, ReceiptModal, groupByPerson, type Group } from '../expense-row';
 import PayDialog, { type PayTarget } from '../pay-dialog';
+import { LockedDay } from '../window';
 
 interface Report {
   id: string; title: string; date: string; branch: string; branchName: string; status: string;
@@ -27,6 +28,7 @@ export default function ReportPage() {
   const { id } = useParams<{ id: string }>();
   const [r, setR] = useState<Report | null>(null);
   const [missing, setMissing] = useState(false);
+  const [dateLocked, setDateLocked] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [note, setNote] = useState('');
@@ -35,7 +37,8 @@ export default function ReportPage() {
   const [receipt, setReceipt] = useState<{ title: string; images: string[] } | null>(null);
 
   const load = useCallback(() => {
-    api.get<Report>('/expenses/reports/' + id).then((x) => { setR(x); setMissing(false); }).catch(() => setMissing(true));
+    api.get<Report>('/expenses/reports/' + id).then((x) => { setR(x); setMissing(false); setDateLocked(''); })
+      .catch((e) => { if (e instanceof ApiError && e.status === 403) setDateLocked(e.message); else setMissing(true); });
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
@@ -76,6 +79,7 @@ export default function ReportPage() {
     } catch { setErr('Could not load the receipt'); }
   }
 
+  if (dateLocked) return <LockedDay message={dateLocked} />;
   if (missing) return (
     <div className="p-10 text-center">
       <p className="text-[14px] font-semibold">No such report</p>

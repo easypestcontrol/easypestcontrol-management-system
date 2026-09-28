@@ -13,6 +13,7 @@
    ========================================================================== */
 
 import { money } from 'shared';
+import { Icon } from '@/components/icons';
 import { pad2, todayISO } from './ui';
 
 export interface DayCell {
@@ -35,10 +36,13 @@ function compact(n: number): string {
   return '₹' + Math.round(n);
 }
 
-export default function MonthGrid({ ym, days, onPick }: {
+export default function MonthGrid({ ym, days, onPick, locked }: {
   ym: string;
   days: DayCell[];
   onPick: (date: string) => void;
+  /** Dates the person looking may not open. They stay on the grid, with
+      their money, but dimmed, padlocked and not clickable. */
+  locked?: (date: string) => boolean;
 }) {
   const [y, m] = ym.split('-').map(Number);
   const startPad = new Date(y, m - 1, 1).getDay();
@@ -65,6 +69,7 @@ export default function MonthGrid({ ym, days, onPick }: {
           const has = !!d && d.count > 0;
           const isToday = iso === today;
           const future = iso > today;
+          const lock = locked ? locked(iso) : false;
           const live = d ? d.pending + d.due + d.paid : 0;
           const toVerify = d?.pendingCount || 0;
           // Money decides the bar - except that a day with something still to
@@ -74,15 +79,19 @@ export default function MonthGrid({ ym, days, onPick }: {
           const seg = (n: number, cls: string) => (n > 0 && live > 0
             ? <span className={cls} style={{ width: (n / live * 100 * (1 - forced)) + '%' }} /> : null);
           return (
-            <button key={iso} type="button" onClick={() => onPick(iso)}
+            <button key={iso} type="button" disabled={lock} onClick={() => { if (!lock) onPick(iso); }}
+              data-locked={lock ? '1' : undefined}
+              title={lock ? 'Locked — only the admin can open this date' : undefined}
               className={'relative text-left rounded-[10px] lg:rounded-[12px] border p-1.5 lg:p-2 '
                 + 'min-h-[60px] lg:min-h-[84px] transition-colors '
-                + (has ? 'bg-white border-line hover:border-accent ' : 'bg-wash/60 border-line-soft hover:bg-wash ')
+                + (lock ? 'cursor-not-allowed opacity-50 ' + (has ? 'bg-white border-line ' : 'bg-wash/60 border-line-soft ')
+                  : has ? 'bg-white border-line hover:border-accent ' : 'bg-wash/60 border-line-soft hover:bg-wash ')
                 + (isToday ? 'ring-2 ring-accent/30 ' : '')
-                + (future && !has ? 'opacity-60' : '')}>
-              <span className={'text-[12px] lg:text-[13px] font-semibold leading-none '
+                + (future && !has && !lock ? 'opacity-60' : '')}>
+              <span className={'inline-flex items-center gap-1 text-[12px] lg:text-[13px] font-semibold leading-none '
                 + (isToday ? 'text-accent' : has ? 'text-ink' : 'text-muted-2')}>
                 {Number(iso.slice(8))}
+                {lock && <Icon name="lock" size={10} className="text-muted" />}
               </span>
               {d && has && (
                 <>
@@ -115,6 +124,9 @@ export default function MonthGrid({ ym, days, onPick }: {
         <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-ink" /> Pending — not yet verified (the red number is how many)</span>
         <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-ink" /> Approved — to pay</span>
         <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-mint-ink" /> Paid</span>
+        {locked && (
+          <span className="inline-flex items-center gap-1.5"><Icon name="lock" size={11} /> Locked — only the admin can open it</span>
+        )}
       </div>
     </div>
   );

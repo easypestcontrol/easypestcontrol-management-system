@@ -53,6 +53,8 @@ const PATHS = {
   file: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></>,
   x: <path d="M18 6 6 18M6 6l12 12" />,
   check: <path d="M20 6 9 17l-5-5" />,
+  // A padlock: a date the person looking may not open.
+  lock: <><rect x="4.5" y="10.5" width="15" height="10.5" rx="2" /><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" /></>,
   // A clock face: a task handed in and waiting for the office to check it.
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3.5 2" /></>,
   play: <><circle cx="12" cy="12" r="9" /><path d="M10.2 8.8 15.4 12l-5.2 3.2z" /></>,
