@@ -181,7 +181,8 @@ export default function Builder({ edit, presetClient, presetLead }: {
   // Defaults once the data lands: salesperson = me, branch = first,
   // terms = company terms, place of supply = the home state.
   useEffect(() => {
-    if (!edit && me) setOwner((v) => v || me.id);
+    // A salesperson's new quotation is theirs, whoever owns the lead it came from.
+    if (!edit && me) setOwner((v) => (me.role === 'sales' ? me.id : v || me.id));
   }, [me, edit]);
   useEffect(() => {
     if (!boot) return;
@@ -683,9 +684,16 @@ export default function Builder({ edit, presetClient, presetLead }: {
             </select>
           </Field>
           <Field label="Salesperson">
-            <select value={owner} onChange={(e) => setOwner(e.target.value)} className={INP}>
-              {assignable.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+            {me?.role === 'sales' ? (
+              /* Nobody to choose between: a salesperson raises their own
+                 quotations. The name is shown, not offered. */
+              <input data-owner-fixed readOnly disabled className={INP + ' cursor-not-allowed text-ink-2'}
+                value={(boot?.users || []).find((u) => u.id === owner)?.name || me.name} />
+            ) : (
+              <select value={owner} onChange={(e) => setOwner(e.target.value)} className={INP}>
+                {assignable.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            )}
           </Field>
         </div>
 

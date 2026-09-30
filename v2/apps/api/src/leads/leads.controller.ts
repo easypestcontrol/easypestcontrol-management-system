@@ -235,8 +235,13 @@ export class LeadsController {
     }
 
     // Owner defaults to whoever is capturing, if they can own leads (leads.js:18-21).
-    const owner = String(body.owner || '') ||
-      (ASSIGNABLE_ROLES.indexOf(req.user.role) >= 0 ? req.user.sub : 'U03');
+    // A salesperson's lead is THEIRS: assignment is the office's call (the
+    // same rule the edit below enforces), so whatever owner a salesperson's
+    // form sends, the lead lands with the person who captured it.
+    const owner = req.user.role === 'sales'
+      ? req.user.sub
+      : String(body.owner || '') ||
+        (ASSIGNABLE_ROLES.indexOf(req.user.role) >= 0 ? req.user.sub : 'U03');
 
     const followUp = String(body.followUp || '');
     const seq = await this.prisma.seq.upsert({

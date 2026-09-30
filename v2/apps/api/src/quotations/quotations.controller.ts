@@ -147,7 +147,10 @@ export class QuotationsController {
       : null;
     const id = typed && !clash ? typed : 'QT-' + seq.value;
 
-    const owner = String(body.owner || req?.user?.sub || '');
+    // A salesperson raises their own quotations; the office may name anyone.
+    const owner = req?.user?.role === 'sales'
+      ? String(req.user.sub || '')
+      : String(body.owner || req?.user?.sub || '');
     const q = await this.prisma.quotation.create({
       data: {
         id,
@@ -185,7 +188,7 @@ export class QuotationsController {
 
   @Patch(':id')
   @Roles('admin', 'ops', 'sales')
-  async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
+  async update(@Param('id') id: string, @Body() body: Record<string, unknown>, @Req() req?: ScopedReq) {
     const q0 = await this.prisma.quotation.findUnique({ where: { id } });
     if (!q0) throw new NotFoundException('No such quotation');
     // Once a contract has been generated off it, the quotation is the record
@@ -197,6 +200,8 @@ export class QuotationsController {
     }
 
     const data = pick(body);
+    // Handing a quotation to someone else is the office's call, not a salesperson's.
+    if (req?.user?.role === 'sales') delete data.owner;
     if ('title' in data && !String(data.title || '').trim()) {
       throw new BadRequestException('Give the quotation a title');
     }

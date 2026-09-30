@@ -31,6 +31,8 @@ export default function EditContract() {
   const [scope, setScope] = useState('');
   const [refNo, setRefNo] = useState('');
   const [owner, setOwner] = useState('');
+  // A salesperson may edit the agreement but not hand it to someone else.
+  const [myRole, setMyRole] = useState('');
   const [branch, setBranch] = useState('');
   const [placeOfSupply, setPlaceOfSupply] = useState('');
   const [billAddr, setBillAddr] = useState('');
@@ -55,6 +57,7 @@ export default function EditContract() {
 
   useEffect(() => {
     api.get<Boot>('/org/bootstrap').then(setBoot).catch(() => {});
+    api.get<{ role: string }>('/auth/me').then((m) => setMyRole(m.role)).catch(() => {});
     api.get<ContractDetail>('/contracts/' + id).then((d) => {
       setC(d);
       setScope(d.scope || '');
@@ -187,10 +190,15 @@ export default function EditContract() {
           </label>
           <label className="block">
             <span className={label}>Sales executive</span>
-            <select value={owner} onChange={(e) => setOwner(e.target.value)} className={input}>
-              {boot.users.filter((u) => ['sales', 'ops', 'admin'].includes(u.role))
-                .map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+            {myRole === 'sales' ? (
+              <input data-owner-fixed readOnly disabled className={input + ' cursor-not-allowed text-ink-2'}
+                value={boot.users.find((u) => u.id === owner)?.name || '—'} />
+            ) : (
+              <select value={owner} onChange={(e) => setOwner(e.target.value)} className={input}>
+                {boot.users.filter((u) => ['sales', 'ops', 'admin'].includes(u.role))
+                  .map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            )}
           </label>
           <label className="block">
             <span className={label}>Branch</span>

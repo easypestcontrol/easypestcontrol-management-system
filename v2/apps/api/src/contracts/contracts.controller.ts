@@ -377,7 +377,7 @@ export class ContractsController {
   async convertQuote(
     @Param('quoteId') quoteId: string,
     @Body() body: ContractDraft,
-    @Req() req: { user: { sub?: string; id?: string } },
+    @Req() req: { user: { sub?: string; id?: string; role?: string } },
   ) {
     // A quotation becomes a contract only once BOTH sides have accepted it —
     // our sign-off and the customer's. Same two-handed rule as signatures.
@@ -393,7 +393,7 @@ export class ContractsController {
 
     const { draft } = await this.fromQuote(quoteId);
     return this.createContract({ ...draft, ...body, quoteId, lines: body.lines?.length ? body.lines : draft.lines },
-      req.user?.sub || req.user?.id || '');
+      req.user?.sub || req.user?.id || '', req.user?.role);
   }
 
   /* ---------------------------------------------------------------- detail */
@@ -552,15 +552,18 @@ export class ContractsController {
 
   @Post()
   @Roles('admin', 'ops', 'sales')
-  async create(@Body() body: ContractDraft, @Req() req: { user: { sub?: string; id?: string } }) {
-    return this.createContract(body, req.user?.sub || req.user?.id || '');
+  async create(@Body() body: ContractDraft, @Req() req: { user: { sub?: string; id?: string; role?: string } }) {
+    return this.createContract(body, req.user?.sub || req.user?.id || '', req.user?.role);
   }
 
   /**
    * The unified form's save — contract + plan + every dated visit, then the
    * loop closed on the quotation and the lead. Ported from amcform.js create().
    */
-  private async createContract(draft: ContractDraft, byUserId: string) {
+  private async createContract(draftIn: ContractDraft, byUserId: string, role = '') {
+    // A salesperson signs their own contracts: the sales executive is whoever
+    // is writing it, whatever the form sent. The office may name anyone.
+    const draft: ContractDraft = role === 'sales' ? { ...draftIn, owner: byUserId } : draftIn;
     const isOne = draft.mode === 'onetime';
     const mode = isOne ? 'onetime' : 'amc';
 
@@ -868,9 +871,14 @@ export class ContractsController {
 
   @Patch(':id')
   @Roles('admin', 'ops', 'sales')
-  async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
+  async update(
+    @Param('id') id: string, @Body() body: Record<string, unknown>,
+    @Req() req?: { user?: { role?: string } },
+  ) {
     const data: Record<string, unknown> = {};
     for (const k of PATCHABLE) if (k in body) data[k] = body[k];
+    // Reassigning an agreement is the office's call, not a salesperson's.
+    if (req?.user?.role === 'sales') delete data.owner;
     if ('terms' in data) data.terms = cleanTerms(data.terms);
     if ('billingMode' in data && !['upfront', 'pervisit', 'interval'].includes(String(data.billingMode))) {
       delete data.billingMode;

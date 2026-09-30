@@ -120,6 +120,8 @@ function NewContractForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft?.clientId, clients]);
 
+  // Who is writing this: a salesperson is the sales executive, fixed.
+  const [myRole, setMyRole] = useState('');
   useEffect(() => {
     let dead = false;
     (async () => {
@@ -129,6 +131,7 @@ function NewContractForm() {
           api.get<ClientLite[]>('/clients'),
           api.get<SessionUser>('/auth/me'),
         ]);
+        if (!dead) setMyRole(meRow.role);
         if (dead) return;
         setBoot(b); setClients(cl);
 
@@ -145,7 +148,7 @@ function NewContractForm() {
             mode: m,
             no: d.no || '', clientId: d.clientId || cl[0]?.id || '',
             branch: d.branch || b.branches[0]?.id || '',
-            owner: d.owner || meRow.id, refNo: d.refNo || '',
+            owner: meRow.role === 'sales' ? meRow.id : d.owner || meRow.id, refNo: d.refNo || '',
             placeOfSupply: d.placeOfSupply || '', discount: d.discount || 0,
             billAddr: d.billAddr || '', siteAddr: d.siteAddr || '',
             start: d.start || todayISO(), end: d.end || todayISO(),
@@ -514,10 +517,15 @@ function NewContractForm() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
           <label className="block">
             <span className={label}>Sales executive *</span>
-            <select className={input} value={draft.owner}
-              onChange={(e) => set({ owner: e.target.value })}>
-              {staff.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+            {myRole === 'sales' ? (
+              <input data-owner-fixed readOnly disabled value={ownerName}
+                className={input + ' cursor-not-allowed text-ink-2'} />
+            ) : (
+              <select className={input} value={draft.owner}
+                onChange={(e) => set({ owner: e.target.value })}>
+                {staff.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            )}
           </label>
           <label className="block">
             <span className={label}>Place of supply</span>

@@ -44,6 +44,8 @@ export default function NewLead({ boot, me, leads, presetClient, onClose, onSave
   const users = boot.users as unknown as BootUser[];
   const branches = boot.branches as unknown as BootBranch[];
   const owners = assignableUsers(users);
+  // A salesperson captures their own leads; assigning is the office's job.
+  const isSales = me?.role === 'sales';
 
   /** Who a new lead should land with: the capturer, if they can own leads (leads.js:18-21). */
   const defaultOwner =
@@ -149,7 +151,7 @@ export default function NewLead({ boot, me, leads, presetClient, onClose, onSave
       const b = branchForArea(branches, c.area || '');
       if (b && !branchTouched.current) setBranch(b.id);
     }
-    if (prev && prev.owner && owners.some((u) => u.id === prev.owner)) {
+    if (!isSales && prev && prev.owner && owners.some((u) => u.id === prev.owner)) {
       setOwner(prev.owner);
     }
     setMatched(c);
@@ -344,11 +346,16 @@ export default function NewLead({ boot, me, leads, presetClient, onClose, onSave
             </label>
             <label className="block">
               <Label req>Assign to</Label>
-              <select value={owner} onChange={(e) => setOwner(e.target.value)} className={selectCls}>
-                {owners.map((u) => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
-              </select>
+              {isSales ? (
+                <input data-owner-fixed readOnly disabled value={me?.name || ''}
+                  className={inputCls + ' cursor-not-allowed text-ink-2'} />
+              ) : (
+                <select value={owner} onChange={(e) => setOwner(e.target.value)} className={selectCls}>
+                  {owners.map((u) => <option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}
+                </select>
+              )}
               <span className="block text-[11.5px] text-muted-2 mt-1">
-                The salesperson who will follow this lead up.
+                {isSales ? 'Your own lead — it stays with you.' : 'The salesperson who will follow this lead up.'}
               </span>
             </label>
           </div>
