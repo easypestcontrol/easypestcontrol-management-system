@@ -164,7 +164,7 @@ export default function Leads() {
   function board() {
     return (
       <div className="p-4 overflow-x-auto">
-        <div className="flex gap-3 min-w-[1220px]">
+        <div className="flex gap-3 w-max">
           {STAGES.map((s) => {
             const items = filtered.filter((l) => l.stage === s.id);
             const total = items.reduce((a, b) => a + b.value, 0);
@@ -173,7 +173,7 @@ export default function Leads() {
                 onDragOver={(e) => { e.preventDefault(); setDragOver(s.id); }}
                 onDragLeave={() => setDragOver((d) => (d === s.id ? '' : d))}
                 onDrop={(e) => onDrop(e, s.id)}
-                className={'flex-1 min-w-[168px] rounded-md border bg-white flex flex-col ' +
+                className={'w-[300px] shrink-0 rounded-md border bg-white flex flex-col ' +
                   (dragOver === s.id ? 'border-accent' : 'border-line')}>
                 <div className="flex items-center gap-2 px-3 h-10 border-b border-line-soft">
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-2 truncate">
