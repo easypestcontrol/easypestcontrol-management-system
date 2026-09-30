@@ -100,7 +100,8 @@ export default function PublicReport() {
           acknowledgement are below.
         </p>
       </div>
-      <DownloadPdfCard label="The full service report, as a PDF" shareHref={share || undefined} />
+      <DownloadPdfCard label="The full service report, as a PDF" shareHref={share || undefined}
+        fileName={'Service report ' + doc.id + (doc.client?.name ? ' - ' + doc.client.name : '')} />
 
       <div style={fit} data-paper
         className="paper report-doc bg-white border border-line rounded-sm w-[820px]

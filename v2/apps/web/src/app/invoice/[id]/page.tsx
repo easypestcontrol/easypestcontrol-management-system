@@ -126,7 +126,8 @@ export default function PublicInvoice() {
           </button>
         </div>
       )}
-      <DownloadPdfCard label="The full invoice, as a PDF" shareHref={share || undefined} />
+      <DownloadPdfCard label="The full invoice, as a PDF" shareHref={share || undefined}
+        fileName={'Invoice ' + doc.id + (doc.client?.name ? ' - ' + doc.client.name : '')} />
 
       <div ref={sheet} style={fit} data-paper
         className="paper bg-white border border-line rounded-sm w-[820px] max-w-full mx-auto shadow-card">

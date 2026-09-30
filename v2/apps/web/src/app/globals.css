@@ -538,3 +538,26 @@ html, body {
      says so itself. */
   .lg\:hidden { display: none !important; }
 }
+
+/* The copy of a document sheet that Download PDF draws (lib/sheet-pdf.ts).
+   On a phone every small size is stepped up for the hand (the max-width
+   1023px block above); a PDF is paper, so it keeps the sizes the sheet was
+   designed in - the same file from a phone as from a desk. */
+.pdf-copy .text-\[10px\] { font-size: 10px; }
+.pdf-copy .text-\[10\.5px\] { font-size: 10.5px; }
+.pdf-copy .text-\[11px\] { font-size: 11px; }
+.pdf-copy .text-\[11\.5px\] { font-size: 11.5px; }
+.pdf-copy .text-\[12px\] { font-size: 12px; }
+.pdf-copy .text-\[12\.5px\] { font-size: 12.5px; }
+.pdf-copy .text-\[13px\] { font-size: 13px; }
+.pdf-copy .text-\[13\.5px\] { font-size: 13.5px; }
+.pdf-copy .text-\[14px\] { font-size: 14px; }
+.pdf-copy .text-\[14\.5px\] { font-size: 14.5px; }
+.pdf-copy .text-\[15px\] { font-size: 15px; }
+.pdf-copy .text-\[16px\] { font-size: 16px; }
+.pdf-copy .text-\[17px\] { font-size: 17px; }
+.pdf-copy .text-\[18px\] { font-size: 18px; }
+.pdf-copy .text-\[19px\] { font-size: 19px; }
+.pdf-copy .text-\[20px\] { font-size: 20px; }
+.pdf-copy .text-\[22px\] { font-size: 22px; }
+.pdf-copy .text-\[26px\] { font-size: 26px; }
