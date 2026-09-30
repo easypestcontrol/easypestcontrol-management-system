@@ -53,6 +53,9 @@ export default function ContractMobile({ c, role }: {
   };
 }) {
   const ahead = c.jobs.filter((j) => j.status !== 'completed' && j.status !== 'cancelled');
+  // The salesperson and the office may edit the agreement's details; the
+  // visit plan and the crew stay a desk job.
+  const canEdit = ['admin', 'ops', 'sales'].includes(role);
   const tone: Tone = c.status.key === 'active' ? 'good'
     : c.status.key === 'expired' ? 'bad'
     : c.status.key === 'due' ? 'warn' : 'plain';
@@ -81,6 +84,31 @@ export default function ContractMobile({ c, role }: {
           <span>{niceDate(c.start)}</span>
           <span>{c.daysLeft > 0 ? c.daysLeft + ' days left' : 'Ended'}</span>
           <span>{c.end ? niceDate(c.end) : ''}</span>
+        </div>
+
+        <div className="flex justify-around gap-1.5 mt-5">
+          <a href={'/contract/' + c.id} className="flex flex-col items-center gap-1.5 active:opacity-60">
+            <span className="w-[46px] h-[46px] rounded-full bg-wash flex items-center justify-center">
+              <Icon name="quote" size={19} />
+            </span>
+            <span className="text-[12.5px] text-muted font-medium">Open</span>
+          </a>
+          {c.client?.phone && (
+            <a href={'tel:' + c.client.phone} className="flex flex-col items-center gap-1.5 active:opacity-60">
+              <span className="w-[46px] h-[46px] rounded-full bg-wash flex items-center justify-center">
+                <Icon name="phone" size={19} />
+              </span>
+              <span className="text-[12.5px] text-muted font-medium">Call</span>
+            </a>
+          )}
+          {canEdit && (
+            <Link href={'/contracts/' + c.id + '/edit'} className="flex flex-col items-center gap-1.5 active:opacity-60">
+              <span className="w-[46px] h-[46px] rounded-full bg-wash flex items-center justify-center">
+                <Icon name="edit" size={19} />
+              </span>
+              <span className="text-[12.5px] text-muted font-medium">Edit</span>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -147,8 +175,9 @@ export default function ContractMobile({ c, role }: {
         )}
 
         <p className="text-[13px] text-muted text-center px-4 pb-4 leading-relaxed">
-          Moving visits, changing the crew and re-sequencing the billing are on
-          the desktop — that is surgery, and it wants a mouse.
+          Edit changes the agreement itself. Moving visits, changing the crew and
+          re-sequencing the billing are on the desktop — that is surgery, and it
+          wants a mouse.
         </p>
       </div>
     </Screen>

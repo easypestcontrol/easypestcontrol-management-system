@@ -7,6 +7,7 @@
    ========================================================================== */
 
 import { SignArea } from '@/components/sign-area';
+import DocBack from '@/components/doc-back';
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { money, waLink } from 'shared';
@@ -102,22 +103,7 @@ export default function PublicInvoice() {
        not — the customer and the office should be looking at the same
        document. */
     <div className="paper-page min-h-screen bg-[#f4f5f8] pb-10 px-3 sm:py-8">
-      {/* The phone gets a bar of its own: back to wherever you came from,
-          and the invoice named. The sheet below it is a document, and a
-          document should not have to carry navigation. */}
-      <div className="lg:hidden no-print sticky top-0 z-10 -mx-3 px-2 h-[60px] bg-[#f4f5f8]
-        flex items-center gap-1">
-        <button onClick={() => history.back()} aria-label="Back" className="p-2 text-[#141414]">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m15 18-6-6 6-6" />
-          </svg>
-        </button>
-        <span className="min-w-0">
-          <span className="block text-[16px] font-semibold leading-tight">Invoice</span>
-          <span className="block text-[12.5px] text-gray-500 leading-tight">{doc.id}</span>
-        </span>
-      </div>
+      <DocBack className="-mx-3 mb-3 sm:-mt-8 sm:mb-6" title="Invoice" sub={doc.id} fallback={'/invoices/' + doc.id} />
 
       <div ref={sheet} style={fit}
         className="paper bg-white border border-[#e3e6ee] rounded-lg w-[820px] max-w-full mx-auto shadow-sm

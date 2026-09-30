@@ -25,7 +25,7 @@ function stateOf(status: string): { tone: Tone; label: string } {
   return { tone: 'plain', label: 'Draft' };
 }
 
-export default function QuoteMobile({ q, total, rows, approveUrl, waText }: {
+export default function QuoteMobile({ q, total, rows, approveUrl, waText, canEdit }: {
   q: {
     id: string; date: string; status: string; mode: string; title: string;
     months: number; freq: string; items: Item[]; party: Party | null;
@@ -35,6 +35,9 @@ export default function QuoteMobile({ q, total, rows, approveUrl, waText }: {
   rows: Array<[string, number]>;
   approveUrl: string;
   waText: string;
+  /** False once a contract was generated from it: the quotation is then the
+      record of what was agreed. */
+  canEdit?: boolean;
 }) {
   const st = stateOf(q.status);
   const phone = (q.party?.phone || '').replace(/\D/g, '').slice(-10);
@@ -53,7 +56,7 @@ export default function QuoteMobile({ q, total, rows, approveUrl, waText }: {
         </p>
         <div className="mt-2.5"><Chip tone={st.tone}>{st.label}</Chip></div>
 
-        <div className="grid grid-cols-3 gap-1.5 mt-5">
+        <div className="flex justify-around gap-1.5 mt-5">
           {phone && (
             <a href={'https://wa.me/91' + phone + '?text=' + encodeURIComponent(waText)}
               className="flex flex-col items-center gap-1.5 active:opacity-60">
@@ -77,6 +80,14 @@ export default function QuoteMobile({ q, total, rows, approveUrl, waText }: {
             </span>
             <span className="text-[12.5px] text-muted font-medium">Open</span>
           </a>
+          {canEdit && (
+            <Link href={'/quotations/' + q.id + '/edit'} className="flex flex-col items-center gap-1.5 active:opacity-60">
+              <span className="w-[46px] h-[46px] rounded-full bg-wash flex items-center justify-center">
+                <Icon name="edit" size={19} />
+              </span>
+              <span className="text-[12.5px] text-muted font-medium">Edit</span>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -130,9 +141,11 @@ export default function QuoteMobile({ q, total, rows, approveUrl, waText }: {
           </button>
         </Card>
 
-        <p className="text-[13px] text-muted text-center px-4 pb-4 leading-relaxed">
-          Editing and printing are on the desktop — a quotation is composed sitting down.
-        </p>
+        {!canEdit && (
+          <p className="text-[13px] text-muted text-center px-4 pb-4 leading-relaxed">
+            A contract was generated from this quotation, so it can no longer be edited.
+          </p>
+        )}
       </div>
     </Screen>
   );

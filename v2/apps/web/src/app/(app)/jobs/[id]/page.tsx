@@ -309,6 +309,7 @@ function ManagerDetail({ j, me, reload }: {
   const [zoom, setZoom] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [reschedOpen, setReschedOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [err, setErr] = useState('');
 
   // A standalone visit is not covered by any contract crew — but the
@@ -392,6 +393,10 @@ function ManagerDetail({ j, me, reload }: {
             <button onClick={cancelJob}
               className="h-8 px-3 rounded text-[12.5px] font-medium text-muted hover:text-accent hover:bg-red-wash">
               Cancel service
+            </button>
+            <button onClick={() => setEditOpen(true)}
+              className="h-8 px-3 rounded border border-line text-[12.5px] font-medium hover:bg-wash">
+              Edit
             </button>
             <button onClick={() => setReschedOpen(true)}
               className="h-8 px-3 rounded border border-line text-[12.5px] font-medium hover:bg-wash">
@@ -604,6 +609,10 @@ function ManagerDetail({ j, me, reload }: {
         <RescheduleModal j={j} onClose={() => setReschedOpen(false)}
           onDone={async () => { setReschedOpen(false); await reload(); }} />
       )}
+      {editOpen && (
+        <EditServiceModal j={j} onClose={() => setEditOpen(false)}
+          onDone={async () => { setEditOpen(false); await reload(); }} />
+      )}
     </div>
   );
 }
@@ -681,6 +690,74 @@ function AssignModal({ j, onClose, onDone }: {
 
 /* -------------------------------------------------------- reschedule modal */
 // v1 jobs.js:870-889 — date + slot + reason; direct set, no pin.
+
+/* What the office may change about a service without moving it: how urgent
+   it is, how long it is expected to take, and what the technician is told.
+   The date and the window are Reschedule's, because moving a service tells
+   the crew and the customer; the crew itself is Reassign's. */
+function EditServiceModal({ j, onClose, onDone }: {
+  j: JobDetail; onClose: () => void; onDone: () => Promise<void>;
+}) {
+  const [priority, setPriority] = useState(j.priority || 'normal');
+  const [mins, setMins] = useState(String(j.mins || 60));
+  const [notes, setNotes] = useState(j.notes || '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function save() {
+    const m = Math.round(Number(mins) || 0);
+    if (m < 1) { setErr('Enter how many minutes the service should take'); return; }
+    setBusy(true); setErr('');
+    try {
+      await api.patch('/jobs/' + j.id, { priority, mins: m, notes: notes.trim() });
+      await onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not save the service');
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title="Edit service"
+      sub={j.id + ' · ' + fmtDate(j.date) + ' at ' + fmtTime(j.slot)} onClose={onClose}>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Priority">
+          <select value={priority} onChange={(e) => setPriority(e.target.value)} className={inputCls}>
+            <option value="low">Low</option>
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </Field>
+        <Field label="Expected minutes">
+          <input type="number" inputMode="numeric" min={1} value={mins}
+            onChange={(e) => setMins(e.target.value)} className={inputCls} />
+        </Field>
+      </div>
+      <div className="mt-4">
+        <Field label="Notes for the technician">
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4}
+            placeholder="Gate code, where to park, what the customer asked for"
+            className={inputCls + ' !h-auto py-2 leading-relaxed resize-none'} />
+        </Field>
+      </div>
+      <p className="text-[11px] text-muted-2 mt-1.5">
+        To move the date or the time use Reschedule, and Reassign for the crew — those tell the technicians and the customer.
+      </p>
+      {err && <p className="mt-3 text-[12.5px] text-accent font-medium">{err}</p>}
+      <div className="flex justify-end gap-2 mt-5">
+        <button onClick={onClose}
+          className="h-9 px-4 rounded border border-line text-[13px] font-medium hover:bg-wash">
+          Cancel
+        </button>
+        <button onClick={save} disabled={busy}
+          className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-60">
+          {busy ? 'Saving…' : 'Save changes'}
+        </button>
+      </div>
+    </Modal>
+  );
+}
 
 function RescheduleModal({ j, onClose, onDone }: {
   j: JobDetail; onClose: () => void; onDone: () => Promise<void>;

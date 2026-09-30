@@ -14,6 +14,7 @@ import { useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { docTotals, money } from 'shared';
 import QuoteDoc from '@/app/(app)/quotations/quote-doc';
+import DocBack from '@/components/doc-back';
 import { dayDelta, fmtDate, type PublicQuote } from '@/app/(app)/quotations/lib';
 
 const BTN_GHOST = 'inline-flex items-center gap-1.5 h-9 px-4 rounded border border-line bg-white text-[13px] font-medium hover:bg-wash';
@@ -88,6 +89,7 @@ export default function ApprovePage() {
 
   return (
     <div className="min-h-screen bg-wash">
+      <DocBack title="Quotation" sub={q.id} fallback={'/quotations/' + q.id} />
       <div className="max-w-[860px] mx-auto px-4 py-8">
 
         {/* ------------------------------------------------------ banners */}

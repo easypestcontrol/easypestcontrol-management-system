@@ -7,6 +7,7 @@
    ========================================================================== */
 
 import { SignArea } from '@/components/sign-area';
+import DocBack from '@/components/doc-back';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { money } from 'shared';
@@ -64,7 +65,8 @@ export default function PublicContract() {
   const open = doc.schedule.filter((s) => s.status !== 'completed' && s.status !== 'cancelled');
 
   return (
-    <div className="min-h-screen bg-[#f4f5f8] py-4 px-3 sm:py-8">
+    <div className="min-h-screen bg-[#f4f5f8] pb-4 px-3 sm:pb-8">
+      <DocBack className="-mx-3 mb-4 sm:mb-8" title="Contract" sub={doc.id} fallback={'/contracts/' + doc.id} />
       <div className="bg-white border border-[#e3e6ee] rounded-lg max-w-[820px] mx-auto shadow-sm">
         <div className="p-5 sm:p-10">
           {/* head */}

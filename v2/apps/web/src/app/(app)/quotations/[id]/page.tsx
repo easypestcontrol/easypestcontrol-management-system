@@ -271,7 +271,7 @@ export default function QuotationDetail() {
     <>
       {/* Opened to send it, chase it, or read the price out loud. Composing
           one is desk work and stays there. */}
-      <QuoteMobile q={q} total={t.total}
+      <QuoteMobile q={q} total={t.total} canEdit={canEdit}
         rows={[['Subtotal', t.sub] as [string, number]]
           .concat(t.disc ? [['Discount', -t.disc] as [string, number]] : [])
           .concat(t.tax.rows)}
