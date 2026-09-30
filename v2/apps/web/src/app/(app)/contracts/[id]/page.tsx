@@ -14,7 +14,7 @@ import Link from 'next/link';
 import { isFieldTech, lineCrew, money, moneyShort, planVisits, type ContractInput, type PlanLineInput } from 'shared';
 import { api, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
-import ShareLink from '@/components/share-link';
+import ShareLink, { ShareSheet } from '@/components/share-link';
 import {
   durationText, fmtDate, fmtTime, initials, ordinal, statusPill,
   type Boot, type BootUser, type ContractDetail, type PlanLineDto,
@@ -23,6 +23,7 @@ import ContractMobile from './mobile';
 import Mandate, { mandatePossible } from '@/components/mandate';
 import Collect from '@/components/collect';
 import PlanDialog from './plan-dialog';
+import CustomerSign from './customer-sign';
 
 /* --------------------------------------------------------------- utilities */
 
@@ -78,6 +79,16 @@ export default function ContractPage() {
   const [missing, setMissing] = useState(false);
   const [dialog, setDialog] = useState<'' | 'assign' | 'plan' | 'renew'>('');
   const [flash, setFlash] = useState('');
+  // The share sheet for the link the customer signs from.
+  const [signLink, setSignLink] = useState(false);
+
+  /* A contract created with "Send a link to sign" lands here with ?sign=link:
+     open the sheet once, and drop the flag so a refresh does not reopen it. */
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('sign') !== 'link') return;
+    setSignLink(true);
+    window.history.replaceState(null, '', '/contracts/' + id);
+  }, [id]);
 
   const load = useCallback(() => {
     api.get<ContractDetail>('/contracts/' + id).then(setC).catch(() => setMissing(true));
@@ -181,7 +192,13 @@ export default function ContractPage() {
     <>
       {/* How far through, and is the money coming in. Editing the plan is
           surgery and stays on the desktop. */}
-      <ContractMobile c={c} role={me?.role || ''} />
+      <ContractMobile c={c} role={me?.role || ''} onChanged={load} onSignLink={() => setSignLink(true)} />
+      {signLink && (
+        <ShareSheet path={'/contract/' + c.id} title="Send the link to sign" phone={cl?.phone}
+          text={'Your service agreement ' + c.id + ' with ' + boot.company.name
+            + ' is ready. Please read it and sign at the bottom of the page:'}
+          onClose={() => setSignLink(false)} />
+      )}
 
     <div className="max-lg:hidden p-6 max-w-[1220px]">
       <Link href="/contracts" className="text-[12.5px] text-muted hover:text-navy">← All contracts</Link>
@@ -488,6 +505,11 @@ export default function ContractPage() {
                 <p className="text-ink-2 mt-0.5">{c.notes}</p>
               </div>
             )}
+          </section>
+
+          <section className="card p-4">
+            <h2 className="text-[13px] font-semibold mb-3">Customer signature</h2>
+            <CustomerSign c={c} canEdit={canEdit} onChanged={load} onShare={() => setSignLink(true)} />
           </section>
 
           

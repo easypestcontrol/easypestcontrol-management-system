@@ -22,8 +22,8 @@ import { api, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { FormSteps, Step, StepNav, useStepScroll } from '@/components/form-steps';
 import TimePicker from '@/components/time-picker';
-import TimeRangePicker from '@/components/time-range';
-import SigPad from '@/components/sig-pad';
+import TimeRangePicker, { windowLabel } from '@/components/time-range';
+import SignatureField from '@/components/signature-field';
 import {
   addMinsHHMM, fmtDate, fmtShort, fmtTime, slotLabel, todayISO,
   SLOTS, STATES,
@@ -61,9 +61,19 @@ function NewContractForm() {
   const [err, setErr] = useState('');
   const [fatal, setFatal] = useState('');
   const [busy, setBusy] = useState(false);
-  const [sigKey, setSigKey] = useState(0); // remounts the pads on clear
   const [step, setStep] = useState(0);
   const isOne = mode === 'onetime';
+  /* The customer's signature, the two ways it can arrive.
+     `onFile` is the one they gave last time, kept against the customer;
+     `signLater` means "create it unsigned and send the link" - the customer
+     signs on their own phone from the shared contract page. */
+  const [onFile, setOnFile] = useState<{ sign: string; signAt: string } | null>(null);
+  const [signLater, setSignLater] = useState(false);
+  // Which customer the signature in the draft belongs to.
+  const signFor = useRef('');
+  const draftRef = useRef<Draft | null>(null);
+  // Long schedules start folded on the phone: line index -> every date shown.
+  const [allDates, setAllDates] = useState<Record<number, boolean>>({});
   // Which customer's addresses are currently in the two boxes. Editing keeps
   // them; picking a different customer refills both from that record.
   const addrForRef = useRef('');
@@ -119,6 +129,31 @@ function NewContractForm() {
     setDraft((d) => (d ? { ...d, billAddr: bill, siteAddr: site } : d));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft?.clientId, clients]);
+
+  /* ------------------------------------------- the signature on file
+     Signed once, theirs from then on. Picking a customer fetches the
+     signature they gave last time and starts the agreement with it - shown,
+     labelled, and removable. A signature drawn for one customer never rides
+     along when the form is switched to another. */
+  draftRef.current = draft;
+  useEffect(() => {
+    const cid = draft?.clientId || '';
+    if (!cid) { setOnFile(null); return; }
+    let dead = false;
+    const apply = (s: { sign: string; signAt: string }) => {
+      if (dead) return;
+      setOnFile(s.sign ? s : null);
+      const cur = draftRef.current?.signCustomer || '';
+      const stale = !!cur && !!signFor.current && signFor.current !== cid;
+      signFor.current = cid;
+      if (s.sign && (!cur || stale)) { set({ signCustomer: s.sign }); setSignLater(false); }
+      else if (stale) set({ signCustomer: '' });
+    };
+    api.get<{ sign: string; signAt: string }>('/clients/' + cid + '/signature')
+      .then(apply).catch(() => apply({ sign: '', signAt: '' }));
+    return () => { dead = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft?.clientId]);
 
   // Who is writing this: a salesperson is the sales executive, fixed.
   const [myRole, setMyRole] = useState('');
@@ -417,7 +452,8 @@ function NewContractForm() {
           ? { ...l, startAt: draft.start, slot: draft.slot } // one visit, one window
           : l)),
       });
-      router.push('/contracts/' + made.id);
+      // Unsigned by choice: land on the contract with the link ready to send.
+      router.push('/contracts/' + made.id + (signLater && !draft.signCustomer ? '?sign=link' : ''));
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Could not create the contract');
       setBusy(false);
@@ -665,7 +701,85 @@ function NewContractForm() {
           <h2 className="text-[13px] font-semibold px-4 py-3 border-b border-line-soft">
             Pest control services
           </h2>
-          <table className="ztable">
+
+          {/* ------------------------------------------ the phone's version
+
+              One card to a service, every field with its name above it. The
+              table below folds on a phone into a run of boxes with no labels
+              - a price, a count and a description that all look the same -
+              which is how a quantity got typed into the rate. */}
+          <div className="lg:hidden p-3 flex flex-col gap-3" data-svc-cards>
+            {draft.lines.length === 0 && (
+              <p className="text-center text-muted text-[14px] py-5">
+                No services yet — add the first one below.
+              </p>
+            )}
+            {draft.lines.map((l, i) => {
+              const sp = spreadOf(l);
+              return (
+                <div key={i} data-svc-card className="rounded-xl border border-line p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[12px] font-bold uppercase tracking-[0.06em] text-muted">
+                      Service {i + 1}
+                    </span>
+                    <button type="button"
+                      className="h-9 px-2.5 -mr-1.5 rounded-lg text-[13px] font-semibold text-accent active:bg-red-wash"
+                      onClick={() => set({ lines: draft.lines.filter((_, x) => x !== i) })}>
+                      Remove
+                    </button>
+                  </div>
+                  <select className={input} value={l.svId} aria-label={'Service ' + (i + 1)}
+                    onChange={(e) => {
+                      const s = svcOf[e.target.value];
+                      setLine(i, {
+                        svId: e.target.value,
+                        rate: s?.price || 0,
+                        desc: s?.desc || '',
+                        qty: isOne ? l.qty : Math.max(1, Math.round(monthsOf)),
+                      });
+                    }}>
+                    <option value="">Pick a service…</option>
+                    {boot.services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  <label className="block mt-3">
+                    <span className={label}>Description</span>
+                    <input className={input} value={l.desc} placeholder="Shown on the contract"
+                      onChange={(e) => setLine(i, { desc: e.target.value })} />
+                  </label>
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <label className="block min-w-0">
+                      <span className={label}>{isOne ? 'Unit price (₹)' : 'Price per service (₹)'}</span>
+                      <input className={input} type="number" inputMode="decimal" min={0} step={50}
+                        value={l.rate}
+                        onChange={(e) => setLine(i, { rate: parseFloat(e.target.value) || 0 })} />
+                    </label>
+                    <div className="min-w-0">
+                      <span className={label}>{isOne ? 'Quantity' : 'No. of services'}</span>
+                      <Stepper value={l.qty || 1} min={1} max={120}
+                        name={isOne ? 'quantity' : 'number of services'}
+                        onChange={(v) => setLine(i, { qty: v })} />
+                    </div>
+                  </div>
+                  {!isOne && l.svId && (
+                    <p className="text-[12.5px] font-semibold text-navy mt-2">
+                      {cadenceLabel(sp.gap, sp.visits)}
+                      {sp.visits > 1 ? ' · one every ' + Math.round(sp.gap) + ' days' : ''}
+                    </p>
+                  )}
+                  <div className="flex items-baseline justify-between mt-3 pt-3 border-t border-line-soft">
+                    <span className="text-[13px] text-muted">
+                      {l.qty || 0} × {money(l.rate || 0)}
+                    </span>
+                    <span className="text-[16px] font-bold tabular-nums">
+                      {money((l.qty || 0) * (l.rate || 0))}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <table className="ztable max-lg:hidden">
             <thead>
               <tr>
                 <th className="w-8">#</th><th>Service</th><th>Description</th>
@@ -741,10 +855,11 @@ function NewContractForm() {
               })}
             </tbody>
           </table>
-          <div className="px-4 py-3">
+          <div className="px-4 py-3 max-lg:px-3 max-lg:pt-0">
             <button type="button" onClick={addLine}
-              className="flex items-center gap-1.5 h-8 px-3 rounded border border-line text-[12.5px] font-medium hover:bg-wash">
-              <Icon name="plus" size={13} /> Add another service
+              className="flex items-center gap-1.5 h-8 px-3 rounded border border-line text-[12.5px] font-medium hover:bg-wash
+                max-lg:w-full max-lg:h-11 max-lg:justify-center max-lg:rounded-lg max-lg:text-[14.5px] max-lg:font-semibold">
+              <Icon name="plus" size={13} /> {draft.lines.length ? 'Add another service' : 'Add a service'}
             </button>
           </div>
         </section>
@@ -840,18 +955,230 @@ function NewContractForm() {
         <section className={card}>
           <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-b border-line-soft">
             <h2 className="text-[13px] font-semibold">Service appointment schedule</h2>
-            <span className="text-[12px] text-muted">
+            <span className="max-lg:hidden text-[12px] text-muted">
               <b className="text-ink">{appointments}</b> appointments ·{' '}
               <b className="text-ink">{visits.length}</b> trips to site
               {mergedCount > 0 ? ' (' + mergedCount + ' merged)' : ''} · biggest crew{' '}
               <b className="text-ink">{peak}</b>
             </span>
           </div>
-          <p className="text-[12px] text-muted px-4 pt-3">
+
+          {/* ------------------------------------------ the phone's version
+
+              The schedule is three questions - how many, which day, what
+              time - and on a phone each one gets its own labelled, full-width
+              control. The table below folds into unlabelled boxes there: the
+              count, the crew size and the month box were three identical
+              number fields in a row, and the dates were chips 108px wide. */}
+          <div className="lg:hidden" data-sched-cards>
+            <div className="grid grid-cols-3 gap-2 px-3 pt-3">
+              {([
+                [isOne ? draft.lines.filter((l) => l.svId).length : appointments, 'Services'],
+                [visits.length, visits.length === 1 ? 'Trip to site' : 'Trips to site'],
+                [peak, 'Biggest crew'],
+              ] as Array<[number, string]>).map(([v, t]) => (
+                <div key={t} className="rounded-xl bg-wash px-2 py-2.5 text-center">
+                  <p className="text-[19px] font-bold tabular-nums leading-none">{v}</p>
+                  <p className="text-[11.5px] text-muted mt-1.5 leading-tight">{t}</p>
+                </div>
+              ))}
+            </div>
+
+            {!draft.lines.some((l) => l.svId) ? (
+              <p className="text-center text-muted text-[14px] py-8 px-5 leading-relaxed">
+                Pick a service in the step before this one and its dates appear here.
+              </p>
+            ) : isOne ? (() => {
+              /* One visit: one date, one window. Every service on the form
+                 is done in it, so the hours are set once for all of them. */
+              const l0 = draft.lines[0];
+              const from = l0?.times?.[0] || draft.slot || '10:00';
+              const to = l0?.timeEnds?.[0] || draft.slotEnd || addMinsHHMM(from, 120);
+              return (
+                <div className="p-3 flex flex-col gap-3">
+                  <div data-when-card className="rounded-xl border border-line p-3">
+                    <p className="text-[12px] font-bold uppercase tracking-[0.06em] text-muted mb-2.5">
+                      When
+                    </p>
+                    <label className="block">
+                      <span className={label}>Service date</span>
+                      <input className={input} type="date" value={draft.start}
+                        onChange={(e) => moveStart(e.target.value)} />
+                    </label>
+                    <div className="mt-3">
+                      <span className={label}>Time</span>
+                      <TimeRangePicker from={from} to={to}
+                        onChange={(f, t) => draft.lines.forEach((_, i) => {
+                          setLineTime(i, 0, f); setLineTimeEnd(i, 0, t);
+                        })}
+                        className={input + ' flex items-center'} />
+                    </div>
+                    <p className="text-[12.5px] text-muted mt-2.5 leading-relaxed">
+                      {fmtDate(draft.start)}, {windowLabel(from, to)} — everything below is
+                      done in this one visit.
+                    </p>
+                  </div>
+                  {draft.lines.map((l, i) => (l.svId ? (
+                    <div key={i} data-sched-card className="rounded-xl border border-line p-3">
+                      <p className="text-[14.5px] font-bold leading-snug">
+                        {svcOf[l.svId]?.name || l.svId}
+                      </p>
+                      <div className="mt-2.5">
+                        <span className={label}>Technicians needed</span>
+                        <Stepper value={l.crew || 1} min={1} max={9} name="technicians"
+                          onChange={(v) => setLine(i, { crew: v })} />
+                      </div>
+                    </div>
+                  ) : null))}
+                </div>
+              );
+            })() : (
+              <div className="p-3 flex flex-col gap-3">
+                <p className="text-[12.5px] text-muted leading-relaxed px-0.5">
+                  Set the first date and the rest are spread evenly. Any single date or
+                  time can be changed in the list under its service.
+                </p>
+                {draft.lines.map((l, i) => {
+                  if (!l.svId) return null;
+                  const dates = lineDates(i);
+                  const sp = spreadOf(l);
+                  const usual = windowLabel(l.slot, l.slotEnd || addMinsHHMM(l.slot, 120));
+                  const shown = allDates[i] ? dates : dates.slice(0, 4);
+                  return (
+                    <div key={i} data-sched-card className="rounded-xl border border-line overflow-hidden">
+                      <div className="p-3">
+                        <p className="text-[15px] font-bold leading-snug">
+                          {svcOf[l.svId]?.name || l.svId}
+                        </p>
+                        <p className="text-[12.5px] font-semibold text-navy mt-0.5">
+                          {cadenceLabel(sp.gap, sp.visits)}
+                          {sp.visits > 1 ? ' · one every ' + Math.round(sp.gap) + ' days' : ''}
+                        </p>
+                        <div className="grid grid-cols-2 gap-3 mt-3">
+                          <div className="min-w-0">
+                            <span className={label}>No. of services</span>
+                            <Stepper value={l.qty || 1} min={1} max={120} name="number of services"
+                              onChange={(v) => setLine(i, { qty: v })} />
+                          </div>
+                          <div className="min-w-0">
+                            <span className={label}>Technicians</span>
+                            <Stepper value={l.crew || 1} min={1} max={9} name="technicians"
+                              onChange={(v) => setLine(i, { crew: v })} />
+                          </div>
+                        </div>
+                        <label className="block mt-3">
+                          <span className={label}>First service date</span>
+                          <input className={input} type="date" value={l.startAt}
+                            onChange={(e) => setLine(i, { startAt: e.target.value || draft.start })} />
+                        </label>
+                        <div className="mt-3">
+                          <span className={label}>Usual time</span>
+                          <TimeRangePicker
+                            from={l.slot} to={l.slotEnd || addMinsHHMM(l.slot, 120)}
+                            onChange={(f, t) => setLine(i, { slot: f, slotEnd: t })}
+                            className={input + ' flex items-center'} />
+                        </div>
+                        {(l.qty || 1) > 1 && (
+                          <div className="mt-3">
+                            <span className={label}>Spread over (months)</span>
+                            <Stepper value={l.months || 0} min={0} max={60} name="months"
+                              onChange={(v) => setLine(i, { months: v })} />
+                            <p className="text-[12px] text-muted mt-1.5">
+                              {l.months
+                                ? l.months + ' of the contract’s ' + monthsOf + ' months'
+                                : '0 = the whole contract, ' + monthsOf + ' months'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border-t border-line-soft bg-wash px-3 py-3">
+                        <p className="text-[12px] font-bold uppercase tracking-[0.06em] text-muted">
+                          {dates.length === 1 ? 'The date' : 'All ' + dates.length + ' dates'}
+                        </p>
+                        <p className="text-[12px] text-muted mt-0.5 mb-2.5">
+                          Worked out for you. Tap a date or a time to change just that one.
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          {shown.map((d, n) => {
+                            const pinned = !!(l.dates && l.dates[n]);
+                            const tFrom = l.times?.[n] || '';
+                            const tTo = l.timeEnds?.[n] || '';
+                            const own = pinned || !!tFrom || !!tTo;
+                            return (
+                              <div key={n} data-appt
+                                className={'rounded-lg border bg-white px-2.5 py-2 '
+                                  + (own ? 'border-navy' : 'border-line')}>
+                                {/* The date and the time each get the full
+                                    width. Side by side at 360px the year was
+                                    cut off the date and the window wrapped. */}
+                                <div className="flex items-center gap-2">
+                                  <span className="w-6 h-6 rounded-full bg-wash text-[11.5px] font-bold
+                                    flex items-center justify-center shrink-0">
+                                    {n + 1}
+                                  </span>
+                                  <input type="date" aria-label={'Date of service ' + (n + 1)}
+                                    value={d} min={draft.start} max={draft.end}
+                                    onChange={(e) => setLineDate(i, n, e.target.value)}
+                                    className={'h-11 flex-1 min-w-0 px-2.5 rounded-lg border border-line bg-white '
+                                      + 'text-[16px] outline-none focus:border-accent '
+                                      + (pinned ? 'font-semibold' : '')} />
+                                </div>
+                                <div className="flex items-center gap-2 mt-1.5">
+                                  <span className="w-6 shrink-0" />
+                                  <TimeRangePicker from={tFrom} to={tTo} placeholder={usual}
+                                    onChange={(f, t) => { setLineTime(i, n, f); setLineTimeEnd(i, n, t); }}
+                                    className={'h-11 flex-1 min-w-0 px-2.5 rounded-lg border border-line bg-white '
+                                      + 'flex items-center text-[14.5px] whitespace-nowrap '
+                                      + (tFrom ? 'font-semibold text-ink' : '')} />
+                                </div>
+                                {(own || shared[d]) && (
+                                  <div className="flex items-center gap-2 mt-1 pl-8 min-h-[30px]">
+                                    <span className="flex-1 min-w-0 text-[12px] text-muted">
+                                      {[own ? 'Set by hand' : '', shared[d] ? 'Shares the trip with another service' : '']
+                                        .filter(Boolean).join(' · ')}
+                                    </span>
+                                    {own && (
+                                      <button type="button"
+                                        onClick={() => {
+                                          setLineDate(i, n, ''); setLineTime(i, n, ''); setLineTimeEnd(i, n, '');
+                                        }}
+                                        className="h-[30px] px-2 -mr-1 rounded-lg text-[12.5px] font-semibold text-accent active:bg-red-wash">
+                                        Reset
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {dates.length > 4 && (
+                          <button type="button"
+                            onClick={() => setAllDates((m) => ({ ...m, [i]: !m[i] }))}
+                            className="mt-2.5 w-full h-10 rounded-lg border border-line bg-white
+                              text-[13.5px] font-semibold active:bg-wash">
+                            {allDates[i] ? 'Show fewer' : 'Show all ' + dates.length + ' dates'}
+                          </button>
+                        )}
+                        {dates.length > 0 && (
+                          <p className="text-[12px] text-muted mt-2.5">
+                            {fmtDate(dates[0])} to {fmtDate(dates[dates.length - 1])}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <p className="max-lg:hidden text-[12px] text-muted px-4 pt-3">
             Set the first visit and the rest are spread evenly across the period from the
             quantity above — every date is listed under its service.
           </p>
-          <table className="ztable mt-2">
+          <table className="ztable mt-2 max-lg:hidden">
             <thead>
               <tr>
                 <th className="w-8">#</th><th>Service</th><th>First service</th>
@@ -1059,20 +1386,50 @@ function NewContractForm() {
         <section className={card + ' p-4'}>
           <h2 className="text-[13px] font-semibold mb-3">Digital signatures</h2>
           <span className={label}>Customer signature — {client?.contact || client?.name || 'Customer'}</span>
-          {draft.signCustomer ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={draft.signCustomer} alt="Customer signature"
-              className="h-[72px] rounded border border-line bg-white object-contain" />
+          {/* ------------------------------------------ two ways to get it
+
+              On the spot: the pad takes the whole screen and the phone is
+              handed across. By link: the contract is created unsigned and
+              the customer signs on their own phone from the shared page.
+              A customer who has signed before starts with that signature -
+              shown here, said to be on file, and removable. */}
+          {signLater && !draft.signCustomer ? (
+            <div data-sign-later className="rounded-xl border border-line bg-wash px-3.5 py-3">
+              <p className="text-[13.5px] font-semibold">The customer signs from a link</p>
+              <p className="text-[12.5px] text-muted mt-1 leading-relaxed">
+                {COPY[mode].cta} first — the contract opens with the link ready to send on
+                WhatsApp, and the customer signs on their own phone.
+              </p>
+              <button type="button" onClick={() => setSignLater(false)}
+                className="mt-2.5 h-10 lg:h-9 px-3.5 rounded-lg border border-line bg-white text-[13.5px] lg:text-[12.5px] font-semibold active:bg-wash">
+                Sign on this screen instead
+              </button>
+            </div>
           ) : (
-            <SigPad key={'c' + sigKey} onInk={(d) => set({ signCustomer: d })} />
+            <SignatureField value={draft.signCustomer}
+              onChange={(d) => set({ signCustomer: d })}
+              title="Customer signature" who={client?.contact || client?.name || undefined}
+              note={draft.signCustomer && onFile && draft.signCustomer === onFile.sign
+                ? 'Their signature on file, given ' + fmtDate(onFile.signAt.slice(0, 10))
+                  + '. Sign again for a fresh one, or remove it to leave this agreement unsigned.'
+                : !draft.signCustomer && onFile
+                  ? 'A signature from ' + fmtDate(onFile.signAt.slice(0, 10)) + ' is on file.'
+                  : undefined}>
+              {!draft.signCustomer && onFile && (
+                <button type="button" onClick={() => set({ signCustomer: onFile.sign })}
+                  className="h-10 lg:h-9 px-3.5 rounded-lg border border-line text-[13.5px] lg:text-[12.5px] font-semibold hover:bg-wash active:bg-wash">
+                  Use the one on file
+                </button>
+              )}
+              {!draft.signCustomer && (
+                <button type="button" data-sign-by-link onClick={() => setSignLater(true)}
+                  className="h-10 lg:h-9 px-3.5 rounded-lg border border-line text-[13.5px] lg:text-[12.5px] font-semibold hover:bg-wash active:bg-wash">
+                  Send a link to sign
+                </button>
+              )}
+            </SignatureField>
           )}
-          {draft.signCustomer && (
-            <button type="button" className="text-[11.5px] text-accent font-medium mt-1"
-              onClick={() => { set({ signCustomer: '' }); setSigKey((k) => k + 1); }}>
-              Clear
-            </button>
-          )}
-          <span className={label + ' mt-4'}>For {boot.company.name} — {ownerName}</span>
+          <span className={label + ' mt-5'}>For {boot.company.name} — {ownerName}</span>
           {ownerSign ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1080,9 +1437,8 @@ function NewContractForm() {
                 className="h-[72px] rounded border border-line bg-white object-contain" />
             </>
           ) : (
-            <>
-              <SigPad key={'e' + sigKey} onInk={(d) => set({ signExec: d })} />
-            </>
+            <SignatureField value={draft.signExec} onChange={(d) => set({ signExec: d })}
+              title={'Sign for ' + boot.company.name} who={ownerName} />
           )}
         </section>
 
@@ -1121,6 +1477,37 @@ function NewContractForm() {
         onBack={() => { setErr(''); setStep((n) => Math.max(0, n - 1)); }}
         onNext={next} onSave={create} saveLabel={COPY[mode].cta} />
     </div>
+  );
+}
+
+/**
+ * A count, set with the thumb: minus, the number, plus - each 44px wide.
+ * The desktop table has its own 28px version; this one is for the phone
+ * cards, where a number typed into a bare box was the thing people missed.
+ */
+function Stepper({ value, min, max, onChange, name }: {
+  value: number; min: number; max: number; onChange: (v: number) => void;
+  /** What is being counted, for the buttons' labels: "technicians". */
+  name: string;
+}) {
+  const clamp = (v: number) => Math.min(max, Math.max(min, v));
+  return (
+    <span data-stepper className="flex items-stretch h-[44px] rounded-lg border border-line bg-white overflow-hidden">
+      <button type="button" aria-label={'Fewer ' + name} disabled={value <= min}
+        onClick={() => onChange(clamp(value - 1))}
+        className="w-[44px] shrink-0 text-[20px] leading-none font-semibold text-ink-2 active:bg-wash disabled:text-line">
+        −
+      </button>
+      <input type="number" inputMode="numeric" min={min} max={max} value={value} aria-label={name}
+        onChange={(e) => onChange(clamp(parseInt(e.target.value, 10) || min))}
+        className="flex-1 min-w-0 w-0 text-center text-[16px] font-semibold tabular-nums outline-none
+          border-x border-line bg-white" />
+      <button type="button" aria-label={'More ' + name} disabled={value >= max}
+        onClick={() => onChange(clamp(value + 1))}
+        className="w-[44px] shrink-0 text-[20px] leading-none font-semibold text-ink-2 active:bg-wash disabled:text-line">
+        +
+      </button>
+    </span>
   );
 }
 

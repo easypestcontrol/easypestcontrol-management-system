@@ -17,6 +17,7 @@ import { Icon } from '@/components/icons';
 import { BackBar, Card, Chip, Row, Screen, money, niceDate, type Tone } from '@/components/mobile';
 import Mandate, { mandatePossible } from '@/components/mandate';
 import Collect from '@/components/collect';
+import CustomerSign from './customer-sign';
 
 interface Job { id: string; type: string; date: string; slot: string; status: string; techIds: string[] }
 interface BillingRow {
@@ -40,12 +41,17 @@ function billState(r: BillingRow): { tone: Tone; label: string } {
   return { tone: 'info', label: 'Raised' };
 }
 
-export default function ContractMobile({ c, role }: {
+export default function ContractMobile({ c, role, onChanged, onSignLink }: {
   role: string;
+  /** The contract changed here (a signature went on) - read it again. */
+  onChanged: () => void;
+  /** Open the share sheet for the link the customer signs from. */
+  onSignLink: () => void;
   c: {
     id: string; mode: string; billingMode: string; start: string; end: string; value: number;
     freq: string; planSummaryText: string; daysLeft: number;
-    client: { id: string; name: string; phone?: string } | null;
+    client: { id: string; name: string; phone?: string; contact?: string } | null;
+    signCustomer?: string; agreedAt?: string;
     jobs: Job[];
     progress: { done: number; total: number; pct: number };
     status: { key: string; label: string };
@@ -126,6 +132,12 @@ export default function ContractMobile({ c, role }: {
             </Link>
           </Card>
         )}
+
+        {/* Signed or not is the first thing asked about an agreement, and
+            the phone is where a signature is usually collected. */}
+        <Card title="Customer signature">
+          <CustomerSign c={c} canEdit={canEdit} onChanged={onChanged} onShare={onSignLink} />
+        </Card>
 
         {/* ------------------------------------------------- what is coming */}
         <Card title="Visits ahead" flush>

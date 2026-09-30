@@ -209,6 +209,11 @@ export interface ContractDetail {
   billAddr: string;  // billing address as printed on the agreement
   siteAddr: string;  // site / shipping address (stored as Contract.site)
   discount: number;
+  /** PNG data URLs; '' while that side has not signed. */
+  signCustomer?: string;
+  signExec?: string;
+  /** 'YYYY-MM-DDTHH:MM' - when the customer's signature went on. */
+  agreedAt?: string;
   mergeSameDay: boolean;
   workdaysOnly: boolean;
   blackout: string[];
