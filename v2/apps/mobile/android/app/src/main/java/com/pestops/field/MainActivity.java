@@ -29,6 +29,9 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Before super.onCreate: the bridge lists its plugins as it is built,
+        // and one registered afterwards is never offered to the web layer.
+        registerPlugin(TripTrackerPlugin.class);
         super.onCreate(savedInstanceState);
         createAlertsChannel();
         wireDownloads();

@@ -65,5 +65,30 @@ the server ADDRESS changes or you want a new icon/name.
 
 - **Location** — GPS check-in stamps and trip distance tracking
 - **Camera** — before/after treatment photos
+- **Notifications** — alerts, and the "Trip in progress" line while a trip runs
 
-Both are asked once on first use, exactly like any Android app.
+All are asked once on first use, exactly like any Android app.
+
+## The trip recorder (version 1.1)
+
+A web page only hears from the GPS while it is on the screen, so a trip
+recorded by the page alone stopped the moment the phone was locked or another
+app was opened. From version 1.1 a trip is recorded natively:
+
+- `TripService.java` — a foreground service (type `location`) with a quiet
+  "Trip in progress" notification. It reads the GPS every few seconds and
+  sends each fix to `POST /api/trips/:id/ping` itself. Fixes that cannot be
+  sent wait in memory and go in order when the signal returns. It stops when
+  the web layer says the trip ended, or when the server answers that it has.
+- `TripTrackerPlugin.java` — `Capacitor.Plugins.TripTracker.start / stop /
+  status`, registered in `MainActivity`. The web layer
+  (`web/src/components/trip-tracker.tsx`) uses it when it is there and falls
+  back to the page's own GPS watch when it is not, so older installs keep
+  working exactly as before.
+
+This is the one kind of change that DOES need a new APK on every phone. It
+installs over the old one (same signing key) — nothing is lost.
+
+On phones with aggressive battery savers (Xiaomi, Oppo, Vivo, Realme), also
+set Settings → Apps → Easy Pest Control → Battery → "No restrictions", or the
+phone may stop the recorder on a long trip.

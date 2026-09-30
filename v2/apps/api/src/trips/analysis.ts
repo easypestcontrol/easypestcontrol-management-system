@@ -285,7 +285,8 @@ export function tripChecks(
   }
 
   // The distance
-  if (t.plannedM > 0 && t.distanceM > 0) {
+  // A "route" of a few metres is a trip that never left: nothing to compare.
+  if (t.plannedM >= 200 && t.distanceM > 0) {
     const diff = t.distanceM - t.plannedM;
     if (diff > Math.max(500, t.plannedM * 0.15)) {
       out.push({

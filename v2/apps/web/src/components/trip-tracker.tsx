@@ -6,6 +6,18 @@
    anywhere — so the moving distance and duration always count. Renders
    nothing.
 
+   Two ways of doing the same job, and it picks the better one available:
+
+   · Inside the Android app (version 1.1 on), the trip is handed to a native
+     recorder - a foreground service with a "Trip in progress" notification
+     that reads the GPS and sends every fix itself. It keeps going with the
+     phone locked, in a pocket, or with another app in front, which a web
+     page cannot: a page in the background hears nothing from the GPS. This
+     component only starts and stops it, and repaints the numbers.
+
+   · In a browser, or in an older copy of the app, the page watches the GPS
+     itself - which works only while it is on the screen.
+
    Cost: zero Ola calls, ever. Pings go to our own API (at most one every
    4 seconds, only while a trip is active), and other screens hear about
    them through 'trip:tick' window events. 'trip:changed' events (fired by
@@ -19,13 +31,25 @@
    ========================================================================== */
 
 import { useEffect } from 'react';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, getToken } from '@/lib/api';
 import { watchPosition, type GeoPos } from '@/lib/geo';
 
 interface Fix { lat: number; lng: number; acc: number; spd?: number; at: string }
 
 /** What the phone holds while it cannot reach us - about an hour of driving. */
 const HOLD = 900;
+
+/** The Android app's own recorder (TripTrackerPlugin.java), when this is that app. */
+interface NativeTracker {
+  start(o: { tripId: string; token: string; base: string }): Promise<unknown>;
+  stop(): Promise<unknown>;
+}
+function nativeTracker(): NativeTracker | null {
+  if (typeof window === 'undefined') return null;
+  const w = window as unknown as { Capacitor?: { Plugins?: { TripTracker?: NativeTracker } } };
+  const t = w.Capacitor?.Plugins?.TripTracker;
+  return t && typeof t.start === 'function' ? t : null;
+}
 
 export default function TripTracker() {
   useEffect(() => {
@@ -35,10 +59,20 @@ export default function TripTracker() {
     let gone = false;
     let queue: Fix[] = [];
     let sending = false;
+    // The native recorder has the trip: the page neither watches nor sends.
+    let nativeOn = false;
+    let nativePoll: ReturnType<typeof setInterval> | null = null;
+
+    const stopNative = () => {
+      if (nativePoll) { clearInterval(nativePoll); nativePoll = null; }
+      if (nativeOn) nativeTracker()?.stop().catch(() => {});
+      nativeOn = false;
+    };
 
     const stop = () => {
       stopWatch?.();
       stopWatch = null;
+      stopNative();
       tripId = '';
       queue = [];
     };
@@ -67,7 +101,7 @@ export default function TripTracker() {
     };
 
     const onPos = (pos: GeoPos) => {
-      if (!tripId || gone) return;
+      if (!tripId || gone || nativeOn) return;
       const now = Date.now();
       /*
        * One breadcrumb every four seconds, not ten.
@@ -92,12 +126,42 @@ export default function TripTracker() {
       void flush();
     };
 
-    const begin = (id: string) => {
-      if (tripId && tripId !== id) queue = []; // a different trip: the old one's fixes are not its
-      tripId = id;
+    /** The page's own watch - the browser, or an app without the recorder. */
+    const watchHere = () => {
       if (!stopWatch) {
         stopWatch = watchPosition(onPos, () => window.dispatchEvent(new Event('trip:gps-denied')));
       }
+    };
+
+    const begin = (id: string) => {
+      if (tripId && tripId !== id) { queue = []; stopNative(); } // a different trip
+      tripId = id;
+      const nt = nativeTracker();
+      if (!nt) { watchHere(); return; }
+      if (nativeOn) return;
+      nativeOn = true; // claimed before the await, so two heartbeats cannot both start it
+      nt.start({ tripId: id, token: getToken() || '', base: window.location.origin + '/api' })
+        .then(() => {
+          if (gone || tripId !== id) { stopNative(); return; }
+          stopWatch?.(); stopWatch = null;
+          /* The recorder sends the fixes; the screens still want the running
+             distance. One cheap read of our own API every ten seconds. */
+          if (!nativePoll) {
+            nativePoll = setInterval(() => {
+              api.get<{ id: string; distanceM: number; points: number } | null>('/trips/active')
+                .then((t) => {
+                  if (t && t.id === tripId) {
+                    window.dispatchEvent(new CustomEvent('trip:tick', { detail: { distanceM: t.distanceM, points: t.points } }));
+                  }
+                }).catch(() => {});
+            }, 10000);
+          }
+        })
+        .catch(() => {
+          // Location refused, or the recorder could not start: the page does what it can.
+          nativeOn = false;
+          if (!gone && tripId === id) watchHere();
+        });
     };
 
     const check = () => {
@@ -115,7 +179,10 @@ export default function TripTracker() {
     return () => {
       gone = true;
       clearInterval(iv);
-      stop();
+      // Leaving the page is not ending the trip: the native recorder keeps
+      // going. Only the page's own watch and timers stop.
+      stopWatch?.(); stopWatch = null;
+      if (nativePoll) { clearInterval(nativePoll); nativePoll = null; }
       window.removeEventListener('trip:changed', check);
       window.removeEventListener('online', onOnline);
     };

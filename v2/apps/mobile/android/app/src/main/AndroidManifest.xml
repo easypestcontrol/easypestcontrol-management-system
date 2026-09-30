@@ -24,6 +24,14 @@
 
         </activity>
 
+        <!-- Records a trip while the phone is locked or the app is in the
+             background. "location" is the only thing it does; it is started
+             from the Trip screen and stops when the trip ends. -->
+        <service
+            android:name=".TripService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -41,6 +49,13 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- The trip recorder: a foreground service of type location, its
+         "Trip in progress" notification, and the processor kept awake while
+         a trip runs so a fix taken with the screen off is still sent. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Only for saving an inline (data: URL) attachment on Android 9 and below;
          DownloadManager and MediaStore need no permission on 10+. -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
