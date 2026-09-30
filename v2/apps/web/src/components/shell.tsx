@@ -46,7 +46,7 @@ const GROUPS: Array<{ id: string; label: string; items: NavItem[] }> = [
       { href: '/board', label: 'Dispatch', icon: 'board', roles: ['admin', 'ops', 'sales'] },
       { href: '/schedule', label: 'Schedule', icon: 'calendar', roles: ['admin', 'ops', 'sales'] },
       { href: '/jobs', label: 'Services', icon: 'check', roles: ['admin', 'ops', 'sales'] },
-      { href: '/audits', label: 'Audits', icon: 'service', roles: ['admin', 'ops'] },
+      { href: '/audits', label: 'Audits', icon: 'service', roles: ['admin', 'ops', 'sales'] },
     ],
   },
   {

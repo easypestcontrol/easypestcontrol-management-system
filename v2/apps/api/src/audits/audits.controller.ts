@@ -18,7 +18,7 @@ export class AuditsController {
   // screens link to, never the ledger — so the collection is gated and the
   // detail below is not.
   @Get()
-  @Roles('admin', 'ops')
+  @Roles('admin', 'ops', 'sales')
   async list(
     @Req() req: { user?: { sub?: string; role?: string } },
     @Query('branch') branch?: string,
@@ -43,7 +43,7 @@ export class AuditsController {
   }
 
   @Post()
-  @Roles('admin', 'ops')
+  @Roles('admin', 'ops', 'sales')
   async create(@Body() body: {
     clientId: string; date: string; auditor?: string; score?: number;
     findings?: Array<{ area: string; note: string; severity: string; closed?: boolean }>;
@@ -67,7 +67,7 @@ export class AuditsController {
   }
 
   @Patch(':id')
-  @Roles('admin', 'ops')
+  @Roles('admin', 'ops', 'sales')
   async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
     const data: Record<string, unknown> = {};
     for (const k of ['date', 'auditor', 'score', 'status', 'findings']) {
