@@ -12,6 +12,8 @@
    ========================================================================== */
 
 import Link from 'next/link';
+import { useState } from 'react';
+import { downloadPdfOf } from '@/lib/sheet-pdf';
 import { Icon } from '@/components/icons';
 import { BackBar, Card, Chip, Screen, money, niceDate, type Tone } from '@/components/mobile';
 
@@ -23,6 +25,20 @@ function stateOf(status: string): { tone: Tone; label: string } {
   if (status === 'rejected') return { tone: 'bad', label: 'Turned down' };
   if (status === 'sent') return { tone: 'info', label: 'With the customer' };
   return { tone: 'plain', label: 'Draft' };
+}
+
+/** The quotation as an A4 PDF file, from the desk sheet this page also holds (hidden on a phone). */
+function PdfAct({ fileName }: { fileName: string }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button type="button" disabled={busy} className="flex flex-col items-center gap-1.5 active:opacity-60"
+      onClick={async () => { setBusy(true); try { await downloadPdfOf('.qdoc', fileName); } finally { setBusy(false); } }}>
+      <span className="w-[46px] h-[46px] rounded-full bg-wash flex items-center justify-center">
+        <Icon name="download" size={19} />
+      </span>
+      <span className="text-[12.5px] text-muted font-medium">{busy ? 'Saving…' : 'PDF'}</span>
+    </button>
+  );
 }
 
 export default function QuoteMobile({ q, total, rows, approveUrl, waText, canEdit }: {
@@ -80,6 +96,7 @@ export default function QuoteMobile({ q, total, rows, approveUrl, waText, canEdi
             </span>
             <span className="text-[12.5px] text-muted font-medium">Open</span>
           </a>
+          <PdfAct fileName={'Quotation ' + q.id + (q.party?.name ? ' - ' + q.party.name : '')} />
           {canEdit && (
             <Link href={'/quotations/' + q.id + '/edit'} className="flex flex-col items-center gap-1.5 active:opacity-60">
               <span className="w-[46px] h-[46px] rounded-full bg-wash flex items-center justify-center">

@@ -2,9 +2,10 @@
 
 /* ============================================================================
    /invoices/print?ids=INV-1,INV-2,…  — the selected invoices as ONE
-   document, a page per invoice, ready for Save as PDF. This is the finance
+   document, a page per invoice, saved as ONE PDF. This is the finance
    team's export: select on the list, Download PDF, file it with the
-   accounts. The print dialog opens by itself once everything has loaded.
+   accounts. The PDF is made and saved by itself once everything has loaded
+   (lib/sheet-pdf.ts) - no print dialog.
    ========================================================================== */
 
 import { useEffect, useState } from 'react';
@@ -12,6 +13,8 @@ import { money } from 'shared';
 import { api, type Bootstrap, type Company } from '@/lib/api';
 import { SignArea } from '@/components/sign-area';
 import { amountInWords, fmtDate, type InvoiceDetail } from '../ui';
+import { PdfButton } from '@/components/pdf-button';
+import { downloadPdfOf } from '@/lib/sheet-pdf';
 
 const PRINT_CSS = `
 @media print {
@@ -56,10 +59,10 @@ export default function InvoicesPrint() {
     })();
   }, []);
 
-  // Everything on the page → straight into the print dialog, once.
+  // Everything on the page → one PDF, saved once, by itself.
   useEffect(() => {
     if (docs && docs.length && co) {
-      const t = setTimeout(() => window.print(), 600);
+      const t = setTimeout(() => { void downloadPdfOf('.inv-page', fileName(docs)); }, 600);
       return () => clearTimeout(t);
     }
   }, [docs, co]);
@@ -79,12 +82,10 @@ export default function InvoicesPrint() {
         <span className="text-[13.5px] font-semibold">
           {docs.length} invoice{docs.length === 1 ? '' : 's'} — one page each.
         </span>
-        <button onClick={() => window.print()}
-          className="h-9 px-4 rounded bg-navy text-white text-[13px] font-semibold hover:brightness-110">
-          Print / Save as PDF
-        </button>
+        <PdfButton selector=".inv-page" fileName={fileName(docs)} label="Download PDF again"
+          className="h-9 px-4 rounded bg-navy text-white text-[13px] font-semibold hover:brightness-110" />
         <span className="text-[12px] text-muted">
-          In the print dialog choose “Save as PDF” to download the single file.
+          One A4 PDF with every invoice, saved to your downloads.
         </span>
         {missing.length > 0 && (
           <span className="text-[12px] text-accent">Not found: {missing.join(', ')}</span>
@@ -96,6 +97,10 @@ export default function InvoicesPrint() {
       </div>
     </div>
   );
+}
+
+function fileName(docs: InvoiceDetail[]): string {
+  return docs.length === 1 ? 'Invoice ' + docs[0].id : 'Invoices ' + docs[0].id + ' to ' + docs[docs.length - 1].id;
 }
 
 /* ------------------------------------------------------- one A4 invoice */

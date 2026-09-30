@@ -15,6 +15,7 @@ import { api } from '@/lib/api';
 import { docTotals, money } from 'shared';
 import QuoteDoc from '@/app/(app)/quotations/quote-doc';
 import DocBack from '@/components/doc-back';
+import { PdfButton } from '@/components/pdf-button';
 import { dayDelta, fmtDate, type PublicQuote } from '@/app/(app)/quotations/lib';
 
 const BTN_GHOST = 'inline-flex items-center gap-1.5 h-9 px-4 rounded border border-line bg-white text-[13px] font-medium hover:bg-wash';
@@ -145,10 +146,11 @@ export default function ApprovePage() {
           <div className="min-w-0">
             <p className="text-[13px] font-semibold">The full quotation, as a PDF</p>
             <p className="text-[12px] text-muted mt-0.5">
-              Download opens your device’s print dialog — choose “Save as PDF” to keep a copy.
+              An A4 PDF, saved straight to your downloads.
             </p>
           </div>
-          <button onClick={() => window.print()} className={BTN_GHOST}>Download PDF</button>
+          <PdfButton selector=".qdoc" className={BTN_GHOST}
+            fileName={'Quotation ' + q.id + (q.party?.name ? ' - ' + q.party.name : '')} />
         </div>
 
         {/* ----------------------------------------------------- document */}

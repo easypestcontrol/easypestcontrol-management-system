@@ -21,6 +21,7 @@ import { Icon } from '@/components/icons';
 import { BackBar, Card, Chip, Screen, money, niceDate, type Tone } from '@/components/mobile';
 import type { InvoiceDetail, Totals } from '../ui';
 import { ShareSheet } from '@/components/share-link';
+import { downloadPdfOf } from '@/lib/sheet-pdf';
 
 function stateOf(inv: InvoiceDetail): { tone: Tone; label: string } {
   if (inv.status === 'paid') return { tone: 'good', label: 'Paid in full' };
@@ -38,7 +39,7 @@ function stateOf(inv: InvoiceDetail): { tone: Tone; label: string } {
 
 /** A round action under the amount. Four is the most a thumb reaches easily. */
 function Act({ icon, label, onClick, href, tone = 'plain' }: {
-  icon: 'upload' | 'phone' | 'receipt' | 'invoice';
+  icon: 'upload' | 'phone' | 'receipt' | 'invoice' | 'download';
   label: string; onClick?: () => void; href?: string;
   /** The one action that moves money is red; the rest are quiet. */
   tone?: 'plain' | 'red';
@@ -67,6 +68,7 @@ export default function InvoiceMobile({ inv, t, onPay, canPay, shareHref }: {
   shareHref: string;
 }) {
   const [sharing, setSharing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const st = stateOf(inv);
   const owed = t.balance > 0;
 
@@ -126,6 +128,13 @@ export default function InvoiceMobile({ inv, t, onPay, canPay, shareHref }: {
             <Act icon="phone" label="Call" href={'tel:' + inv.client.phone} />
           )}
           <Act icon="invoice" label="Open" href={shareHref} />
+          {/* The invoice as an A4 PDF file, from the desk sheet this page also holds. */}
+          <Act icon="download" label={saving ? 'Saving…' : 'PDF'} onClick={async () => {
+            if (saving) return;
+            setSaving(true);
+            try { await downloadPdfOf('.print-doc', 'Invoice ' + inv.id + (inv.client?.name ? ' - ' + inv.client.name : '')); }
+            finally { setSaving(false); }
+          }} />
           {/* Our sheet, not the operating system's.
               navigator.share hands the phone over to Windows or Android: a
               black panel offering Zoom, Outlook, LinkedIn and a QR code — and

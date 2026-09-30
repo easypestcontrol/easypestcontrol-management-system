@@ -22,6 +22,7 @@ import PoBuilder, { type PoDraft } from '../builder';
 import PoDoc from '../po-doc';
 import type { DocCompany } from '../../quotations/lib';
 import PoMobile from './mobile';
+import { PdfButton } from '@/components/pdf-button';
 import { DocSheet } from '@/components/mobile';
 
 interface Line {
@@ -151,10 +152,9 @@ export default function PurchaseOrderPage() {
           </>
         )}
         {po.status !== 'draft' && (
-          <button onClick={() => window.print()}
-            className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">
-            Print
-          </button>
+          <PdfButton selector=".qdoc"
+            className="h-9 px-3.5 rounded border border-line text-[12.5px] font-semibold hover:bg-wash"
+            fileName={'Purchase order ' + po.id + (po.vendor?.name ? ' - ' + po.vendor.name : '')} />
         )}
         {canReceive && (
           <button onClick={() => setReceiving(true)}

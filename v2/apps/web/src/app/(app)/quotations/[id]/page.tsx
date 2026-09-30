@@ -20,6 +20,7 @@ import {
   type DocCompany, type QuoteFull,
 } from '../lib';
 import QuoteMobile from './mobile';
+import { PdfButton } from '@/components/pdf-button';
 
 const BTN_GHOST = 'flex items-center gap-1.5 h-8 px-3 rounded border border-line text-[12.5px] font-medium hover:bg-wash';
 const BTN_RED = 'flex items-center gap-1.5 h-8 px-3.5 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90';
@@ -95,7 +96,7 @@ function ShareModal({ q, co, total, onClose, onSent }: {
           <div className="rounded border border-line bg-wash p-3 text-[12px] text-muted leading-relaxed mb-4">
             <span className="font-semibold text-ink-2">A WhatsApp link cannot carry a file.</span>{' '}
             The message holds two links instead: the customer reads the full document at the first and
-            taps Accept or Decline right there. Want a file too? Use <span className="font-semibold text-ink-2">Print / PDF</span>{' '}
+            taps Accept or Decline right there. Want a file too? Use <span className="font-semibold text-ink-2">Download PDF</span>{' '}
             on this page, save it, and add it in the chat with the paperclip.
           </div>
 
@@ -305,7 +306,8 @@ export default function QuotationDetail() {
             <ShareLink path={'/approve/' + q.id} title={'Quotation ' + q.id}
               phone={q.party?.phone}
               text={`Quotation ${q.id} — open it here to review and accept:`} />
-            <button onClick={() => window.print()} className={BTN_GHOST}>Print / PDF</button>
+            <PdfButton selector=".qdoc" className={BTN_GHOST}
+              fileName={'Quotation ' + q.id + (q.party?.name ? ' - ' + q.party.name : '')} />
             <button onClick={duplicate} className={BTN_GHOST}>Duplicate</button>
             {q.status === 'sent' && (
               <>

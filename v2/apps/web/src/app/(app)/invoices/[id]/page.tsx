@@ -24,6 +24,7 @@ import {
   type InvoiceDetail,
 } from '../ui';
 import InvoiceMobile from './mobile';
+import { PdfButton } from '@/components/pdf-button';
 
 const PRINT_CSS = `
 @media print {
@@ -121,10 +122,9 @@ export default function InvoicePage() {
           <ShareLink path={'/invoice/' + inv.id} title={'Invoice ' + inv.id}
             phone={inv.client?.phone}
             text={`Invoice ${inv.id} — ${money(t.total)}${t.balance > 0 ? ' (balance ' + money(t.balance) + ')' : ' (paid)'}. View it here:`} />
-          <button onClick={() => window.print()}
-            className="h-8 px-3.5 rounded border border-line text-[13px] font-medium hover:bg-wash">
-            Print / PDF
-          </button>
+          <PdfButton selector=".print-doc"
+            className="h-8 px-3.5 rounded border border-line text-[13px] font-medium hover:bg-wash"
+            fileName={'Invoice ' + inv.id + (inv.client?.name ? ' - ' + inv.client.name : '')} />
           {canBill && t.balance > 0 && (
             <button onClick={() => setPaying(true)}
               className="flex items-center gap-1.5 h-8 px-3.5 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90">
