@@ -23,6 +23,7 @@ import { billingPlan,
   type ContractInput, type VisitPlan,
 } from 'shared';
 import { raiseDueBilling } from '../billing.util';
+import { cleanSign, rememberSign } from '../clients/signature';
 import {
   contractStatus, contractToInput, dayDelta, fmtDate, lineToInput, nowStamp,
   phoneKey, planDiff, planSummary, planWarnings, syncCrew, todayISO,
@@ -690,6 +691,8 @@ export class ContractsController {
       : null;
     // The exec signature prefers the owner's on-file profile signature.
     const signExec = owner?.sign || draft.signExec || '';
+    // Blank is allowed: the customer may sign later, from the link.
+    const signCustomer = cleanSign(draft.signCustomer);
 
     /* ----------------------------------------------------------- write */
     const created = await this.prisma.contract.create({
@@ -732,7 +735,7 @@ export class ContractsController {
         mergeSameDay: true,
         workdaysOnly: true,
         blackout: [],
-        signCustomer: draft.signCustomer || '',
+        signCustomer,
         signExec,
         agreedAt: nowStamp(),
         totalVisits: 0,
@@ -740,6 +743,9 @@ export class ContractsController {
       },
       include: { plan: { orderBy: { order: 'asc' } } },
     });
+
+    // Signed once, theirs from then on: the next agreement starts with it.
+    await rememberSign(this.prisma, client.id, signCustomer);
 
     /* ------------------------------------------------------ the visits */
     let visitsCreated = 0;
@@ -889,6 +895,26 @@ export class ContractsController {
     if ('billingAmount' in data) data.billingAmount = Math.max(0, Math.round(Number(data.billingAmount) || 0));
 
     /*
+     * A signature added after the fact - which is when most are collected.
+     *
+     * The edit screen sends the signature back on every save, so only a
+     * CHANGED one is a customer signing: that is what gets checked, stamps
+     * the agreement, and is kept as the customer's own for next time.
+     */
+    let signedFor = '';
+    if ('signCustomer' in data) {
+      const cur = await this.prisma.contract.findUnique({
+        where: { id }, select: { signCustomer: true, clientId: true },
+      });
+      if (!cur) throw new NotFoundException('No such contract');
+      if (String(data.signCustomer || '') === cur.signCustomer) delete data.signCustomer;
+      else {
+        data.signCustomer = cleanSign(data.signCustomer);
+        if (data.signCustomer) { data.agreedAt = nowStamp(); signedFor = cur.clientId; }
+      }
+    }
+
+    /*
      * Move a date and the term has to move with it.
      *
      * `months` is not a label. The billing plan spreads the value across it,
@@ -930,7 +956,9 @@ export class ContractsController {
       if (v !== null) data.value = v; // an unpriced plan cannot price the contract
     }
 
-    return this.prisma.contract.update({ where: { id }, data });
+    const saved = await this.prisma.contract.update({ where: { id }, data });
+    if (signedFor) await rememberSign(this.prisma, signedFor, String(data.signCustomer));
+    return saved;
   }
 
   /* ----------------------------------------------------- plan diff / apply */

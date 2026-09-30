@@ -4,10 +4,16 @@
    The public contract — what the Share link opens. The customer sees their
    own agreement: services, the visit schedule with what is done and what is
    coming, the period and the value. No login, phone-first.
+
+   It is also where they sign it. Half of these are never signed at the
+   doorstep - the person who decides is at work, or the agreement is written
+   after the visit - so the same link that shows the contract takes the
+   signature, full screen, on the customer's own phone.
    ========================================================================== */
 
 import { SignArea } from '@/components/sign-area';
 import DocBack from '@/components/doc-back';
+import SignFull from '@/components/sign-full';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { money } from 'shared';
@@ -29,6 +35,7 @@ interface Doc {
   }>;
   terms?: string[];
   signCustomer?: string;
+  signedAt?: string;
   signExec?: string;
   client: { name: string; contact: string; phone: string; addr: string; city: string } | null;
   company: {
@@ -43,10 +50,42 @@ const fmtD = (iso: string) => {
   return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso || '—';
 };
 
+/** "2026-09-30T14:05" -> "30/09/2026, 2:05 PM". */
+const fmtStamp = (at: string) => {
+  const s = String(at || '');
+  if (!s) return '';
+  const h = Number(s.slice(11, 13)); const m = s.slice(14, 16);
+  const time = s.length >= 16 ? ', ' + (h % 12 || 12) + ':' + m + ' ' + (h < 12 ? 'AM' : 'PM') : '';
+  return fmtD(s.slice(0, 10)) + time;
+};
+
 export default function PublicContract() {
   const { id } = useParams<{ id: string }>();
   const [doc, setDoc] = useState<Doc | null>(null);
   const [missing, setMissing] = useState(false);
+  // Signing: the pad is open, the signature is on its way, or it did not land.
+  const [pad, setPad] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [signErr, setSignErr] = useState('');
+  const [thanks, setThanks] = useState(false);
+
+  async function sign(dataUrl: string) {
+    setPad(false); setSignErr(''); setSending(true);
+    try {
+      const r = await fetch('/api/public/docs/contract/' + id + '/sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sign: dataUrl }),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body?.message || 'Could not save the signature');
+      setDoc(body); setThanks(true);
+    } catch (e) {
+      setSignErr(e instanceof Error ? e.message : 'Could not save the signature - please try again');
+    } finally {
+      setSending(false);
+    }
+  }
 
   useEffect(() => {
     fetch('/api/public/docs/contract/' + id)
@@ -63,9 +102,11 @@ export default function PublicContract() {
   const co = doc.company;
   const done = doc.schedule.filter((s) => s.status === 'completed').length;
   const open = doc.schedule.filter((s) => s.status !== 'completed' && s.status !== 'cancelled');
+  const unsigned = !doc.signCustomer;
+  const signer = doc.client?.contact || doc.client?.name || 'Customer';
 
   return (
-    <div className="min-h-screen bg-[#f4f5f8] pb-4 px-3 sm:pb-8">
+    <div className={'min-h-screen bg-[#f4f5f8] px-3 ' + (unsigned ? 'pb-28 print:pb-4' : 'pb-4 sm:pb-8')}>
       <DocBack className="-mx-3 mb-4 sm:mb-8" title="Contract" sub={doc.id} fallback={'/contracts/' + doc.id} />
       <div className="bg-white border border-[#e3e6ee] rounded-lg max-w-[820px] mx-auto shadow-sm">
         <div className="p-5 sm:p-10">
@@ -264,19 +305,42 @@ export default function PublicContract() {
           {/* An agreement is signed by two people. Only the company's side
               was ever printed, so the customer had nowhere to sign — on the
               one document in this app where that is the entire point. */}
+          {thanks && (
+            <div data-signed-thanks className="no-print mt-8 rounded-lg border border-[#cfe8d8] bg-[#f1faf4] px-4 py-3">
+              <p className="text-[14px] font-bold text-[#14532d]">Signed - thank you.</p>
+              <p className="text-[12.5px] text-[#14532d]/80 mt-0.5 leading-relaxed">
+                Your signature is on the agreement below and {co.name} has been told.
+                This link always shows the latest schedule.
+              </p>
+            </div>
+          )}
+          {signErr && (
+            <p className="no-print mt-8 rounded-lg border border-[#ffd0d0] bg-[#fff5f5] px-4 py-3 text-[13px] font-semibold text-[#c00000]">
+              {signErr}
+            </p>
+          )}
           <div className="flex justify-between items-end gap-8 mt-8 flex-wrap">
-            <div className="text-center min-w-[180px]">
+            <div className="text-center min-w-[180px] max-sm:w-full">
               {doc.signCustomer ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={doc.signCustomer} alt="" className="h-14 mx-auto object-contain" />
               ) : (
-                <div className="h-14" />
+                <>
+                  <button type="button" data-sign-here onClick={() => setPad(true)} disabled={sending}
+                    className="no-print w-full h-[72px] rounded-lg border-2 border-dashed border-[#FF0000]/50 bg-[#fff7f7]
+                      text-[14px] font-bold text-[#c00000] active:bg-[#ffecec] disabled:opacity-60">
+                    {sending ? 'Saving your signature…' : 'Tap here to sign'}
+                  </button>
+                  <div className="hidden print:block h-14" />
+                </>
               )}
-              <div className="border-t border-[#e3e6ee] pt-2 text-[11.5px] font-semibold">
+              <div className="border-t border-[#e3e6ee] pt-2 mt-2 text-[11.5px] font-semibold">
                 {doc.client?.name || 'Customer'}
               </div>
               <div className="text-[10.5px] text-gray-400">
-                {doc.signCustomer ? 'Accepted' : 'Customer signature'}
+                {doc.signCustomer
+                  ? 'Accepted' + (doc.signedAt ? ' · signed ' + fmtStamp(doc.signedAt) : '')
+                  : 'Customer signature'}
               </div>
             </div>
             <div className="text-center min-w-[180px]">
@@ -292,6 +356,32 @@ export default function PublicContract() {
           </p>
         </div>
       </div>
+
+      {/* ------------------------------------------------ waiting to be signed
+
+          Pinned to the bottom of the screen, where a thumb is, for as long as
+          the agreement is unsigned: the customer reads as far as they want
+          and the way to sign never scrolls out of reach. */}
+      {unsigned && (
+        <div data-sign-bar className="no-print fixed inset-x-0 bottom-0 z-40 bg-white border-t border-[#e3e6ee]
+          px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] shadow-[0_-6px_20px_rgba(20,20,20,0.08)]">
+          <div className="max-w-[820px] mx-auto flex items-center gap-3">
+            <p className="flex-1 min-w-0 text-[12.5px] text-gray-600 leading-snug">
+              <strong className="block text-[13.5px] text-[#141414]">Waiting for your signature</strong>
+              Signing accepts the services, schedule and terms on this page.
+            </p>
+            <button type="button" onClick={() => setPad(true)} disabled={sending}
+              className="shrink-0 h-12 px-5 rounded-xl bg-[#FF0000] text-white text-[15px] font-bold
+                active:brightness-90 disabled:opacity-60">
+              {sending ? 'Saving…' : 'Sign now'}
+            </button>
+          </div>
+        </div>
+      )}
+      {pad && (
+        <SignFull title={'Sign ' + doc.id} who={signer}
+          onCancel={() => setPad(false)} onDone={sign} />
+      )}
     </div>
   );
 }

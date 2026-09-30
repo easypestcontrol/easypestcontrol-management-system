@@ -6,7 +6,7 @@
    document — no internal notes, no other customers, no lists to walk.
    ========================================================================== */
 import {
-  BadRequestException, Controller, Get, NotFoundException, Param, Post, UseGuards,
+  BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, UseGuards,
 } from '@nestjs/common';
 import { StorageService } from './storage/storage.service';
 import {
@@ -15,6 +15,8 @@ import {
 import { PrismaService } from './prisma.service';
 import { AuthGuard, Public } from './auth/auth.guard';
 import { open } from './secrets.util';
+import { cleanSign, rememberSign } from './clients/signature';
+import { nowStamp } from './contracts/plan';
 
 @Controller('public/docs')
 @UseGuards(AuthGuard)
@@ -329,8 +331,59 @@ export class PublicDocsController {
          at all and nowhere for the customer to sign. */
       terms: (c.terms || []).filter(Boolean),
       signCustomer: c.signCustomer || '',
+      // When the customer's signature went on; blank while it is still owed.
+      signedAt: c.signCustomer ? c.agreedAt || '' : '',
       signExec: c.signExec || '',
       client, company: co,
     };
+  }
+
+  /**
+   * The customer signs their own agreement, from the link.
+   *
+   * Half of these are never signed at the doorstep: the person who decides is
+   * at work, or the agreement is written after the visit. So the link that
+   * shows them the contract also lets them sign it, on their own phone, with
+   * nobody standing over them.
+   *
+   * Public for the same reason the quotation's Accept button is - the
+   * customer has no login and never will. What it can do is narrow: put ONE
+   * signature on ONE agreement that does not have one yet. The first
+   * signature stands; after that only the office can change it, from the edit
+   * screen. It moves no money and changes no term.
+   */
+  @Public()
+  @Post('contract/:id/sign')
+  async signContract(@Param('id') id: string, @Body() body: Record<string, unknown>) {
+    const sign = cleanSign(body?.sign);
+    if (!sign) throw new BadRequestException('Please sign before sending');
+    const c = await this.prisma.contract.findUnique({
+      where: { id }, select: { id: true, clientId: true, owner: true, signCustomer: true },
+    });
+    if (!c) throw new NotFoundException('No such contract');
+    if (c.signCustomer) {
+      throw new BadRequestException('This agreement is already signed');
+    }
+
+    await this.prisma.contract.update({
+      where: { id }, data: { signCustomer: sign, agreedAt: nowStamp() },
+    });
+    // Theirs from now on: the next agreement written for them starts with it.
+    await rememberSign(this.prisma, c.clientId, sign);
+
+    // The person who sold it, and the admins, hear about it the moment it lands.
+    const [client, admins] = await Promise.all([
+      this.prisma.client.findUnique({ where: { id: c.clientId }, select: { name: true } }),
+      this.prisma.user.findMany({ where: { role: 'admin' }, select: { id: true } }),
+    ]);
+    const to = new Set([c.owner, ...admins.map((u) => u.id)].filter(Boolean));
+    await this.prisma.notification.createMany({
+      data: [...to].map((userId) => ({
+        userId, at: nowStamp(),
+        text: (client?.name || 'The customer') + ' signed the agreement from the link (' + c.id + ')',
+      })),
+    });
+
+    return this.contract(id);
   }
 }

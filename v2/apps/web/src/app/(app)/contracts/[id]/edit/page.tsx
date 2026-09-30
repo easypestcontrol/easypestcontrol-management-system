@@ -16,7 +16,7 @@ import { api } from '@/lib/api';
 import { STATES, fmtDate, type Boot, type ContractDetail } from '../../lib';
 import TimePicker from '@/components/time-picker';
 import TimeRangePicker from '@/components/time-range';
-import SigPad from '@/components/sig-pad';
+import SignatureField from '@/components/signature-field';
 
 const CYCLES = ['Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'];
 
@@ -45,7 +45,6 @@ export default function EditContract() {
   const [signCustomer, setSignCustomer] = useState('');
   const [signExec, setSignExec] = useState('');
   const [start, setStart] = useState('');
-  const [sigKey, setSigKey] = useState(0);
   const [billingMode, setBillingMode] = useState('interval');
   const [billing, setBilling] = useState('Quarterly');
   const [billingAmount, setBillingAmount] = useState(0);
@@ -132,30 +131,31 @@ export default function EditContract() {
   const area = 'w-full px-3 py-2 rounded-lg border border-line text-[16px] lg:text-[13.5px] leading-relaxed outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)] resize-none';
 
   return (
-    <div className="p-4 lg:p-6 max-w-[920px]">
+    <div className="p-4 lg:p-6 max-w-[920px] max-lg:pb-[calc(env(safe-area-inset-bottom)+92px)]">
       <Link href={'/contracts/' + c.id} className="text-[12.5px] text-muted hover:text-navy">
         ← Back to {c.id}
       </Link>
       <div className="mt-2 mb-5 flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-[20px] font-semibold">Edit contract</h1>
-          <p className="max-lg:hidden text-muted text-[13px] mt-0.5">
-            {c.id} · started {fmtDate(c.start)} · value {money(c.value)} + GST
+          <p className="text-muted text-[13px] mt-0.5">
+            {c.id} <span className="max-lg:hidden">· started {fmtDate(c.start)} · value {money(c.value)} + GST</span>
           </p>
         </div>
-        <div className="flex gap-2">
+        {/* On a phone Save lives in the bar at the bottom, under the thumb -
+            up here it scrolled away after the first section. */}
+        <div className="max-lg:hidden flex gap-2">
           <Link href={'/contracts/' + c.id}
             className="h-9 px-4 rounded border border-line text-[13px] font-medium hover:bg-wash inline-flex items-center">
             Cancel
           </Link>
           <button onClick={save} disabled={busy}
-            className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-60
-              max-lg:h-11 max-lg:px-5 max-lg:rounded-xl max-lg:text-[14.5px]">
+            className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 disabled:opacity-60">
             {busy ? 'Saving…' : 'Save changes'}
           </button>
         </div>
       </div>
-      {err && <p className="mb-4 text-[13px] font-medium text-accent">{err}</p>}
+      {err && <p className="max-lg:hidden mb-4 text-[13px] font-medium text-accent">{err}</p>}
 
       <section className="card p-5 mb-5">
         <h2 className="text-[13.5px] font-semibold mb-4">The agreement</h2>
@@ -243,35 +243,24 @@ export default function EditContract() {
       </section>
 
       <section className="card p-5 mb-5">
-        <h2 className="text-[13.5px] font-semibold mb-3">Customer signature</h2>
-        {signCustomer ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={signCustomer} alt="Customer signature"
-              className="h-[72px] rounded border border-line bg-white object-contain" />
-            <button type="button" className="text-[11.5px] text-accent font-medium mt-1"
-              onClick={() => { setSignCustomer(''); setSigKey((k) => k + 1); }}>
-              Clear
-            </button>
-          </>
-        ) : (
-          <SigPad key={'c' + sigKey} onInk={setSignCustomer} />
-        )}
-
-        <h2 className="text-[13.5px] font-semibold mb-3 mt-5">For {boot.company.name}</h2>
-        {signExec ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={signExec} alt="Authorised signature"
-              className="h-[72px] rounded border border-line bg-white object-contain" />
-            <button type="button" className="text-[11.5px] text-accent font-medium mt-1"
-              onClick={() => { setSignExec(''); setSigKey((k) => k + 1); }}>
-              Clear
-            </button>
-          </>
-        ) : (
-          <SigPad key={'e' + sigKey} onInk={setSignExec} />
-        )}
+        {/* Both open the full-screen pad. A signature taken here is saved with
+            the rest of the edit - and kept as the customer's own, so the next
+            agreement written for them starts with it. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div>
+            <h2 className="text-[13.5px] font-semibold mb-3">Customer signature</h2>
+            <SignatureField value={signCustomer} onChange={setSignCustomer}
+              title="Customer signature" who={c.client?.contact || c.client?.name || 'Customer'}
+              note={signCustomer ? undefined
+                : 'Not signed yet. Sign here on the spot, or share the contract link - the customer can sign from it.'} />
+          </div>
+          <div>
+            <h2 className="text-[13.5px] font-semibold mb-3">For {boot.company.name}</h2>
+            <SignatureField value={signExec} onChange={setSignExec}
+              title={'Sign for ' + boot.company.name}
+              who={boot.users.find((u) => u.id === owner)?.name} />
+          </div>
+        </div>
       </section>
 
       <section className="card p-5 mb-5">
@@ -331,7 +320,56 @@ export default function EditContract() {
             Move any service to a new date or time window. Completed services are locked — they already happened.
           </p>
         </div>
-        <table className="ztable">
+        {/* On a phone: one card to a service, the date and the time each a
+            full-width, labelled control. The table below folded into a run of
+            unlabelled boxes, and nobody could tell which date was which. */}
+        <div className="lg:hidden divide-y divide-line-soft" data-sched-cards>
+          {c.jobs.map((jx) => {
+            const row = sched[jx.id] || { date: jx.date, slot: jx.slot, slotEnd: jx.slotEnd || '' };
+            const done = jx.status === 'completed';
+            const set = (patch: Partial<typeof row>) =>
+              setSched((m) => ({ ...m, [jx.id]: { ...row, ...patch } }));
+            const moved = row.date !== jx.date || row.slot !== jx.slot || row.slotEnd !== (jx.slotEnd || '');
+            const svcNames = jx.serviceIds
+              .map((sv) => boot.services.find((x) => x.id === sv)?.name || sv).join(' + ');
+            return (
+              <div key={jx.id} className="px-4 py-3.5">
+                <div className="flex items-start gap-2.5">
+                  <span className="w-7 h-7 rounded-full bg-wash text-[12.5px] font-bold flex items-center justify-center shrink-0">
+                    {jx.visitNo || '—'}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[14.5px] font-semibold leading-snug">{svcNames}</span>
+                    <span className="block text-[11.5px] text-muted-2 font-mono">{jx.id}</span>
+                  </span>
+                  <span className={done ? 'zpill navy' : moved ? 'zpill red' : 'zpill outline'}>
+                    {done ? 'Completed' : moved ? 'Moved' : 'Scheduled'}
+                  </span>
+                </div>
+                {done ? (
+                  <p className="text-[13.5px] text-ink-2 mt-2 pl-[38px]">
+                    {fmtDate(jx.date)} · {jx.slot}{jx.slotEnd ? ' – ' + jx.slotEnd : ''}
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-2.5 mt-3">
+                    <label className="block min-w-0">
+                      <span className={label}>Date</span>
+                      <input type="date" className={input} value={row.date}
+                        onChange={(e) => set({ date: e.target.value || jx.date })} />
+                    </label>
+                    <div className="min-w-0">
+                      <span className={label}>Time</span>
+                      <TimeRangePicker from={row.slot} to={row.slotEnd}
+                        onChange={(f, t) => set({ slot: f, slotEnd: t })}
+                        className={input + ' flex items-center whitespace-nowrap text-[15px]'} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <table className="ztable max-lg:hidden">
           <thead><tr>
             <th className="w-10">#</th><th>Services</th><th>Date</th><th colSpan={2}>Time window</th><th>Status</th>
           </tr></thead>
@@ -381,6 +419,23 @@ export default function EditContract() {
         <b>Service plan → Edit plan</b> — that flow regenerates the schedule without touching completed work.
         Cancelling one service: the × in the schedule on the contract page.
       </p>
+
+      <div className="lg:hidden fixed left-0 right-0 z-30 bottom-[calc(max(12px,env(safe-area-inset-bottom))+70px)]
+        bg-white border-t border-line px-4 pt-2.5 pb-2.5">
+        {err && <p className="text-accent text-[13px] mb-2 leading-snug">{err}</p>}
+        <div className="flex gap-2.5">
+          <Link href={'/contracts/' + c.id}
+            className="h-11 px-5 rounded-lg border border-line bg-white font-semibold text-[14.5px]
+              inline-flex items-center active:bg-wash">
+            Cancel
+          </Link>
+          <button type="button" onClick={save} disabled={busy}
+            className="flex-1 h-11 rounded-lg bg-accent text-white font-semibold text-[14.5px]
+              active:brightness-90 disabled:opacity-60">
+            {busy ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

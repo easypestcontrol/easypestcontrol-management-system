@@ -242,6 +242,19 @@ model Client {
   remarks  String @default("") // internal only
 }
 
+/// The customer's own signature, kept from the last time they signed an
+/// agreement - on the spot or from the link. The next agreement written for
+/// them starts with it, so they are not asked to sign again at every renewal.
+///
+/// A table of its own rather than a column on Client: it is an image, and
+/// dozens of queries read whole customer rows to get a name or a phone
+/// number - several of them hand those rows straight to the browser.
+model ClientSignature {
+  clientId String @id
+  sign     String // PNG data URL
+  at       String @default("") // "YYYY-MM-DDTHH:MM" of when it was given
+}
+
 model Lead {
   id         String    @id // LD-1001
   name       String

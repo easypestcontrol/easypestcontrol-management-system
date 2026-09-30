@@ -119,6 +119,25 @@ export class ClientsController {
     }));
   }
 
+  /**
+   * The customer's signature on file, for the people who write agreements.
+   * Asked for one customer at a time, by the form that is about to use it.
+   */
+  @Get(':id/signature')
+  @Roles('admin', 'ops', 'sales')
+  async signature(@Param('id') id: string) {
+    const s = await this.prisma.clientSignature.findUnique({ where: { clientId: id } });
+    return { sign: s?.sign || '', signAt: s?.at || '' };
+  }
+
+  /** Forget it - the customer asked, or the wrong hand signed. */
+  @Delete(':id/signature')
+  @Roles('admin', 'ops', 'sales')
+  async forgetSignature(@Param('id') id: string) {
+    await this.prisma.clientSignature.deleteMany({ where: { clientId: id } });
+    return { ok: true };
+  }
+
   @Get(':id')
   async one(@Param('id') id: string, @Req() req: AuthedReq) {
     const c = await this.prisma.client.findUnique({ where: { id } });
@@ -213,6 +232,7 @@ export class ClientsController {
       );
     }
 
+    await this.prisma.clientSignature.deleteMany({ where: { clientId: id } });
     await this.prisma.client.delete({ where: { id } });
     return { ok: true, id };
   }
