@@ -25,7 +25,7 @@ import { billingPlan,
 import { raiseDueBilling } from '../billing.util';
 import { cleanSign, rememberSign } from '../clients/signature';
 import {
-  contractStatus, contractToInput, dayDelta, fmtDate, lineToInput, nowStamp,
+  contractStatus, contractToInput, dayDelta, effectivePlan, fmtDate, lineToInput, nowStamp,
   phoneKey, planDiff, planSummary, planWarnings, syncCrew, todayISO,
   contractValue,
   type DbPlanLine,
@@ -208,8 +208,11 @@ export class ContractsController {
       const cl = clientOf[c.clientId];
       const svIds: string[] = [];
       for (const l of c.plan) if (svIds.indexOf(l.svId) < 0) svIds.push(l.svId);
-      const staff = c.plan.length ? staffing(c.plan.map(lineToInput)) : null;
-      const firstTech = c.plan.map((l) => lineCrew(lineToInput(l))[0]).filter(Boolean)[0] || '';
+      // Who is actually going: a technician put straight on a visit (the
+      // dispatch board) counts, not only the crew written on the plan.
+      const crewed = effectivePlan(c.plan as DbPlanLine[], cj);
+      const staff = crewed.length ? staffing(crewed.map(lineToInput)) : null;
+      const firstTech = crewed.map((l) => lineCrew(lineToInput(l))[0]).filter(Boolean)[0] || '';
       return {
         key: c.id, one, standalone: false,
         clientId: c.clientId,
@@ -446,7 +449,11 @@ export class ContractsController {
     const done = sorted.filter((j) => j.status === 'completed').length;
     const total = c.totalVisits || sorted.length || 1;
 
-    const lines = c.plan.map(lineToInput);
+    // The plan as it is staffed in fact - see effectivePlan. The page, the
+    // banner and the Assign dialog all read this one, so they agree with the
+    // dispatch board about who is on a visit.
+    const crewedPlan = effectivePlan(c.plan, jobs);
+    const lines = crewedPlan.map((l) => lineToInput(l as DbPlanLine));
     const staff = staffing(lines);
     const visits = c.plan.length ? planVisits(contractToInput(c, c.plan as DbPlanLine[])) : [];
     const peak = c.plan.length ? peakCrew(lines, visits) : 0;
@@ -526,6 +533,7 @@ export class ContractsController {
 
     return {
       ...c,
+      plan: crewedPlan,
       client,
       jobs: sorted,
       progress: { done, total, pct: Math.min(100, Math.round((done / total) * 100)) },

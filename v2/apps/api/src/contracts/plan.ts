@@ -335,6 +335,42 @@ export function syncCrew(plan: DbPlanLine[], jobs: DbJob[]): CrewSync {
   return { writes, updated: writes.length, held };
 }
 
+/**
+ * Who is actually going, line by line.
+ *
+ * A contract's crew lives on its plan lines, and the visits are stamped from
+ * it. But a technician can also be put straight on a visit - dragged onto the
+ * dispatch board, or picked on the service page - and that says nothing to
+ * the plan. The visit then had somebody on it while its contract went on
+ * announcing "1 technician still to be assigned, services will go out with
+ * nobody on them", which was simply untrue.
+ *
+ * So a line with no crew of its own is read from its visits: if every visit
+ * of that service still to come has somebody on it (or they are all done),
+ * the line is staffed by whoever that is. One visit with nobody keeps the
+ * line short, because that warning is then true. A line that HAS a crew is
+ * left exactly as written.
+ *
+ * Read-only: nothing is stored. Saving the Assign dialog writes it down.
+ */
+export function effectivePlan<T extends Pick<DbPlanLine, 'svId' | 'crew' | 'techIds'>>(
+  plan: T[], jobs: Array<Pick<DbJob, 'serviceIds' | 'techIds' | 'status'>>,
+): T[] {
+  return plan.map((l) => {
+    if ((l.techIds || []).filter(Boolean).length) return l;
+    const mine = jobs.filter((j) => j.status !== 'cancelled' && (j.serviceIds || []).indexOf(l.svId) >= 0);
+    const pending = mine.filter((j) => j.status !== 'completed');
+    if (!mine.length || pending.some((j) => !(j.techIds || []).length)) return l;
+    // The visits to come speak for the line; with none left, the ones done do.
+    const seen: Record<string, number> = {};
+    for (const j of pending.length ? pending : mine) {
+      for (const t of j.techIds || []) if (t) seen[t] = (seen[t] || 0) + 1;
+    }
+    const techIds = Object.keys(seen).sort((a, b) => seen[b] - seen[a]).slice(0, Math.max(1, l.crew || 1));
+    return techIds.length ? { ...l, techIds } : l;
+  });
+}
+
 /* ------------------------------------------------------------ line cadence */
 
 /** The freq label a line works out to — what v1 readPlan/planFromQuote stamp. */
