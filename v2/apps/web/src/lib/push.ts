@@ -31,7 +31,7 @@ export function refToPath(ref: string): string {
   if (/^EXR-/.test(ref)) return '/expenses/' + ref;
   if (/^INV-/.test(ref)) return '/invoices/' + ref;
   if (/^QUO-/.test(ref)) return '/quotations/' + ref;
-  if (/^(AMC|OTS|CON)-/.test(ref)) return '/contracts/' + ref;
+  if (/^(AMC-|OTS-|CON)/.test(ref)) return '/contracts/' + ref;
   if (/^TR-/.test(ref)) return '/training';
   if (/^LD-/.test(ref)) return '/leads';
   return '';

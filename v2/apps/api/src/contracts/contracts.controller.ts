@@ -215,6 +215,7 @@ export class ContractsController {
       const firstTech = crewed.map((l) => lineCrew(lineToInput(l))[0]).filter(Boolean)[0] || '';
       return {
         key: c.id, one, standalone: false,
+        branch: c.branch || cl?.branch || '',
         clientId: c.clientId,
         clientName: cl?.name || '—', clientCity: cl?.city || '', clientColor: cl?.color || '',
         techId: firstTech,
@@ -241,6 +242,7 @@ export class ContractsController {
       const cl = clientOf[j.clientId];
       rows.push({
         key: j.id, one: true, standalone: true,
+        branch: j.branch || cl?.branch || '',
         clientId: j.clientId,
         clientName: cl?.name || '—', clientCity: cl?.city || '', clientColor: cl?.color || '',
         techId: (j.techIds || [])[0] || '',
@@ -264,14 +266,26 @@ export class ContractsController {
 
   /* ------------------------------------------------------ the next number */
 
+  /* One series for every contract, one-time or AMC: CON01, CON02, ... The
+     kind of contract is shown beside the number, not spelled into it. It has
+     its own counter ('contract-no'), so it starts at 01; contracts made
+     before it keep their old AMC-/OTS- numbers. */
+  private static conId(v: number) { return 'CON' + String(v).padStart(2, '0'); }
+
+  /** Mint the next free CON number - the counter moves once per contract. */
+  private async mintContractId(): Promise<string> {
+    let id = ContractsController.conId(await this.takeSeq('contract-no'));
+    while (await this.prisma.contract.findUnique({ where: { id } })) {
+      id = ContractsController.conId(await this.takeSeq('contract-no'));
+    }
+    return id;
+  }
+
   @Get('next-number')
-  async nextNumber(@Query('mode') mode?: string) {
-    const seq = await this.prisma.seq.findUnique({ where: { key: 'contract' } });
-    const prefix = mode === 'onetime' ? 'OTS-' : 'AMC-';
-    return {
-      no: prefix + new Date().getFullYear() + '-' +
-        String((seq?.value || 0) + 1).padStart(2, '0'),
-    };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async nextNumber(@Query('mode') _mode?: string) {
+    const seq = await this.prisma.seq.findUnique({ where: { key: 'contract-no' } });
+    return { no: ContractsController.conId((seq?.value || 0) + 1) };
   }
 
   /* -------------------------------------------------------- quote → draft */
@@ -674,23 +688,24 @@ export class ContractsController {
     });
 
     /* ---------------------------------------------------------- the id */
-    const year = new Date().getFullYear();
-    const prefix = isOne ? 'OTS-' : 'AMC-';
+    // The number the form showed (the next CON number) is kept when it is
+    // still free; if someone else took it meanwhile, the next free one.
     const typed = String(draft.no || '').trim();
     let id = '';
-    const typedTaken = typed
-      ? !!(await this.prisma.contract.findUnique({ where: { id: typed } }))
-      : true;
-    // v1: the counter moves exactly once per contract; a typed number that is
-    // free is kept, anything else falls back to the minted one.
-    let v = await this.takeSeq('contract');
-    if (typed && !typedTaken) id = typed;
-    else {
-      id = prefix + year + '-' + String(v).padStart(2, '0');
-      while (await this.prisma.contract.findUnique({ where: { id } })) {
-        v = await this.takeSeq('contract');
-        id = prefix + year + '-' + String(v).padStart(2, '0');
+    const typedOk = /^CON\d{2,}$/.test(typed)
+      && !(await this.prisma.contract.findUnique({ where: { id: typed } }));
+    if (typedOk) {
+      id = typed;
+      const n = Number(typed.slice(3));
+      // Keep the counter at least at the number used.
+      const seq = await this.prisma.seq.findUnique({ where: { key: 'contract-no' } });
+      if (!seq || seq.value < n) {
+        await this.prisma.seq.upsert({
+          where: { key: 'contract-no' }, create: { key: 'contract-no', value: n }, update: { value: n },
+        });
       }
+    } else {
+      id = await this.mintContractId();
     }
 
     /* ---------------------------------------------- signatures on file */
@@ -1276,8 +1291,8 @@ export class ContractsController {
 
   /**
    * A new contract starting the day this one ends, with the same scope,
-   * plan, crews and value — and a fresh set of scheduled visits. The new id
-   * is always AMC-year-NN, exactly as v1 minted it.
+   * plan, crews and value — and a fresh set of scheduled visits, under the
+   * next CON number.
    */
   @Post(':id/renew')
   @Roles('admin', 'ops')
@@ -1287,13 +1302,7 @@ export class ContractsController {
     });
     if (!c) throw new NotFoundException('No such contract');
 
-    const year = new Date().getFullYear();
-    let v = await this.takeSeq('contract');
-    let newId = 'AMC-' + year + '-' + String(v).padStart(2, '0');
-    while (await this.prisma.contract.findUnique({ where: { id: newId } })) {
-      v = await this.takeSeq('contract');
-      newId = 'AMC-' + year + '-' + String(v).padStart(2, '0');
-    }
+    const newId = await this.mintContractId();
 
     const start = c.end; // v1 code: the same day the old one ends
     const end = addMonths(start, c.months);
