@@ -50,6 +50,11 @@ export default function TrainingPage() {
   // Publishing is admin/ops — same rule the API enforces on POST.
   const canManage = !!me && ['admin', 'ops'].includes(me.role);
 
+  const [q, setQ] = useState('');
+  const needle = q.trim().toLowerCase();
+  const shown = (rows || []).filter((l) => !needle
+    || [l.title, l.body, l.by, ROLE_LABEL[l.role] || l.role].join(' ').toLowerCase().includes(needle));
+
   return (
     <>
       {/* A lesson is read on the phone between jobs, which is the whole point
@@ -74,60 +79,56 @@ export default function TrainingPage() {
           api.del('/training/' + id).then(load).catch(() => {});
         },
       } : null} onClose={() => setConfirming(null)} />
-    <div className="max-lg:hidden p-6 max-w-[980px]">
+    <div className="max-lg:hidden p-6 max-w-[1320px]">
       <div className="flex items-start justify-between flex-wrap gap-3 mb-5">
         <div>
-          <h1 className="text-[20px] font-semibold">Training</h1>
-          <p className="max-lg:hidden text-muted text-[13px] mt-0.5">
+          <h1 className="text-2xl font-bold tracking-tight">Training</h1>
+          <p className="text-muted text-[13px] mt-0.5">
             {canManage
               ? 'The knowledge base — publish lessons per role and each person sees theirs.'
               : 'Your lessons — everything published for your role.'}
           </p>
         </div>
-        {canManage && (
-          <button onClick={() => setAdding(true)}
-            className="flex items-center gap-1.5 h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90">
-            <Icon name="plus" size={14} /> New lesson
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {(rows?.length || 0) > 3 && (
+            <label className="relative block">
+              <Icon name="search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-2" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search the lessons"
+                className="h-9 w-[240px] pl-8 pr-3 rounded-lg border border-line bg-white text-[13px] outline-none focus:border-accent" />
+            </label>
+          )}
+          {canManage && (
+            <button onClick={() => setAdding(true)}
+              className="flex items-center gap-1.5 h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90">
+              <Icon name="plus" size={14} /> New lesson
+            </button>
+          )}
+        </div>
       </div>
 
       {!rows ? (
-        <p className="text-muted text-[13px]">Loading…</p>
+        <div className="grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+          {[0, 1, 2].map((i) => <div key={i} className="card h-[286px] animate-pulse" />)}
+        </div>
       ) : rows.length === 0 ? (
-        <div className="card p-10 text-center">
-          <p className="text-[14px] font-medium">Nothing here yet</p>
+        <div className="card p-12 text-center max-w-[560px]">
+          <span className="mx-auto w-14 h-14 rounded-2xl bg-wash text-muted flex items-center justify-center mb-4">
+            <Icon name="book" size={24} />
+          </span>
+          <p className="text-[15px] font-semibold">Nothing here yet</p>
           <p className="text-muted text-[12.5px] mt-1">
             Lessons published for your role will appear on this page.
           </p>
         </div>
+      ) : shown.length === 0 ? (
+        <p className="text-muted text-[13px]">Nothing matches “{q}”. Try the title, or who wrote it.</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {rows.map((l) => (
-            <div key={l.id} className="card p-4 flex flex-col">
-              <button onClick={() => setOpen(l)} className="text-left">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="zpill outline">{ROLE_LABEL[l.role] || l.role}</span>
-                  {l.hasVideo && <span className="zpill navy">video</span>}
-                  {l.link && !l.hasVideo && <span className="zpill">link</span>}
-                </div>
-                <p className="text-[14px] font-semibold leading-snug">{l.title}</p>
-                <p className="text-[12px] text-muted mt-1 line-clamp-2">{l.body || '—'}</p>
-                <p className="text-[10.5px] text-muted-2 mt-2">{l.by} · {l.createdAt}</p>
-              </button>
-              {canManage && (
-                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-line-soft">
-                  <button onClick={() => setEditing(l)}
-                    className="h-8 px-3 rounded border border-line text-[12px] font-semibold hover:bg-wash flex items-center gap-1.5">
-                    <Icon name="edit" size={13} /> Edit
-                  </button>
-                  <button onClick={() => setConfirming(l)}
-                    className="h-8 px-3 rounded border border-line text-[12px] font-medium text-muted hover:text-accent hover:bg-red-wash flex items-center gap-1.5">
-                    <Icon name="x" size={13} /> Delete
-                  </button>
-                </div>
-              )}
-            </div>
+        /* A shelf, not a list: each lesson is a cover that says what kind of
+           thing it is before it is opened, and the shelf fills the width. */
+        <div className="grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+          {shown.map((l) => (
+            <LessonCard key={l.id} l={l} canManage={canManage} wide={shown.length === 1}
+              onOpen={() => setOpen(l)} onEdit={() => setEditing(l)} onDelete={() => setConfirming(l)} />
           ))}
         </div>
       )}
@@ -146,6 +147,120 @@ export default function TrainingPage() {
         onClose={() => setEditing(null)} onDone={() => { setEditing(null); load(); }} />
     )}
     </>
+  );
+}
+
+/* -------------------------------------------------------------- the card */
+
+/** The id of a YouTube link, so the card can wear the video's own picture. */
+function ytId(link: string): string {
+  return (/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{6,})/.exec(link || '') || [])[1] || '';
+}
+
+/** 2026-09-08 → "8 Sep 2026". */
+function niceDay(iso: string): string {
+  const p = String(iso || '').slice(0, 10).split('-');
+  const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return p.length === 3 && M[Number(p[1]) - 1] ? Number(p[2]) + ' ' + M[Number(p[1]) - 1] + ' ' + p[0] : iso;
+}
+
+/* What kind of thing the lesson is decides its cover: something to watch is
+   dark with a play button, something to read is light with a book, a lesson
+   that is only attachments shows the file. */
+function kindOf(l: Lesson): {
+  label: string; icon: 'play' | 'book' | 'file'; cover: string; badge: string; mark: string; hint: string;
+} {
+  if (l.hasVideo || l.link) {
+    return { label: 'Video', icon: 'play', cover: 'bg-navy', badge: 'bg-white text-navy', mark: 'text-white', hint: 'Open to watch it.' };
+  }
+  if (!l.body && l.files?.length) {
+    return { label: 'Files', icon: 'file', cover: 'bg-sky', badge: 'bg-white text-sky-ink', mark: 'text-sky-ink', hint: 'Open to see the files.' };
+  }
+  return { label: 'Reading', icon: 'book', cover: 'bg-amber', badge: 'bg-white text-amber-ink', mark: 'text-amber-ink', hint: 'Open to read it.' };
+}
+
+function LessonCard({ l, canManage, wide, onOpen, onEdit, onDelete }: {
+  l: Lesson; canManage: boolean; onOpen: () => void; onEdit: () => void; onDelete: () => void;
+  /** The only lesson on the shelf: laid on its side across two columns,
+      cover beside the text, so one card does not sit alone in a corner. */
+  wide?: boolean;
+}) {
+  const k = kindOf(l);
+  const yt = ytId(l.link);
+  const files = l.files?.length || 0;
+  const who = l.by || 'The office';
+  return (
+    <article data-lesson-card
+      className={'card overflow-hidden flex flex-col group transition-shadow hover:shadow-pop ' + (wide ? 'col-span-2' : '')}>
+      <button type="button" onClick={onOpen} className={'text-left flex flex-1 ' + (wide ? 'flex-row' : 'flex-col')}>
+        {/* ---- the cover */}
+        <span className={'relative block overflow-hidden ' + (wide ? 'w-[44%] min-h-[230px] shrink-0 ' : 'h-[136px] w-full ') + k.cover}>
+          <Icon name={k.icon} size={150} className={'absolute -right-7 -bottom-9 opacity-[0.09] ' + k.mark} />
+          {yt && (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={'https://i.ytimg.com/vi/' + yt + '/hqdefault.jpg'} alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+              <span className="absolute inset-0 bg-navy/35" />
+            </>
+          )}
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span className={'w-14 h-14 rounded-full flex items-center justify-center shadow-pop '
+              + 'transition-transform duration-200 group-hover:scale-110 ' + k.badge}>
+              <Icon name={k.icon} size={22} />
+            </span>
+          </span>
+          <span className="absolute left-3 top-3 px-2.5 py-1 rounded-full bg-white text-[10.5px] font-bold uppercase tracking-[0.06em] text-ink shadow-card">
+            {k.label}
+          </span>
+          {files > 0 && (
+            <span className="absolute right-3 top-3 px-2.5 py-1 rounded-full bg-white text-[10.5px] font-bold text-ink shadow-card flex items-center gap-1">
+              <Icon name="file" size={11} /> {files} {files === 1 ? 'file' : 'files'}
+            </span>
+          )}
+        </span>
+
+        {/* ---- what it is */}
+        <span className={'block flex-1 ' + (wide ? 'p-6 self-center' : 'p-4')}>
+          <span className="block text-[10.5px] font-bold uppercase tracking-[0.07em] text-accent">
+            For {(ROLE_LABEL[l.role] || l.role).toLowerCase() === 'everyone' ? 'everyone' : ROLE_LABEL[l.role] || l.role}
+          </span>
+          <span className={'block font-semibold leading-snug mt-1.5 line-clamp-2 ' + (wide ? 'text-[20px]' : 'text-[15.5px]')}>{l.title}</span>
+          <span className={'block text-muted mt-1.5 leading-relaxed ' + (wide ? 'text-[13.5px] line-clamp-4' : 'text-[12.5px] line-clamp-2')}>
+            {l.body?.trim() || k.hint}
+          </span>
+        </span>
+      </button>
+
+      {/* ---- who wrote it, and what can be done with it */}
+      <div className="flex items-center gap-2.5 px-4 py-3 border-t border-line-soft">
+        <span className="w-8 h-8 rounded-full bg-wash text-ink-2 text-[11px] font-bold flex items-center justify-center shrink-0">
+          {who.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[12.5px] font-semibold truncate">{who}</span>
+          <span className="block text-[11px] text-muted-2">{niceDay(l.createdAt)}</span>
+        </span>
+        {canManage ? (
+          <>
+            <button type="button" onClick={onEdit} title="Edit this lesson" aria-label="Edit this lesson"
+              className="w-8 h-8 rounded-lg border border-line text-ink-2 flex items-center justify-center hover:bg-wash">
+              <Icon name="edit" size={14} />
+            </button>
+            <button type="button" onClick={onDelete} title="Delete this lesson" aria-label="Delete this lesson"
+              className="w-8 h-8 rounded-lg border border-line text-muted flex items-center justify-center hover:text-accent hover:bg-red-wash">
+              <Icon name="x" size={14} />
+            </button>
+          </>
+        ) : (
+          <button type="button" onClick={onOpen}
+            className="h-8 px-3 rounded-lg bg-wash text-[12px] font-semibold flex items-center gap-1 hover:bg-line-soft">
+            Open <Icon name="chevRight" size={13} />
+          </button>
+        )}
+      </div>
+    </article>
   );
 }
 

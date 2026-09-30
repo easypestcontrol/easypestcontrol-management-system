@@ -45,9 +45,10 @@ const niceDay = (iso: string) => {
 };
 
 /** What kind of thing this lesson is, in the two words somebody would use. */
-function kindOf(l: Lesson): { label: string; icon: 'play' | 'book' } {
-  if (l.hasVideo || l.link) return { label: 'Video', icon: 'play' };
-  return { label: 'Reading', icon: 'book' };
+function kindOf(l: Lesson): { label: string; icon: 'play' | 'book' | 'file'; tile: string } {
+  if (l.hasVideo || l.link) return { label: 'Video', icon: 'play', tile: 'bg-navy text-white' };
+  if (!l.body && l.files?.length) return { label: 'Files', icon: 'file', tile: 'bg-sky text-sky-ink' };
+  return { label: 'Reading', icon: 'book', tile: 'bg-amber text-amber-ink' };
 }
 
 /* ------------------------------------------------------------- the reader */
@@ -151,23 +152,38 @@ export default function TrainingMobile({ rows, onOpen, onNew }: {
             </p>
           </Card>
         ) : (
-          <Card flush className="mb-4">
+          /* One card to a lesson, with a tile that says what kind of thing it
+             is - dark with a play button to watch, light with a book to read -
+             who it is for, and the first line of it. */
+          <div className="flex flex-col gap-3 mb-4">
             {shown.map((l) => {
               const k = kindOf(l);
+              const files = l.files?.length || 0;
               return (
-                <button key={l.id} type="button" onClick={() => onOpen(l)}
-                  className="w-full text-left flex items-center gap-3 px-4 py-4
-                    border-b border-line-soft last:border-b-0 active:bg-wash">
-                  <Icon name={k.icon} size={18} className="text-muted-2 shrink-0" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[15.5px] font-semibold truncate">{l.title}</span>
-                    <span className="block text-[13px] text-muted mt-0.5">{k.label}</span>
+                <button key={l.id} type="button" onClick={() => onOpen(l)} data-lesson-card
+                  className="w-full text-left bg-white rounded-[20px] border border-line p-3.5 flex items-start gap-3.5
+                    active:bg-wash">
+                  <span className={'w-[52px] h-[52px] rounded-2xl flex items-center justify-center shrink-0 ' + k.tile}>
+                    <Icon name={k.icon} size={22} />
                   </span>
-                  <Icon name="chevRight" size={16} className="text-muted-2 shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-bold uppercase tracking-[0.06em] text-accent">
+                      {k.label} · {ROLE_LABEL[l.role] || l.role}
+                    </span>
+                    <span className="block text-[15.5px] font-semibold leading-snug mt-0.5 line-clamp-2">{l.title}</span>
+                    {l.body?.trim() && (
+                      <span className="block text-[13px] text-muted mt-0.5 truncate">{l.body.trim()}</span>
+                    )}
+                    <span className="block text-[12px] text-muted-2 mt-1">
+                      {[l.by, niceDay(l.createdAt), files ? files + (files === 1 ? ' file' : ' files') : '']
+                        .filter(Boolean).join(' · ')}
+                    </span>
+                  </span>
+                  <Icon name="chevRight" size={16} className="text-muted-2 shrink-0 mt-4" />
                 </button>
               );
             })}
-          </Card>
+          </div>
         )}
       </div>
 

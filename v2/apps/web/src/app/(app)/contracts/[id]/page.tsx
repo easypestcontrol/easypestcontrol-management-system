@@ -402,7 +402,12 @@ export default function ContractPage() {
       </section>
 
       {/* -------------------------------------- schedule + side column */}
-      <div className="grid grid-cols-[1fr_340px] gap-5 items-start">
+      {/* The left column is a stack - the schedule, then the money. Billing
+          history sat in a full-width row under the whole grid, so a short
+          schedule beside a tall side column left a block of empty page
+          between the two. */}
+      <div className="grid grid-cols-[minmax(0,1fr)_340px] gap-5 items-start">
+        <div className="flex flex-col gap-5 min-w-0">
         <section className="card">
           <div className="flex items-center justify-between px-4 py-3 border-b border-line-soft">
             <h2 className="text-[13px] font-semibold">Service schedule</h2>
@@ -472,64 +477,7 @@ export default function ContractPage() {
           )}
         </section>
 
-        <div className="flex flex-col gap-4">
-          <section className="card p-4">
-            <h2 className="text-[13px] font-semibold mb-3">Contract details</h2>
-            <dl className="text-[12.5px]">
-              {([
-                ['Contract no.', c.id],
-                ['Period', fmtDate(c.start) + ' → ' + fmtDate(c.end)],
-                ['Schedule', c.planSummaryText + ' — ' + c.progress.total +
-                  ' service' + (c.progress.total === 1 ? '' : 's')],
-                ['Billing', c.billing],
-                ['Services', Array.from(new Set(c.plan.map((l) => l.svId))).map(svcName).join(', ') || '—'],
-                ['Site', c.site || '—'],
-                ['Technicians', assignedAll.length
-                  ? assignedAll.map(userName).join(', ') +
-                    (c.staffing.ok ? '' : ' — ' + c.staffing.missing + ' still needed')
-                  : 'Nobody assigned yet'],
-                ['Managed by', userName(c.owner)],
-              ] as Array<[string, string]>).map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-4 py-1.5 border-b border-line-soft last:border-0">
-                  <dt className="text-muted shrink-0">{k}</dt>
-                  <dd className="text-right font-medium">{v}</dd>
-                </div>
-              ))}
-              {c.quoteId && (
-                <div className="flex justify-between gap-4 py-1.5">
-                  <dt className="text-muted shrink-0">From quotation</dt>
-                  <dd className="text-right">
-                    <Link href={'/quotations/' + c.quoteId} className="font-semibold text-accent">
-                      {c.quoteId}
-                    </Link>
-                  </dd>
-                </div>
-              )}
-            </dl>
-          </section>
-
-          <section className="card p-4">
-            <h2 className="text-[13px] font-semibold mb-2">Scope of work</h2>
-            <p className="text-[12.5px] leading-relaxed text-ink-2">{c.scope}</p>
-            {c.notes && (
-              <div className="mt-3 rounded border border-line bg-wash px-3 py-2.5 text-[12px]">
-                <p className="font-semibold">Site instructions</p>
-                <p className="text-ink-2 mt-0.5">{c.notes}</p>
-              </div>
-            )}
-          </section>
-
-          <section className="card p-4">
-            <h2 className="text-[13px] font-semibold mb-3">Customer signature</h2>
-            <CustomerSign c={c} canEdit={canEdit} onChanged={load} onShare={() => setSignLink(true)} />
-          </section>
-
-          
-        </div>
-      </div>
-
-      <div className="mt-5">
-<section className="card p-4">
+        <section className="card p-4">
             <h2 className="text-[13px] font-semibold mb-2">Billing history</h2>
             {c.arrears > 0 && (
               <div className="mb-3 rounded border border-red-line bg-red-wash px-3.5 py-2.5 text-[12.5px]">
@@ -622,6 +570,60 @@ export default function ContractPage() {
           </div>
             </div>
           </section>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <section className="card p-4">
+            <h2 className="text-[13px] font-semibold mb-3">Contract details</h2>
+            <dl className="text-[12.5px]">
+              {([
+                ['Contract no.', c.id],
+                ['Period', fmtDate(c.start) + ' → ' + fmtDate(c.end)],
+                ['Schedule', c.planSummaryText + ' — ' + c.progress.total +
+                  ' service' + (c.progress.total === 1 ? '' : 's')],
+                ['Billing', c.billing],
+                ['Services', Array.from(new Set(c.plan.map((l) => l.svId))).map(svcName).join(', ') || '—'],
+                ['Site', c.site || '—'],
+                ['Technicians', assignedAll.length
+                  ? assignedAll.map(userName).join(', ') +
+                    (c.staffing.ok ? '' : ' — ' + c.staffing.missing + ' still needed')
+                  : 'Nobody assigned yet'],
+                ['Managed by', userName(c.owner)],
+              ] as Array<[string, string]>).map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-4 py-1.5 border-b border-line-soft last:border-0">
+                  <dt className="text-muted shrink-0">{k}</dt>
+                  <dd className="text-right font-medium">{v}</dd>
+                </div>
+              ))}
+              {c.quoteId && (
+                <div className="flex justify-between gap-4 py-1.5">
+                  <dt className="text-muted shrink-0">From quotation</dt>
+                  <dd className="text-right">
+                    <Link href={'/quotations/' + c.quoteId} className="font-semibold text-accent">
+                      {c.quoteId}
+                    </Link>
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </section>
+
+          <section className="card p-4">
+            <h2 className="text-[13px] font-semibold mb-2">Scope of work</h2>
+            <p className="text-[12.5px] leading-relaxed text-ink-2">{c.scope}</p>
+            {c.notes && (
+              <div className="mt-3 rounded border border-line bg-wash px-3 py-2.5 text-[12px]">
+                <p className="font-semibold">Site instructions</p>
+                <p className="text-ink-2 mt-0.5">{c.notes}</p>
+              </div>
+            )}
+          </section>
+
+          <section className="card p-4">
+            <h2 className="text-[13px] font-semibold mb-3">Customer signature</h2>
+            <CustomerSign c={c} canEdit={canEdit} onChanged={load} onShare={() => setSignLink(true)} />
+          </section>
+        </div>
       </div>
 
       {/* ------------------------------------------------------- dialogs */}
