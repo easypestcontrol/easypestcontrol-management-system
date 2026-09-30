@@ -26,21 +26,19 @@ import {
 function nextStep(l: LeadDetail) {
   if (l.stage === 'inspection') return {
     to: 'raise-quote', label: 'Quote it',
-    hint: 'The site visit is done — this opens the quotation builder with this lead already in it.',
+    hint: 'Opens the quotation builder.',
   };
   if (l.stage === 'quoted') return {
     to: 'contract', label: 'Quote accepted',
-    hint: 'The customer has agreed to the quote — the lead moves to Contract to be drawn up.',
+    hint: 'Moves to Contract.',
   };
   if (l.stage === 'contract') return {
     to: 'won', label: 'Contract signed',
-    hint: l.contracts.length
-      ? 'The contract is drawn up and signed — this wins the lead.'
-      : 'Wins the lead and creates the customer record. Draw up the contract (one-time or AMC) from the accepted quotation.',
+    hint: l.contracts.length ? 'Wins the lead.' : 'Wins the lead and creates the customer.',
   };
   return {
     to: 'choose', label: 'Interested',
-    hint: 'Quote straight away, or book a site visit first and quote after.',
+    hint: 'Quote now, or book a site visit first.',
   };
 }
 
@@ -51,7 +49,7 @@ function Sec({ title, right, children }: {
   title: string; right?: React.ReactNode; children: React.ReactNode;
 }) {
   return (
-    <section className="px-5 py-4 border-b border-line-soft">
+    <section className="mx-4 mb-3 rounded-2xl border border-line bg-white px-4 py-4">
       <div className="flex items-center justify-between mb-2.5">
         <h3 className="text-[12px] font-semibold uppercase tracking-wide text-muted">{title}</h3>
         {right}
@@ -267,7 +265,7 @@ export default function LeadDrawer({ id, boot, canAssign, onClose, onChanged }: 
 
   return (
     <div className="fixed inset-0 z-50 bg-navy/30" onClick={onClose}>
-      <div className="absolute right-0 top-0 h-full w-[560px] max-w-full bg-white
+      <div className="absolute right-0 top-0 h-full w-[560px] max-w-full bg-ground
         lg:border-l border-line overflow-y-auto
         pb-[calc(env(safe-area-inset-bottom)+96px)] lg:pb-0"
         onClick={(e) => e.stopPropagation()}>
@@ -303,7 +301,7 @@ export default function LeadDrawer({ id, boot, canAssign, onClose, onChanged }: 
 
         {/* ------------------------------------------------- call outcome */}
         {live && (
-          <div className="mx-5 my-4 card bg-wash p-4">
+          <div className="mx-4 my-4 rounded-2xl border border-line bg-white p-4">
             <p className="text-[12px] font-semibold text-ink-2 mb-2.5">What happened on the call?</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button onClick={onInterested}
@@ -341,9 +339,7 @@ export default function LeadDrawer({ id, boot, canAssign, onClose, onChanged }: 
               <span className="block text-[12px] text-muted mt-0.5">{fmtDate(due.date)}</span>
             </div>
           ) : (
-            <p className="text-[13px] text-muted">
-              Nothing booked. <b>Not answered</b> sets a call-back date, <b>Interested</b> books a site visit.
-            </p>
+            <p className="text-[13px] text-muted">Nothing booked yet.</p>
           )}
         </Sec>
 
@@ -382,9 +378,7 @@ export default function LeadDrawer({ id, boot, canAssign, onClose, onChanged }: 
             </button>
           ) : null}
           <p className="text-[11.5px] text-muted-2 mt-1.5">
-            {canAssign
-              ? 'The salesperson who follows this lead up. They see it on their pipeline and get the reminders.'
-              : 'Reassigning a lead or moving its branch is handled by the office.'}
+            {canAssign ? 'Who follows this lead up.' : 'Reassigning is handled by the office.'}
           </p>
         </Sec>
 
@@ -402,10 +396,7 @@ export default function LeadDrawer({ id, boot, canAssign, onClose, onChanged }: 
             </span>
           }>
           {l.quotes.length === 0 ? (
-            <p className="text-[13px] text-muted">
-              No quotation raised yet — <b>Raise quotation</b> opens the builder with this
-              lead already in it, and the document lands back here to send on WhatsApp.
-            </p>
+            <p className="text-[13px] text-muted">No quotation raised yet.</p>
           ) : (
             <div className="flex flex-col gap-2">
               {l.quotes.map((q) => (
@@ -454,10 +445,10 @@ export default function LeadDrawer({ id, boot, canAssign, onClose, onChanged }: 
             <>
               <p className="text-[13px] text-muted">
                 {l.quotes.length === 0
-                  ? 'Raise a quotation first — the contract (one-time service or AMC) is generated from it, so the services and their intervals carry straight through.'
+                  ? 'Raise a quotation first.'
                   : readyQuotes.length === 0
-                    ? 'Send the quotation. Once both sides accept it — us and the customer — the contract is drawn up from it.'
-                    : 'Each quoted service keeps the interval it was priced for.'}
+                    ? 'Send the quotation, then draw the contract from it.'
+                    : 'Ready to draw up.'}
               </p>
               {contractFrom && (
                 <button

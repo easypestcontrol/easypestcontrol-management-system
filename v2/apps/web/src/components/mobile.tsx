@@ -335,7 +335,7 @@ export function Card({ title, action, actionHref, icon, flush, children, classNa
   className?: string;
 }) {
   return (
-    <section className={'bg-white rounded-[20px] overflow-hidden ' + className}>
+    <section className={'bg-white rounded-[20px] overflow-hidden border border-line ' + className}>
       {/* The header wears a rule and a tint so it reads as a header.
           Without them it was the same weight as the first row under it and
           the same hairline separated them, so "Today's services" looked like
@@ -377,7 +377,7 @@ export function Fold({ title, count, icon, children, open: initial }: {
   const [open, setOpen] = useState(!!initial);
   if (!count) return null;
   return (
-    <section className="bg-white rounded-[20px] overflow-hidden">
+    <section className="bg-white rounded-[20px] overflow-hidden border border-line">
       <button type="button" onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between gap-3 px-4 py-3.5 active:bg-wash">
         <span className="flex items-center gap-2 min-w-0">
