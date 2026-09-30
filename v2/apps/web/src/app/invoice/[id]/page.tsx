@@ -8,6 +8,8 @@
 
 import { SignArea } from '@/components/sign-area';
 import DocBack from '@/components/doc-back';
+import { DownloadPdfCard } from '@/components/download-pdf-card';
+import { usePaperFit } from '@/components/paper-fit';
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { money, waLink } from 'shared';
@@ -40,20 +42,9 @@ export default function PublicInvoice() {
   const [paying, setPaying] = useState(false);
   const [payErr, setPayErr] = useState('');
 
-  /* Zoom, not media queries: the sheet is 820px wide and the phone is not,
-     so it is scaled by whatever the viewport can give it. `zoom` reflows the
-     surrounding height correctly, which `transform: scale` does not. */
+  /* One sheet of paper, zoomed to the screen (components/paper-fit.ts). */
   const sheet = useRef<HTMLDivElement>(null);
-  const [fit, setFit] = useState<{ zoom?: number }>({});
-  useEffect(() => {
-    const size = () => {
-      const room = window.innerWidth - 24;
-      setFit(room < 820 ? { zoom: Math.max(0.34, room / 820) } : {});
-    };
-    size();
-    window.addEventListener('resize', size);
-    return () => window.removeEventListener('resize', size);
-  }, []);
+  const fit = usePaperFit();
 
   useEffect(() => {
     fetch('/api/public/docs/invoice/' + id)
@@ -102,12 +93,43 @@ export default function PublicInvoice() {
        down to whatever the screen can take. Smaller is fine; rearranged is
        not — the customer and the office should be looking at the same
        document. */
-    <div className="paper-page min-h-screen bg-[#f4f5f8] pb-10 px-3 sm:py-8">
-      <DocBack className="-mx-3 mb-3 sm:-mt-8 sm:mb-6" title="Invoice" sub={doc.id} fallback={'/invoices/' + doc.id} />
+    <div className="paper-page min-h-screen bg-wash">
+      <DocBack title="Invoice" sub={doc.id} fallback={'/invoices/' + doc.id} />
+      <div className="max-w-[860px] mx-auto px-4 py-8 max-sm:py-4 print:p-0 print:max-w-none">
 
-      <div ref={sheet} style={fit}
-        className="paper bg-white border border-[#e3e6ee] rounded-lg w-[820px] max-w-full mx-auto shadow-sm
-          max-lg:mt-2">
+      {/* Where the bill stands, and - when something is owed - the way to pay
+          it at a size a thumb can press. The same button sits inside the sheet,
+          but the sheet is zoomed down on a phone and a button a fifth of an
+          inch tall is not one anybody pays with. */}
+      {paid ? (
+        <div data-doc-banner="paid" className="no-print rounded border border-line bg-white p-4 mb-4">
+          <p className="text-[14px] font-semibold text-navy">This invoice is paid</p>
+          <p className="text-[13px] text-muted mt-1">
+            {money(t.total)} received by {co.name} — thank you. The receipt details are on the invoice below.
+          </p>
+        </div>
+      ) : (
+        <div data-doc-banner="due" className="no-print rounded border border-line bg-white p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[14px] font-semibold text-navy">
+              {money(t.balance)} {t.paid > 0 ? 'still to pay' : 'to pay'}
+            </p>
+            <p className="text-[13px] text-muted mt-1">
+              Invoice {doc.id} from {co.name}, due {fmtD(doc.due)}. UPI, card, net banking or a wallet.
+            </p>
+            {payErr && <p className="text-[12.5px] text-accent font-medium mt-1.5">{payErr}</p>}
+          </div>
+          <button onClick={payNow} disabled={paying}
+            className="h-10 px-5 rounded bg-accent text-white text-[13.5px] font-semibold hover:brightness-90
+              disabled:opacity-60 shrink-0 max-sm:w-full">
+            {paying ? 'Opening…' : 'Pay ' + money(t.balance) + ' now'}
+          </button>
+        </div>
+      )}
+      <DownloadPdfCard label="The full invoice, as a PDF" shareHref={share || undefined} />
+
+      <div ref={sheet} style={fit} data-paper
+        className="paper bg-white border border-line rounded-sm w-[820px] max-w-full mx-auto shadow-card">
         <div className="p-10">
           {/* head — the stamp rides beside the company so the phone reads
               like a document, not a wrapped form. */}
@@ -116,21 +138,21 @@ export default function PublicInvoice() {
               <div className="mb-2.5">
                 {co.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={co.logo} alt="" className="h-9 sm:h-10 w-auto object-contain" />
+                  <img src={co.logo} alt="" className="h-10 w-auto object-contain" />
                 ) : (
                   <span className="w-10 h-10 rounded bg-[#141414] text-white flex items-center justify-center font-bold text-[16px]">
                     {(co.name || 'P').charAt(0)}
                   </span>
                 )}
-                <div className="text-[15px] sm:text-[16px] font-bold text-[#141414] leading-tight mt-1.5">{co.name}</div>
+                <div className="text-[16px] font-bold text-[#141414] leading-tight mt-1.5">{co.name}</div>
               </div>
-              <div className="text-[11px] sm:text-[11.5px] text-gray-500 leading-relaxed">
+              <div className="text-[11.5px] text-gray-500 leading-relaxed">
                 {[co.addr, co.city].filter(Boolean).join(', ')}{co.pin ? ` — ${co.pin}` : ''}<br />
                 {co.phone}{co.email ? ` · ${co.email}` : ''}<br />
                 GSTIN: {co.gstin || '—'}
               </div>
             </div>
-            <span className={'inline-block border-2 rounded px-3 py-1 text-[11px] sm:text-[12px] font-bold uppercase tracking-[0.18em] shrink-0 '
+            <span className={'inline-block border-2 rounded px-3 py-1 text-[12px] font-bold uppercase tracking-[0.18em] shrink-0 '
               + (paid ? 'text-[#141414] border-[#141414]' : 'text-[#FF0000] border-[#FF0000]')}>
               {paid ? 'Paid' : 'Payment due'}
             </span>
@@ -138,22 +160,22 @@ export default function PublicInvoice() {
 
           <div className="mt-4 flex items-end justify-between gap-x-4 gap-y-1 flex-wrap">
             <div>
-              <div className="text-[17px] sm:text-[19px] font-bold tracking-[0.13em] text-[#141414] leading-tight">TAX INVOICE</div>
+              <div className="text-[19px] font-bold tracking-[0.13em] text-[#141414] leading-tight">TAX INVOICE</div>
               <div className="text-[13px] font-semibold text-gray-500">{doc.id}</div>
             </div>
-            <div className="text-[11.5px] text-gray-500 leading-relaxed sm:text-right">
+            <div className="text-[11.5px] text-gray-500 leading-relaxed text-right">
               Invoice date: <strong className="text-gray-900">{fmtD(doc.date)}</strong><br />
               Due date: <strong className="text-gray-900">{fmtD(doc.due)}</strong>
             </div>
           </div>
 
-          <div className="border-t-2 border-[#141414] my-4 sm:my-6" />
+          <div className="border-t-2 border-[#141414] my-6" />
 
           {/* parties — two columns even on a phone */}
-          <div className="grid grid-cols-2 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 gap-6">
             <div className="min-w-0">
               <div className="text-[10.5px] uppercase tracking-wider text-gray-400 font-semibold mb-1">Bill to</div>
-              <div className="text-[13.5px] sm:text-[14.5px] font-bold break-words">{doc.client?.name || '—'}</div>
+              <div className="text-[14.5px] font-bold break-words">{doc.client?.name || '—'}</div>
               <div className="text-[11.5px] text-gray-500 leading-relaxed mt-1 break-words">
                 {doc.client?.contact && <>{doc.client.contact}<br /></>}
                 {[doc.client?.addr, doc.client?.city].filter(Boolean).join(', ')}
@@ -225,7 +247,7 @@ export default function PublicInvoice() {
 
           {/* totals */}
           <div className="flex justify-end mt-5">
-            <div className="w-full sm:w-[300px] text-[12.5px]">
+            <div className="w-[300px] text-[12.5px]">
               <div className="flex justify-between py-1">
                 <span className="text-gray-500">Taxable value</span><span>{money(t.sub - t.disc)}</span>
               </div>
@@ -250,33 +272,6 @@ export default function PublicInvoice() {
               )}
             </div>
           </div>
-
-
-          {/* The bill and the way to pay it belong on the same page. Hidden
-              when printed — a piece of paper cannot be tapped. */}
-          {!paid && (
-            <div className="no-print mt-6 rounded-lg border border-[#e3e6ee] bg-[#f8f9fb] p-4 sm:p-5 text-center">
-              <p className="text-[13px] text-gray-600">
-                {t.paid > 0 ? 'Balance outstanding' : 'Amount payable'}
-              </p>
-              <p className="text-[26px] font-bold text-[#141414] leading-tight mt-0.5">
-                {money(t.balance)}
-              </p>
-              <button onClick={payNow} disabled={paying}
-                className="mt-3 w-full sm:w-auto sm:min-w-[280px] h-12 px-8 rounded-md
-                  bg-[#141414] text-white text-[15px] font-bold
-                  hover:brightness-125 active:brightness-90 disabled:opacity-60">
-                {paying ? 'Opening…' : 'Pay ' + money(t.balance) + ' now'}
-              </button>
-              <p className="text-[11.5px] text-gray-500 mt-2.5 leading-relaxed">
-                UPI, card, net banking or a wallet. Your receipt is issued the moment
-                it goes through.
-              </p>
-              {payErr && (
-                <p className="text-[12px] text-[#FF0000] mt-2 leading-relaxed">{payErr}</p>
-              )}
-            </div>
-          )}
 
           {doc.payments.length > 0 && (
             <div className="mt-5 rounded border border-[#e3e6ee] px-4 py-3">
@@ -312,32 +307,6 @@ export default function PublicInvoice() {
         </div>
       </div>
 
-      {/* Under the sheet, not on it. They are things you do WITH the invoice,
-          so they belong on the page beside it rather than printed into the
-          middle of a tax document. */}
-      <div className="lg:hidden no-print mt-5 flex items-center justify-center gap-5">
-        <button onClick={() => window.print()} aria-label="Download PDF"
-          className="w-[54px] h-[54px] rounded-full bg-white border border-[#e3e6ee] shadow-sm
-            flex items-center justify-center text-[#141414] active:bg-[#f2f2f2]">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 3v11" /><path d="m8 10.5 4 4 4-4" />
-            <path d="M4 16.5v2.2A2.3 2.3 0 0 0 6.3 21h11.4a2.3 2.3 0 0 0 2.3-2.3v-2.2" />
-          </svg>
-        </button>
-        {share && (
-          <a href={share} target="_blank" rel="noreferrer" aria-label="Share"
-            className="w-[54px] h-[54px] rounded-full bg-[#141414] text-white shadow-sm
-              flex items-center justify-center active:brightness-90">
-            {/* The share glyph: two nodes joined to a third. */}
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="18" cy="5.5" r="2.6" /><circle cx="6" cy="12" r="2.6" />
-              <circle cx="18" cy="18.5" r="2.6" />
-              <path d="m8.3 10.8 7.4-4M8.3 13.2l7.4 4" />
-            </svg>
-          </a>
-        )}
       </div>
     </div>
   );

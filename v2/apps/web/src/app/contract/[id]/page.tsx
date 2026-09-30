@@ -3,7 +3,12 @@
 /* ============================================================================
    The public contract — what the Share link opens. The customer sees their
    own agreement: services, the visit schedule with what is done and what is
-   coming, the period and the value. No login, phone-first.
+   coming, the period and the value. No login.
+
+   It is laid out the way the quotation preview is: a line saying where the
+   agreement stands, the "keep a copy" card, and then the agreement itself as
+   ONE sheet of paper - zoomed down to the screen on a phone, never rearranged
+   into a stack of cards. The customer and the office read the same document.
 
    It is also where they sign it. Half of these are never signed at the
    doorstep - the person who decides is at work, or the agreement is written
@@ -15,6 +20,7 @@ import { SignArea } from '@/components/sign-area';
 import DocBack from '@/components/doc-back';
 import SignFull from '@/components/sign-full';
 import { DownloadPdfCard } from '@/components/download-pdf-card';
+import { usePaperFit } from '@/components/paper-fit';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { money } from 'shared';
@@ -69,6 +75,7 @@ export default function PublicContract() {
   const [sending, setSending] = useState(false);
   const [signErr, setSignErr] = useState('');
   const [thanks, setThanks] = useState(false);
+  const fit = usePaperFit();
 
   async function sign(dataUrl: string) {
     setPad(false); setSignErr(''); setSending(true);
@@ -85,6 +92,9 @@ export default function PublicContract() {
       setSignErr(e instanceof Error ? e.message : 'Could not save the signature - please try again');
     } finally {
       setSending(false);
+      // What happened is said on the card at the top of the page, and the
+      // customer signed from the bottom of it - take them to the answer.
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
 
@@ -107,13 +117,43 @@ export default function PublicContract() {
   const signer = doc.client?.contact || doc.client?.name || 'Customer';
 
   return (
-    <div className={'min-h-screen bg-[#f4f5f8] px-3 ' + (unsigned ? 'pb-28 print:pb-4' : 'pb-4 sm:pb-8')}>
-      <DocBack className="-mx-3 mb-4 sm:mb-8" title="Contract" sub={doc.id} fallback={'/contracts/' + doc.id} />
-      <div className="max-w-[820px] mx-auto">
+    <div className={'paper-page min-h-screen bg-wash ' + (unsigned ? 'pb-36' : '')}>
+      <DocBack title="Contract" sub={doc.id} fallback={'/contracts/' + doc.id} />
+      <div className="max-w-[860px] mx-auto px-4 py-8 max-sm:py-4 print:p-0 print:max-w-none">
+
+        {/* ------------------------------------------ where the agreement stands */}
+        {signErr && (
+          <p className="no-print rounded border border-red-line bg-red-wash p-4 mb-4 text-[13px] font-semibold text-accent">
+            {signErr}
+          </p>
+        )}
+        {unsigned ? (
+          <div data-doc-banner="unsigned" className="no-print rounded border border-line bg-white p-4 mb-4">
+            <p className="text-[14px] font-semibold text-navy">Waiting for a signature</p>
+            <p className="text-[13px] text-muted mt-1">
+              The service agreement from {co.name} for {doc.client?.name || signer} is below. Read it,
+              then press <b className="text-ink">Sign now</b> at the bottom of the screen.
+            </p>
+          </div>
+        ) : (
+          <div data-doc-banner="signed" {...(thanks ? { 'data-signed-thanks': '' } : {})} className="no-print rounded border border-line bg-white p-4 mb-4">
+            <p className="text-[14px] font-semibold text-navy">
+              {thanks ? 'Signed — thank you' : 'This agreement is signed'}
+            </p>
+            <p className="text-[13px] text-muted mt-1">
+              Signed by {signer}{doc.signedAt ? ' on ' + fmtStamp(doc.signedAt) : ''}.
+              {thanks ? ' ' + co.name + ' has been told.' : ''} This page always shows the latest schedule.
+            </p>
+          </div>
+        )}
+
+        {/* ------------------------------------------------------ save as PDF */}
         <DownloadPdfCard label="The full contract, as a PDF" />
-      </div>
-      <div className="bg-white border border-[#e3e6ee] rounded-lg max-w-[820px] mx-auto shadow-sm">
-        <div className="p-5 sm:p-10">
+
+        {/* --------------------------------------------------------- document */}
+        <div style={fit} data-paper
+          className="paper contract-doc bg-white border border-line rounded-sm w-[820px] max-w-full mx-auto shadow-card">
+        <div className="p-10">
           {/* head */}
           <div className="flex justify-between gap-6 flex-wrap">
             <div>
@@ -145,7 +185,7 @@ export default function PublicContract() {
             </div>
           </div>
 
-          <div className="border-t-2 border-[#141414] my-5 sm:my-6" />
+          <div className="border-t-2 border-[#141414] my-6" />
 
           {/* customer + site */}
           <div className="flex justify-between gap-6 flex-wrap">
@@ -177,8 +217,8 @@ export default function PublicContract() {
           </div>
 
           {/* services */}
-          <div className="mt-5 sm:mt-6 overflow-x-auto">
-            <table className="w-full text-[12.5px] border-collapse min-w-[380px]">
+          <div className="mt-6">
+            <table className="w-full text-[12.5px] border-collapse">
               <thead>
                 <tr>
                   {['Service', 'Visits', 'Rate', 'Amount'].map((h, i) => (
@@ -212,7 +252,7 @@ export default function PublicContract() {
               Same numbers, same engine, same layout. */}
           {doc.totals && (
             <div className="flex justify-end mt-5">
-              <div className="w-full sm:w-[300px] text-[12.5px]">
+              <div className="w-[300px] text-[12.5px]">
                 <div className="flex justify-between py-1">
                   <span className="text-gray-500">Subtotal</span>
                   <span className="tabular-nums">{money(doc.totals.sub)}</span>
@@ -308,23 +348,11 @@ export default function PublicContract() {
           })()}
           {/* An agreement is signed by two people. Only the company's side
               was ever printed, so the customer had nowhere to sign — on the
-              one document in this app where that is the entire point. */}
-          {thanks && (
-            <div data-signed-thanks className="no-print mt-8 rounded-lg border border-[#cfe8d8] bg-[#f1faf4] px-4 py-3">
-              <p className="text-[14px] font-bold text-[#14532d]">Signed - thank you.</p>
-              <p className="text-[12.5px] text-[#14532d]/80 mt-0.5 leading-relaxed">
-                Your signature is on the agreement below and {co.name} has been told.
-                This link always shows the latest schedule.
-              </p>
-            </div>
-          )}
-          {signErr && (
-            <p className="no-print mt-8 rounded-lg border border-[#ffd0d0] bg-[#fff5f5] px-4 py-3 text-[13px] font-semibold text-[#c00000]">
-              {signErr}
-            </p>
-          )}
-          <div className="flex justify-between items-end gap-8 mt-8 flex-wrap">
-            <div className="text-center min-w-[180px] max-sm:w-full">
+              one document in this app where that is the entire point.
+              Never split across two pages: a signature on one sheet and the
+              name it belongs to on the next is not a signed agreement. */}
+          <div className="flex justify-between items-end gap-8 mt-8 flex-wrap break-inside-avoid">
+            <div className="text-center min-w-[220px]">
               {doc.signCustomer ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={doc.signCustomer} alt="" className="h-14 mx-auto object-contain" />
@@ -358,6 +386,7 @@ export default function PublicContract() {
             This is a live view of your service contract with {co.name} — the schedule
             updates as services are completed.
           </p>
+        </div>
         </div>
       </div>
 

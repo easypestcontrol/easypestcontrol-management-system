@@ -9,6 +9,8 @@
 
 import { useEffect, useState } from 'react';
 import DocBack from '@/components/doc-back';
+import { DownloadPdfCard } from '@/components/download-pdf-card';
+import { usePaperFit } from '@/components/paper-fit';
 import { useParams } from 'next/navigation';
 import { waLink } from 'shared';
 
@@ -54,22 +56,10 @@ export default function PublicReport() {
   const [missing, setMissing] = useState(false);
   const [zoom, setZoom] = useState('');
 
-  /* Zoom, not media queries — the same treatment the invoice gets. The sheet
-     is 820px of paper and the phone is not, so it is scaled by whatever the
-     viewport can give it rather than rearranged into a stack of cards. A
-     report the customer opens and the report the office prints have to be
-     the same document. `zoom` reflows the surrounding height correctly,
-     which `transform: scale` does not. */
-  const [fit, setFit] = useState<{ zoom?: number }>({});
-  useEffect(() => {
-    const size = () => {
-      const room = window.innerWidth - 24;
-      setFit(room < 820 ? { zoom: Math.max(0.34, room / 820) } : {});
-    };
-    size();
-    window.addEventListener('resize', size);
-    return () => window.removeEventListener('resize', size);
-  }, []);
+  /* One sheet of paper, zoomed to the screen - never rearranged. A report
+     the customer opens and the report the office prints have to be the same
+     document (components/paper-fit.ts). */
+  const fit = usePaperFit();
 
   useEffect(() => {
     fetch('/api/public/docs/report/' + id)
@@ -96,12 +86,25 @@ export default function PublicReport() {
   );
 
   return (
-    <div className="paper-page min-h-screen bg-[#f4f5f8] pb-10 px-3 sm:py-8">
-      <DocBack className="-mx-3 mb-3 sm:-mt-8 sm:mb-6" title="Service report" sub={doc.id} fallback={'/jobs/' + doc.id} />
+    <div className="paper-page min-h-screen bg-wash">
+      <DocBack title="Service report" sub={doc.id} fallback={'/jobs/' + doc.id} />
+      <div className="max-w-[860px] mx-auto px-4 py-8 max-sm:py-4 print:p-0 print:max-w-none">
 
-      <div style={fit}
-        className="paper report-doc bg-white border border-[#e3e6ee] rounded-lg w-[820px]
-          max-w-full mx-auto shadow-sm max-lg:mt-2">
+      {/* The same three things the quotation preview opens with: where it
+          stands, how to keep a copy, then the document itself. */}
+      <div data-doc-banner="completed" className="no-print rounded border border-line bg-white p-4 mb-4">
+        <p className="text-[14px] font-semibold text-navy">Service completed</p>
+        <p className="text-[13px] text-muted mt-1">
+          {co.name} completed {doc.services.map((s) => s.name).join(', ') || 'the service'} on {fmtD(doc.date)}
+          {head?.name ? ', by ' + head.name : ''}. What was done, the photos and the signed
+          acknowledgement are below.
+        </p>
+      </div>
+      <DownloadPdfCard label="The full service report, as a PDF" shareHref={share || undefined} />
+
+      <div style={fit} data-paper
+        className="paper report-doc bg-white border border-line rounded-sm w-[820px]
+          max-w-full mx-auto shadow-card">
         <div className="p-10">
           {/* head */}
           <div className="flex items-start justify-between gap-4">
@@ -109,42 +112,42 @@ export default function PublicReport() {
               <div className="mb-2.5">
                 {co.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={co.logo} alt="" className="h-9 sm:h-10 w-auto object-contain" />
+                  <img src={co.logo} alt="" className="h-10 w-auto object-contain" />
                 ) : (
                   <span className="w-10 h-10 rounded bg-[#141414] text-white flex items-center justify-center font-bold text-[16px]">
                     {(co.name || 'P').charAt(0)}
                   </span>
                 )}
-                <div className="text-[15px] sm:text-[16px] font-bold text-[#141414] leading-tight mt-1.5">{co.name}</div>
+                <div className="text-[16px] font-bold text-[#141414] leading-tight mt-1.5">{co.name}</div>
               </div>
-              <div className="text-[11px] sm:text-[11.5px] text-gray-500 leading-relaxed">
+              <div className="text-[11.5px] text-gray-500 leading-relaxed">
                 {[co.addr, co.city].filter(Boolean).join(', ')}{co.pin ? ` — ${co.pin}` : ''}<br />
                 {co.phone}{co.email ? ` · ${co.email}` : ''}
               </div>
             </div>
             <span className="inline-block border-2 border-[#141414] text-[#141414] rounded px-3 py-1
-              text-[11px] sm:text-[12px] font-bold uppercase tracking-[0.18em] shrink-0">
+              text-[12px] font-bold uppercase tracking-[0.18em] shrink-0">
               Completed
             </span>
           </div>
 
           <div className="mt-4 flex items-end justify-between gap-x-4 gap-y-1 flex-wrap">
             <div>
-              <div className="text-[17px] sm:text-[19px] font-bold tracking-[0.11em] text-[#141414] leading-tight">
+              <div className="text-[19px] font-bold tracking-[0.11em] text-[#141414] leading-tight">
                 SERVICE REPORT
               </div>
               <div className="text-[13px] font-semibold text-gray-500">{doc.id}</div>
             </div>
-            <div className="text-[11.5px] text-gray-500 leading-relaxed sm:text-right">
+            <div className="text-[11.5px] text-gray-500 leading-relaxed text-right">
               Service date: <strong className="text-gray-900">{fmtD(doc.date)}</strong><br />
               {doc.contractId && <>Contract: <strong className="text-gray-900">{doc.contractId}</strong></>}
             </div>
           </div>
 
-          <div className="border-t-2 border-[#141414] my-4 sm:my-6" />
+          <div className="border-t-2 border-[#141414] my-6" />
 
           {/* customer + crew */}
-          <div className="grid grid-cols-2 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 gap-6">
             <div className="min-w-0">
               <div className={LABEL + ' mb-1'}>Customer & site</div>
               <div className="text-[13.5px] font-bold break-words">{doc.client?.name || '—'}</div>
@@ -178,7 +181,7 @@ export default function PublicReport() {
           </div>
 
           {/* timings */}
-          <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="mt-5 grid grid-cols-4 gap-2.5">
             {[
               ['Checked in', fmtT(x.checkinAt)],
               ['Work started', fmtT(x.startedAt)],
@@ -269,7 +272,7 @@ export default function PublicReport() {
             </div>
           )}
 
-          <div className="border-t border-[#e3e6ee] my-5 sm:my-6" />
+          <div className="border-t border-[#e3e6ee] my-6" />
 
           {/* acknowledgement */}
           <div className="ack flex items-center justify-between gap-4 flex-wrap">
@@ -303,29 +306,6 @@ export default function PublicReport() {
         </div>
       </div>
 
-      {/* Under the sheet, not on it: things you do WITH the report. */}
-      <div className="lg:hidden no-print mt-5 flex items-center justify-center gap-5">
-        <button onClick={() => window.print()} aria-label="Download PDF"
-          className="w-[54px] h-[54px] rounded-full bg-white border border-[#e3e6ee] shadow-sm
-            flex items-center justify-center text-[#141414] active:bg-[#f2f2f2]">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 3v11" /><path d="m8 10.5 4 4 4-4" />
-            <path d="M4 16.5v2.2A2.3 2.3 0 0 0 6.3 21h11.4a2.3 2.3 0 0 0 2.3-2.3v-2.2" />
-          </svg>
-        </button>
-        {share && (
-          <a href={share} target="_blank" rel="noreferrer" aria-label="Share"
-            className="w-[54px] h-[54px] rounded-full bg-[#141414] text-white shadow-sm
-              flex items-center justify-center active:brightness-90">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="18" cy="5.5" r="2.6" /><circle cx="6" cy="12" r="2.6" />
-              <circle cx="18" cy="18.5" r="2.6" />
-              <path d="m8.3 10.8 7.4-4M8.3 13.2l7.4 4" />
-            </svg>
-          </a>
-        )}
       </div>
 
       {zoom && (

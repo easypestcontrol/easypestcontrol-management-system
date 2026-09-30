@@ -455,7 +455,7 @@ html, body {
   .report-doc .sign { height: 52px !important; }
   .report-doc .my-5, .report-doc .my-6 { margin-top: 11px !important; margin-bottom: 11px !important; }
   .report-doc .mt-3 { margin-top: 7px !important; }
-  .report-doc .gap-4 { gap: 10px !important; }
+  .report-doc .gap-4, .report-doc .gap-6 { gap: 10px !important; }
   .report-doc .p-10 { padding: 0 !important; }
   .report-doc .ack, .report-doc .shot { break-inside: avoid; page-break-inside: avoid; }
 
@@ -480,6 +480,31 @@ html, body {
   }
   .paper-page { padding: 0 !important; background: #fff !important; min-height: 0 !important; }
   .paper > * { padding: 0 !important; }
+
+  /* The contract prints as the sheet it is on screen.
+     Inside 12mm margins an A4 page is 703px wide - narrower than the 740px
+     the agreement is laid out in, so left to re-wrap it pushed the third
+     address column under the first and tipped the signatures onto a page of
+     their own. It is laid out at its own width instead, and scaled to the
+     paper: what the customer saw is what the PDF holds.
+
+     And in the type it was drawn in. A printed page is narrower than `lg`,
+     so the phone's type scale above applies to it - every label a size up,
+     which is right for a hand and wrong for a sheet laid out to the pixel:
+     it is what made a one-visit agreement run to a second page. */
+  .paper.contract-doc { width: 740px !important; zoom: 0.95 !important; }
+  .contract-doc .text-\[10px\] { font-size: 10px; }
+  .contract-doc .text-\[10\.5px\] { font-size: 10.5px; }
+  .contract-doc .text-\[11px\] { font-size: 11px; }
+  .contract-doc .text-\[11\.5px\] { font-size: 11.5px; }
+  .contract-doc .text-\[12px\] { font-size: 12px; }
+  .contract-doc .text-\[12\.5px\] { font-size: 12.5px; }
+  .contract-doc .text-\[13px\] { font-size: 13px; }
+  .contract-doc .text-\[13\.5px\] { font-size: 13.5px; }
+  .contract-doc .text-\[14px\] { font-size: 14px; }
+  .contract-doc .text-\[15px\] { font-size: 15px; }
+  .contract-doc .text-\[16px\] { font-size: 16px; }
+  .contract-doc .text-\[18px\] { font-size: 18px; }
 
   /* Nothing built for a phone belongs on paper.
 
