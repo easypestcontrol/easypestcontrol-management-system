@@ -154,9 +154,11 @@ export default function PublicContract() {
         <div style={fit} data-paper
           className="paper contract-doc bg-white border border-line rounded-sm w-[820px] max-w-full mx-auto shadow-card">
         <div className="p-10">
-          {/* head */}
-          <div className="flex justify-between gap-6 flex-wrap">
-            <div>
+          {/* head - the title block keeps its place on the right whatever the
+              length of the company's address; the address wraps, the sheet
+              does not. */}
+          <div className="flex items-start justify-between gap-6">
+            <div className="min-w-0">
               <div className="mb-3">
                 {co.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -173,7 +175,7 @@ export default function PublicContract() {
                 {co.phone}{co.email ? ` · ${co.email}` : ''}
               </div>
             </div>
-            <div className="text-right">
+            <div className="text-right shrink-0">
               <div className="text-[18px] font-bold tracking-[0.1em] text-[#141414]">
                 {doc.mode === 'amc' ? 'SERVICE CONTRACT (AMC)' : 'SERVICE CONTRACT'}
               </div>
@@ -187,11 +189,12 @@ export default function PublicContract() {
 
           <div className="border-t-2 border-[#141414] my-6" />
 
-          {/* customer + site */}
-          <div className="flex justify-between gap-6 flex-wrap">
-            <div>
+          {/* customer + site - three columns, always: a long address wraps
+              inside its own column instead of dropping under the others. */}
+          <div className="grid grid-cols-3 gap-6">
+            <div className="min-w-0">
               <div className="text-[10.5px] uppercase tracking-wider text-gray-400 font-semibold mb-1">Customer</div>
-              <div className="text-[14.5px] font-bold">{doc.client?.name || '—'}</div>
+              <div className="text-[14.5px] font-bold break-words">{doc.client?.name || '—'}</div>
               <div className="text-[11.5px] text-gray-500 leading-relaxed mt-1">
                 {doc.client?.contact && <>{doc.client.contact}<br /></>}
                 {doc.client?.phone}
@@ -200,17 +203,17 @@ export default function PublicContract() {
             {/* Both addresses, the way the quotation prints them — where the
                 bill goes and where the work happens are not always the same
                 place, and the agreement is the document that has to say so. */}
-            <div className="max-w-[300px]">
+            <div className="min-w-0">
               <div className="text-[10.5px] uppercase tracking-wider text-gray-400 font-semibold mb-1">
                 Billing address
               </div>
-              <div className="text-[12px] text-gray-700 leading-relaxed whitespace-pre-line">
+              <div className="text-[12px] text-gray-700 leading-relaxed whitespace-pre-line break-words">
                 {doc.billAddr || [doc.client?.addr, doc.client?.city].filter(Boolean).join(', ') || '—'}
               </div>
             </div>
-            <div className="max-w-[300px]">
+            <div className="min-w-0">
               <div className="text-[10.5px] uppercase tracking-wider text-gray-400 font-semibold mb-1">Service site</div>
-              <div className="text-[12px] text-gray-700 leading-relaxed whitespace-pre-line">
+              <div className="text-[12px] text-gray-700 leading-relaxed whitespace-pre-line break-words">
                 {doc.site || [doc.client?.addr, doc.client?.city].filter(Boolean).join(', ') || '—'}
               </div>
             </div>
