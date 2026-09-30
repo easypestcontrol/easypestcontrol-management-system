@@ -18,6 +18,7 @@ import { Icon } from '@/components/icons';
 import { usePager } from '@/components/pager';
 import { decodePolyline } from '@/lib/polyline';
 import { getPosition, geoHint } from '@/lib/geo';
+import { googleMapsDirections } from '@/lib/maps';
 
 // The Ola map is loaded only when the user asks for it — never in the background.
 const TripMap = dynamic(() => import('./trip-map'), { ssr: false });
@@ -129,7 +130,9 @@ export default function TripPage() {
   const [roadBusy, setRoadBusy] = useState(false);
   const [roadErr, setRoadErr] = useState('');
   const [routeLine, setRouteLine] = useState<Array<[number, number]>>([]);
-  const [navOpen, setNavOpen] = useState(false);
+  // The navigation sheet: closed, opened to look ('directions'), or opened by
+  // "Start trip" - the same sheet with the turn-by-turn already running.
+  const [navOpen, setNavOpen] = useState<false | 'directions' | 'start'>(false);
   const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
   const [mapKey, setMapKey] = useState(0);
 
@@ -242,7 +245,7 @@ export default function TripPage() {
       await api.post('/trips/' + active.id + '/end', at);
       setActive(null);
       setGpsState('idle');
-      setShowMap(false); setDestLL(null); setRoad(null); setRoadErr('');
+      setShowMap(false); setNavOpen(false); setDestLL(null); setRoad(null); setRoadErr('');
       setRouteLine([]); setHere(null);
       window.dispatchEvent(new Event('trip:changed')); // the tracker stops
       load(all);
@@ -319,11 +322,28 @@ export default function TripPage() {
               the one thing they want is the next turn — not the map preview,
               and certainly not the button that ends the trip, which used to be
               the loudest thing here. */}
-          <div className="flex gap-2 mt-4 flex-wrap">
-            {olaOn && active.dest && (
-              <button onClick={() => setNavOpen(true)}
-                className="h-12 lg:h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold
+          <div className="flex gap-2 mt-4 flex-wrap" data-trip-actions>
+            {/* Start trip: one tap from "I have a trip" to "I am being guided".
+                It opens the map with the route and begins the turn-by-turn. With
+                no map key connected it opens the same destination in Google
+                Maps, which is still a map and still gets them there. */}
+            {active.dest && (olaOn ? (
+              <button onClick={() => setNavOpen('start')}
+                className="h-12 lg:h-9 px-5 rounded bg-accent text-white text-[14px] lg:text-[13px] font-bold
                   hover:brightness-90 flex items-center justify-center gap-1.5 max-lg:w-full">
+                <Icon name="play" size={15} /> Start trip
+              </button>
+            ) : (
+              <a href={googleMapsDirections(active.dest)} target="_blank" rel="noreferrer"
+                className="h-12 lg:h-9 px-5 rounded bg-accent text-white text-[14px] lg:text-[13px] font-bold
+                  hover:brightness-90 flex items-center justify-center gap-1.5 max-lg:w-full">
+                <Icon name="play" size={15} /> Start trip
+              </a>
+            ))}
+            {olaOn && active.dest && (
+              <button onClick={() => setNavOpen('directions')}
+                className="h-12 lg:h-9 px-4 rounded border border-line text-[13px] font-semibold
+                  hover:bg-wash flex items-center justify-center gap-1.5">
                 <Icon name="branch" size={15} /> Directions
               </button>
             )}
@@ -332,6 +352,13 @@ export default function TripPage() {
                 className="h-12 lg:h-9 px-4 rounded border border-line text-[13px] font-semibold hover:bg-wash disabled:opacity-60">
                 {roadBusy ? 'Loading route…' : showMap ? 'Refresh route & map' : 'Preview on map'}
               </button>
+            )}
+            {active.dest && (
+              <a href={googleMapsDirections(destLL || active.dest)} target="_blank" rel="noreferrer" data-gmaps
+                className="h-12 lg:h-9 px-4 rounded border border-line text-[13px] font-semibold hover:bg-wash
+                  inline-flex items-center justify-center gap-1.5">
+                Google Maps ↗
+              </a>
             )}
             <button onClick={end} disabled={ending}
               className="h-12 lg:h-9 px-5 rounded border border-line text-accent text-[13px] font-semibold hover:bg-red-wash disabled:opacity-60">
@@ -345,15 +372,25 @@ export default function TripPage() {
               {/* The legend went: the red line and the navy one are a map, and
                   a driver reading a sentence about which is which is a driver
                   not looking at the road. */}
-              <button onClick={() => setShowMap(false)}
-                className="mt-2 h-9 px-4 rounded-full border border-line text-[13px]
-                  font-semibold hover:bg-wash">
-                Hide map
-              </button>
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                <button onClick={() => setShowMap(false)}
+                  className="h-9 px-4 rounded-full border border-line text-[13px]
+                    font-semibold hover:bg-wash">
+                  Hide map
+                </button>
+                {active.dest && (
+                  <a href={googleMapsDirections(destLL || active.dest)} target="_blank" rel="noreferrer"
+                    className="h-9 px-4 rounded-full border border-line text-[13px] font-semibold hover:bg-wash
+                      inline-flex items-center">
+                    Open in Google Maps ↗
+                  </a>
+                )}
+              </div>
             </div>
           )}
           {navOpen && active.dest && (
-            <NavigateSheet destText={active.dest} title={active.purpose || 'Navigate'}
+            <NavigateSheet key={navOpen} destText={active.dest} title={active.purpose || 'Navigate'}
+              autoStart={navOpen === 'start'}
               onClose={() => setNavOpen(false)} />
           )}
 

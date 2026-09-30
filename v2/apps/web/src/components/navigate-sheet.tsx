@@ -17,14 +17,18 @@ import {
 } from '@/lib/geo';
 import { api } from '@/lib/api';
 import { decodePolyline } from '@/lib/polyline';
+import { googleMapsDirections } from '@/lib/maps';
 import dynamic from 'next/dynamic';
 import { Icon } from '@/components/icons';
 
 // The map is client-only — it touches window on mount.
 const RouteMap = dynamic(() => import('@/app/(app)/trip/trip-map'), { ssr: false });
 
-function NavigateSheet({ destText, title, onClose }: {
+function NavigateSheet({ destText, title, onClose, autoStart }: {
   destText: string; title: string; onClose: () => void;
+  /** "Start trip": begin the turn-by-turn the moment the route is on the map,
+      instead of showing it and waiting for a second tap. */
+  autoStart?: boolean;
 }) {
   const [olaKey, setOlaKey] = useState('');
   const [destLL, setDestLL] = useState<{ lat: number; lng: number; label: string } | null>(null);
@@ -384,6 +388,19 @@ function NavigateSheet({ destText, title, onClose }: {
 
   useEffect(() => { boot(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
+  // Opened by "Start trip": guidance begins as soon as there is a route to follow.
+  const autoDone = useRef(false);
+  useEffect(() => {
+    if (!autoStart || autoDone.current || state !== 'ready' || !steps.length) return;
+    autoDone.current = true;
+    startNav();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, state, steps.length]);
+
+  /* The same destination in Google Maps: the pin when the address has been
+     found on the map, the address itself when it has not. */
+  const gmaps = googleMapsDirections(destLL || destText);
+
   return (
     <div className="fixed inset-0 z-50 bg-navy/50 flex items-end sm:items-center justify-center sm:p-6">
       <div className="bg-white w-full sm:max-w-[680px] sm:rounded-lg rounded-t-xl shadow-xl max-h-[92vh] overflow-y-auto">
@@ -400,10 +417,17 @@ function NavigateSheet({ destText, title, onClose }: {
               </p>
             )}
           </div>
-          <button onClick={onClose}
-            className="h-8 px-3 rounded border border-line text-[12.5px] font-semibold hover:bg-wash shrink-0">
-            Close
-          </button>
+          <span className="flex items-center gap-2 shrink-0">
+            <a href={gmaps} target="_blank" rel="noreferrer" data-gmaps
+              className="h-8 px-3 rounded border border-line text-[12.5px] font-semibold hover:bg-wash
+                inline-flex items-center gap-1.5 whitespace-nowrap">
+              Google Maps ↗
+            </a>
+            <button onClick={onClose}
+              className="h-8 px-3 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">
+              Close
+            </button>
+          </span>
         </div>
         <div className="p-4">
           {state === 'loading' && (
@@ -483,9 +507,17 @@ function NavigateSheet({ destText, title, onClose }: {
             </div>
           )}
           {state === 'error' && (
-            <p className="text-[12px] text-muted mt-2">
-              Fix the address on the customer profile and reopen the map.
-            </p>
+            <>
+              <p className="text-[12px] text-muted mt-2">
+                Fix the address on the customer profile and reopen the map.
+              </p>
+              {/* Our map could not place it; Google may still know the way. */}
+              <a href={gmaps} target="_blank" rel="noreferrer"
+                className="mt-3 h-11 px-4 rounded bg-navy text-white text-[13.5px] font-semibold
+                  inline-flex items-center justify-center hover:brightness-110">
+                Open it in Google Maps ↗
+              </a>
+            </>
           )}
         </div>
       </div>
