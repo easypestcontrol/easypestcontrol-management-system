@@ -14,7 +14,8 @@ import { docTermsFor } from 'shared';
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { api, type Bootstrap, type Company } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import { api, type Bootstrap, type Company, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
 
 type SectionId = 'org' | 'terms' | 'roles';
@@ -69,10 +70,24 @@ const DOCS = [
 ] as const;
 
 export default function Settings() {
+  const router = useRouter();
+  const [me, setMe] = useState<SessionUser | null>(null);
   const [co, setCo] = useState<Company | null>(null);
   const [section, setSection] = useState<SectionId>('org');
   const [saved, setSaved] = useState('');
   const file = useRef<HTMLInputElement>(null);
+
+  /* Settings is the office's own — the organisation's identity, its seal, and
+     who may open which page. Only the administrator and operations reach it;
+     anyone else who types the address is sent home. (The API already refuses
+     their saves — this closes the door on merely seeing it.) */
+  const denied = !!me && me.role !== 'admin' && me.role !== 'ops';
+  useEffect(() => {
+    api.get<SessionUser>('/auth/me').then(setMe).catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (denied) router.replace('/dashboard');
+  }, [denied, router]);
 
   useEffect(() => {
     api.get<Bootstrap>('/org/bootstrap').then((b) => setCo(b.company)).catch(() => {});
@@ -127,7 +142,8 @@ export default function Settings() {
     file.current?.click();
   };
 
-  if (!co) return <p className="p-6 text-muted text-[13px]">Loading…</p>;
+  if (denied) return null; // the effect is sending them to the dashboard
+  if (!me || !co) return <p className="p-6 text-muted text-[13px]">Loading…</p>;
 
   // A plain function, NOT a nested component: a component declared inside the
   // render is a new type every render, so React remounts the input and the
