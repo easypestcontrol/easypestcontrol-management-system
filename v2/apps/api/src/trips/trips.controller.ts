@@ -1,9 +1,13 @@
 /* ============================================================================
-   Trips — GPS breadcrumb tracking for anyone on the team. The browser sends
-   a position ping every few seconds; distance is the sum of the segments
-   actually driven, so it follows the real road, never a straight line.
-   When an Ola Maps key is connected (Settings → Integrations) the same data
-   feeds the live map.
+   Trips — GPS breadcrumb tracking for anyone on the team. The phone sends a
+   position every few seconds; distance is the sum of the stretches actually
+   covered, so it follows the real road, never a straight line.
+
+   Three things are kept so a trip can be read afterwards, not just totalled:
+   the fixes themselves (with their accuracy and speed), the road the map says
+   is the shortest way to where the trip was going, and an honest mark on
+   every stretch the phone did NOT see - bridged from the road map and counted
+   as an estimate. The reading itself lives in analysis.ts.
    ========================================================================== */
 import { mustBeOpenDate } from '../expenses/window';
 // toISO reads the LOCAL calendar (India time on the server); toISOString() is UTC and is a day behind until 5:30 am.
@@ -18,19 +22,28 @@ import { AuthGuard, Roles } from '../auth/auth.guard';
 import { branchScope, branchWhere, clampScope, inScope } from '../branch.util';
 import { open } from '../secrets.util';
 import { TripsService } from './trips.service';
+import {
+  GAP_M, GAP_S, MAX_MS, decodePolyline, metres, readTrip, tripChecks, type Pt,
+} from './analysis';
 
 interface Jwt { user?: { sub?: string; role?: string } }
-interface Pt { lat: number; lng: number; t: string }
 
-/** Metres between two coordinates — plain haversine. */
-function metres(a: Pt, b: Pt): number {
-  const R = 6371000;
-  const rad = (x: number) => (x * Math.PI) / 180;
-  const dLat = rad(b.lat - a.lat);
-  const dLng = rad(b.lng - a.lng);
-  const h = Math.sin(dLat / 2) ** 2 +
-    Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
+/** How many silent stretches of one trip are bridged with a road route. Each
+    is one call to the map provider; past this a straight line is used. */
+const MAX_BRIDGES = 4;
+
+/** At most `max` points of a line, evenly taken - a bridge needs its shape, not every vertex. */
+function thin<T>(line: T[], max: number): T[] {
+  if (line.length <= max) return line;
+  const out: T[] = [];
+  for (let i = 0; i < max; i++) out.push(line[Math.round((i * (line.length - 1)) / (max - 1))]);
+  return out;
+}
+
+interface RouteOk {
+  ok: true; distanceM: number; durationS: number; polyline: string; considered: number;
+  alternatives: Array<{ distanceM: number; durationS: number }>;
+  steps: Array<{ text: string; distanceM: number; durationS: number; maneuver: string; lat: number; lng: number }>;
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -65,21 +78,241 @@ export class TripsController {
       Returns 0 if Ola is off or the call fails; the caller treats 0 as
       "nothing to compare" and never flags on it. */
   private async plannedMetres(a: Pt, b: Pt): Promise<number> {
-    try {
-      const key = await this.ola();
-      const r = await fetch(
-        'https://api.olamaps.io/routing/v1/directions?origin=' + a.lat + ',' + a.lng +
-        '&destination=' + b.lat + ',' + b.lng + '&overview=false&api_key=' + key,
-        { method: 'POST' },
-      );
-      if (!r.ok) return 0;
-      const data = (await r.json()) as { routes?: Array<{ legs?: Array<{ distance?: number | { value?: number } }> }> };
-      const legs = (data.routes || []).map((rt) => {
-        const d = rt.legs?.[0]?.distance;
-        return typeof d === 'number' ? d : (d && typeof d.value === 'number' ? d.value : 0);
-      }).filter((m) => m > 0);
-      return legs.length ? Math.round(Math.min(...legs)) : 0;
-    } catch { return 0; }
+    const r = await this.olaRoute(a.lat + ',' + a.lng, b.lat + ',' + b.lng).catch(() => null);
+    return r && r.ok ? r.distanceM : 0;
+  }
+
+  /**
+   * The shortest road between two "lat,lng" points - ONE call, no retries.
+   * Every screen and every rule that needs a route comes through here, so
+   * "the planned route" means the same road everywhere.
+   */
+  private async olaRoute(f: string, t: string): Promise<RouteOk | { ok: false; reason: string }> {
+    const key = await this.ola();
+    const r = await fetch(
+      // overview=full — 'simplified' collapses the geometry to almost nothing,
+      // which drew a straight line instead of the road.
+      // alternatives=true — Ola will offer several ways there, and we were
+      // taking whichever it happened to list first. Asking costs the same
+      // call; not asking meant never having the choice.
+      'https://api.olamaps.io/routing/v1/directions?origin=' + encodeURIComponent(f) +
+      '&destination=' + encodeURIComponent(t) +
+      '&alternatives=true&overview=full&api_key=' + key,
+      { method: 'POST' },
+    );
+    const data = (await r.json()) as {
+      routes?: Array<{ overview_polyline?: string; legs?: Array<{
+        distance?: number | { value?: number }; duration?: number | { value?: number };
+        steps?: Array<{
+          instructions?: string; distance?: number; duration?: number; maneuver?: string;
+          end_location?: { lat: number; lng: number };
+        }>;
+      }> }>;
+      reason?: string; status?: string;
+    };
+    const num = (v: number | { value?: number } | undefined) =>
+      typeof v === 'number' ? v : (v && typeof v.value === 'number' ? v.value : 0);
+
+    /*
+     * Pick the shortest way, not the first one listed.
+     *
+     * Distance decides, because distance is what the business pays for — a
+     * trip is reimbursed by the kilometre, and a route two kilometres longer
+     * costs real money on every visit.
+     *
+     * The tie-break matters as much as the rule. Two roads within five per
+     * cent of each other are the same length as far as anybody cares, and
+     * between those the faster one wins: nobody thanks you for saving two
+     * hundred metres down a lane that takes ten minutes longer.
+     */
+    const options = (data.routes || [])
+      .map((rt) => ({
+        rt,
+        leg: rt.legs?.[0],
+        m: Math.round(num(rt.legs?.[0]?.distance)),
+        s: Math.round(num(rt.legs?.[0]?.duration)),
+      }))
+      .filter((o) => o.leg && o.m > 0);
+
+    if (!r.ok || !options.length) {
+      return { ok: false, reason: String(data.reason || data.status || r.status) };
+    }
+
+    const shortest = Math.min(...options.map((o) => o.m));
+    const best = options
+      .filter((o) => o.m <= shortest * 1.05)
+      .sort((a, b) => a.s - b.s)[0];
+    const leg = best.leg!;
+
+    return {
+      ok: true,
+      distanceM: best.m,
+      durationS: best.s,
+      polyline: best.rt.overview_polyline || '',
+      /* What was rejected, so a screen can say "shortest of 3" rather than
+         asking anybody to take it on faith. */
+      considered: options.length,
+      alternatives: options
+        .filter((o) => o !== best)
+        .map((o) => ({ distanceM: o.m, durationS: o.s })),
+      // Turn-by-turn steps from the SAME call — following them costs nothing.
+      steps: (leg.steps || []).map((st) => ({
+        text: String(st.instructions || ''),
+        distanceM: Math.round(st.distance || 0),
+        durationS: Math.round(st.duration || 0),
+        maneuver: String(st.maneuver || ''),
+        lat: st.end_location?.lat ?? 0,
+        lng: st.end_location?.lng ?? 0,
+      })),
+    };
+  }
+
+  /** One address -> coordinates. ONE call; null when nothing matches. */
+  private async geocodeOnce(query: string): Promise<{ lat: number; lng: number; formatted: string; reason?: string } | null> {
+    const key = await this.ola();
+    const r = await fetch(
+      'https://api.olamaps.io/places/v1/geocode?address=' + encodeURIComponent(query) +
+      '&language=en&api_key=' + key,
+    );
+    const data = (await r.json()) as {
+      geocodingResults?: Array<{ formatted_address?: string; geometry?: { location?: { lat: number; lng: number } } }>;
+      reason?: string;
+    };
+    const g = data.geocodingResults?.[0];
+    if (!r.ok || !g?.geometry?.location) return null;
+    return { lat: g.geometry.location.lat, lng: g.geometry.location.lng, formatted: g.formatted_address || query };
+  }
+
+  /**
+   * Where the trip is going, and the road there - worked out ONCE, from the
+   * first GPS fix, and kept. It is what the driven path is compared with.
+   *
+   * A service trip goes to the customer's site: if a technician has already
+   * marked where that is, that mark is the destination and no address lookup
+   * is needed. Otherwise the destination text is looked up, and an answer in
+   * another part of the country is thrown away - "Office" has a match
+   * somewhere, and it is not this one.
+   */
+  private async planRoute(id: string, from: Pt) {
+    const t = await this.prisma.trip.findUnique({
+      where: { id }, select: { dest: true, jobId: true, plannedLine: true, plannedM: true },
+    });
+    if (!t || t.plannedLine) return;
+    let dest: { lat: number; lng: number } | null = null;
+    if (t.jobId) {
+      const j = await this.prisma.job.findUnique({ where: { id: t.jobId }, select: { clientId: true } });
+      const c = j ? await this.prisma.client.findUnique({
+        where: { id: j.clientId }, select: { siteLat: true, siteLng: true },
+      }) : null;
+      if (c?.siteLat != null && c?.siteLng != null) dest = { lat: c.siteLat, lng: c.siteLng };
+    }
+    if (!dest && t.dest) dest = await this.geocodeOnce(t.dest).catch(() => null);
+    if (!dest || metres(from, dest) > 150000) return;
+    const data: Record<string, unknown> = { destLat: dest.lat, destLng: dest.lng };
+    if (metres(from, dest) > 50) {
+      const r = await this.olaRoute(from.lat + ',' + from.lng, dest.lat + ',' + dest.lng).catch(() => null);
+      if (r && r.ok && r.polyline) {
+        data.plannedLine = r.polyline;
+        if (!t.plannedM) data.plannedM = r.distanceM;
+      }
+    }
+    await this.prisma.trip.update({ where: { id }, data });
+  }
+
+  /**
+   * Take GPS fixes into a trip.
+   *
+   * One rule for every way a fix arrives - the live ping, a batch the phone
+   * held while it had no signal, the last position sent with "End trip".
+   *
+   * A fix is kept only if it says something: it is accurate enough to be a
+   * position at all, it has moved further than its own uncertainty, and it
+   * did not get there faster than a vehicle can. What is kept adds the
+   * stretch since the last one.
+   *
+   * And when the phone has been SILENT - the app in a pocket, the screen
+   * locked - and then reports from somewhere else, that stretch is not
+   * thrown away (it used to be, past two kilometres) and not drawn as a
+   * straight line through the buildings either: the road between the two
+   * fixes is asked for once and its length is counted, marked as estimated.
+   */
+  private async takeFixes(
+    t: { id: string; startAt: Date; distanceM: number; estM: number; points: unknown },
+    fixes: Array<Record<string, unknown>>,
+  ) {
+    const pts = (Array.isArray(t.points) ? t.points : []) as unknown as Pt[];
+    const wasEmpty = pts.length === 0;
+    let distanceM = t.distanceM;
+    let estM = t.estM;
+    let took = 0;
+    const now = Date.now();
+    const list = fixes.map((f) => {
+      const at = Date.parse(String(f.at || ''));
+      /* The phone's own clock says when the fix was taken. A fix with no
+         time is "now". One from before the trip began is not part of the
+         trip at all - re-stamping it as now would put the van back where it
+         was before it set off. One from the future is a phone with a wrong
+         clock: the position is real, the time is ours. */
+      const ms = !Number.isFinite(at) ? now
+        : at < t.startAt.getTime() - 60000 ? NaN
+        : at > now + 60000 ? now : at;
+      return { lat: Number(f.lat), lng: Number(f.lng), acc: Number(f.acc) || 0, spd: Number(f.spd), ms };
+    }).filter((f) => Number.isFinite(f.ms) && Number.isFinite(f.lat) && Number.isFinite(f.lng)
+      && Math.abs(f.lat) <= 90 && Math.abs(f.lng) <= 180)
+      .sort((a, b) => a.ms - b.ms);
+
+    for (const f of list) {
+      /* A fix this vague cannot measure anything. 150 m of uncertainty on a
+         city street is not a position, it is a neighbourhood. */
+      if (f.acc > 60) continue;
+      const cur: Pt = { lat: f.lat, lng: f.lng, t: new Date(f.ms).toISOString() };
+      if (f.acc > 0) cur.a = Math.round(f.acc);
+      if (Number.isFinite(f.spd) && f.spd >= 0) cur.s = Math.round(f.spd * 10) / 10;
+      const last = pts[pts.length - 1];
+      if (last) {
+        const dtS = (f.ms - Date.parse(last.t)) / 1000;
+        if (dtS < 0) continue; // older than what is already recorded
+        const step = metres(last, cur);
+        /* Movement has to be bigger than the uncertainty of the fix before it
+           counts as movement: two fixes each uncertain by twenty metres
+           routinely land twenty metres apart with the handbrake on. */
+        if (step <= Math.max(5, f.acc)) continue;
+        if (step / Math.max(1, dtS) > MAX_MS) continue; // a jump no vehicle makes
+        if (dtS > GAP_S && step > GAP_M) {
+          let bridged = Math.round(step);
+          if (pts.filter((q) => q.g).length < MAX_BRIDGES) {
+            const r = await this.olaRoute(last.lat + ',' + last.lng, cur.lat + ',' + cur.lng).catch(() => null);
+            // A road answer has to be a sane one: no shorter than the straight
+            // line, no wild detour, and drivable in the time that passed.
+            if (r && r.ok && r.polyline && r.distanceM >= step * 0.9
+              && r.distanceM <= step * 3 + 1500 && r.distanceM / Math.max(1, dtS) <= MAX_MS) {
+              bridged = r.distanceM;
+              const inner = thin(decodePolyline(r.polyline).slice(1, -1), 80);
+              const t0 = Date.parse(last.t);
+              inner.forEach((q, k) => pts.push({
+                lat: q.lat, lng: q.lng, e: 1,
+                t: new Date(t0 + ((k + 1) / (inner.length + 1)) * dtS * 1000).toISOString(),
+              }));
+            }
+          }
+          cur.g = 1;
+          distanceM += bridged;
+          estM += bridged;
+        } else {
+          distanceM += Math.round(step);
+        }
+      }
+      pts.push(cur);
+      took += 1;
+    }
+    if (!took) return { distanceM: t.distanceM, points: pts.length, row: null };
+    const row = await this.prisma.trip.update({
+      where: { id: t.id }, data: { points: pts as never, distanceM, estM },
+    });
+    // The first fix is where the trip starts: plan the road from there, once,
+    // without making the phone wait for it.
+    if (wasEmpty) void this.planRoute(t.id, pts[0]).catch(() => {});
+    return { distanceM, points: pts.length, row };
   }
 
   /** Start a trip. Any still-active trip of mine is closed first. */
@@ -231,25 +464,9 @@ export class TripsController {
   async geocode(@Query('q') q?: string) {
     const query = String(q || '').trim();
     if (!query) throw new BadRequestException('Give an address to look up');
-    const key = await this.ola();
-    const r = await fetch(
-      'https://api.olamaps.io/places/v1/geocode?address=' + encodeURIComponent(query) +
-      '&language=en&api_key=' + key,
-    );
-    const data = (await r.json()) as {
-      geocodingResults?: Array<{ formatted_address?: string; geometry?: { location?: { lat: number; lng: number } } }>;
-      reason?: string;
-    };
-    const g = data.geocodingResults?.[0];
-    if (!r.ok || !g?.geometry?.location) {
-      return { found: false, reason: data.reason || 'No match for that address' };
-    }
-    return {
-      found: true,
-      lat: g.geometry.location.lat,
-      lng: g.geometry.location.lng,
-      formatted: g.formatted_address || query,
-    };
+    const g = await this.geocodeOnce(query);
+    if (!g) return { found: false, reason: 'No match for that address' };
+    return { found: true, lat: g.lat, lng: g.lng, formatted: g.formatted };
   }
 
   /**
@@ -263,82 +480,10 @@ export class TripsController {
     if (!/^-?\d+\.?\d*,-?\d+\.?\d*$/.test(f) || !/^-?\d+\.?\d*,-?\d+\.?\d*$/.test(t)) {
       throw new BadRequestException('from/to must be lat,lng');
     }
-    const key = await this.ola();
-    const r = await fetch(
-      // overview=full — 'simplified' collapses the geometry to almost nothing,
-      // which drew a straight line instead of the road.
-      // alternatives=true — Ola will offer several ways there, and we were
-      // taking whichever it happened to list first. Asking costs the same
-      // call; not asking meant never having the choice.
-      'https://api.olamaps.io/routing/v1/directions?origin=' + encodeURIComponent(f) +
-      '&destination=' + encodeURIComponent(t) +
-      '&alternatives=true&overview=full&api_key=' + key,
-      { method: 'POST' },
-    );
-    const data = (await r.json()) as {
-      routes?: Array<{ overview_polyline?: string; legs?: Array<{
-        distance?: number | { value?: number }; duration?: number | { value?: number };
-        steps?: Array<{
-          instructions?: string; distance?: number; duration?: number; maneuver?: string;
-          end_location?: { lat: number; lng: number };
-        }>;
-      }> }>;
-      reason?: string; status?: string;
-    };
-    const num = (v: number | { value?: number } | undefined) =>
-      typeof v === 'number' ? v : (v && typeof v.value === 'number' ? v.value : 0);
-
-    /*
-     * Pick the shortest way, not the first one listed.
-     *
-     * Distance decides, because distance is what the business pays for — a
-     * trip is reimbursed by the kilometre, and a route two kilometres longer
-     * costs real money on every visit.
-     *
-     * The tie-break matters as much as the rule. Two roads within five per
-     * cent of each other are the same length as far as anybody cares, and
-     * between those the faster one wins: nobody thanks you for saving two
-     * hundred metres down a lane that takes ten minutes longer.
-     */
-    const options = (data.routes || [])
-      .map((rt) => ({
-        rt,
-        leg: rt.legs?.[0],
-        m: Math.round(num(rt.legs?.[0]?.distance)),
-        s: Math.round(num(rt.legs?.[0]?.duration)),
-      }))
-      .filter((o) => o.leg && o.m > 0);
-
-    if (!r.ok || !options.length) {
-      throw new BadRequestException('Ola could not route this: ' + (data.reason || data.status || r.status));
-    }
-
-    const shortest = Math.min(...options.map((o) => o.m));
-    const best = options
-      .filter((o) => o.m <= shortest * 1.05)
-      .sort((a, b) => a.s - b.s)[0];
-    const leg = best.leg!;
-
-    return {
-      distanceM: best.m,
-      durationS: best.s,
-      polyline: best.rt.overview_polyline || '',
-      /* What was rejected, so a screen can say "shortest of 3" rather than
-         asking anybody to take it on faith. */
-      considered: options.length,
-      alternatives: options
-        .filter((o) => o !== best)
-        .map((o) => ({ distanceM: o.m, durationS: o.s })),
-      // Turn-by-turn steps from the SAME call — following them costs nothing.
-      steps: (leg.steps || []).map((st) => ({
-        text: String(st.instructions || ''),
-        distanceM: Math.round(st.distance || 0),
-        durationS: Math.round(st.duration || 0),
-        maneuver: String(st.maneuver || ''),
-        lat: st.end_location?.lat ?? 0,
-        lng: st.end_location?.lng ?? 0,
-      })),
-    };
+    const r = await this.olaRoute(f, t);
+    if (!r.ok) throw new BadRequestException('Ola could not route this: ' + r.reason);
+    const { ok: _ok, ...out } = r;
+    return out;
   }
 
   /** The breadcrumb trail of one trip — feeds the live map, one read, no Ola call. */
@@ -362,68 +507,43 @@ export class TripsController {
     return t ? this.shape(t) : null;
   }
 
-  /** One GPS breadcrumb. Distance grows along the actual path driven. */
+  /**
+   * GPS breadcrumbs. Distance grows along the actual path covered.
+   * One fix ({lat,lng,acc,spd,at}) or several in `batch` - what the phone
+   * held while it had no signal arrives together, in order, with its own times.
+   */
   @Post(':id/ping')
   async ping(@Param('id') id: string, @Body() body: Record<string, unknown>, @Req() req: Request & Jwt) {
     const t = await this.prisma.trip.findUnique({ where: { id } });
     if (!t || t.userId !== (req.user?.sub || '')) throw new NotFoundException('Not your trip');
     if (t.status !== 'active') throw new BadRequestException('This trip has ended');
 
-    const lat = Number(body.lat), lng = Number(body.lng);
-    const acc = Number(body.acc) || 0;
-    if (!isFinite(lat) || !isFinite(lng)) throw new BadRequestException('Bad coordinates');
-    /*
-     * A fix this vague cannot measure anything. 150 m of uncertainty on a
-     * city street is not a position, it is a neighbourhood — and it was being
-     * accepted and differenced against the last one as though it were.
-     */
-    if (acc > 60) return { distanceM: t.distanceM, points: (t.points as unknown as Pt[]).length };
-
-    const pts = (Array.isArray(t.points) ? t.points : []) as unknown as Pt[];
-    const cur: Pt = { lat, lng, t: new Date().toISOString() };
-    let add = 0;
-    if (pts.length) {
-      const step = metres(pts[pts.length - 1], cur);
-      /*
-       * How far is far enough to be real?
-       *
-       * A flat three metres was the wrong question. A phone reporting twenty
-       * metres of accuracy can report positions fifteen metres apart while
-       * sitting in a parked van, and every one of those used to be counted —
-       * a trip that never moved could accumulate a kilometre. Meanwhile a
-       * genuinely accurate phone creeping through traffic gets thrown away
-       * for moving only two metres.
-       *
-       * So the bar is the accuracy of the fix itself: movement has to be
-       * bigger than the uncertainty before it counts as movement. A good fix
-       * measures small steps; a poor one is not trusted with them.
-       *
-       * Set to the full accuracy rather than a fraction of it, because two
-       * independent fixes each uncertain by twenty metres routinely land
-       * twenty metres apart while the handbrake is on — a fraction of that
-       * still lets a stationary van clock a hundred metres, which the test
-       * below caught on the first attempt.
-       */
-      const floor = Math.max(5, acc);
-      if (step > floor && step <= 2000) add = Math.round(step);
-      else if (step <= floor) { return { distanceM: t.distanceM, points: pts.length }; }
+    const batch = Array.isArray(body.batch) ? (body.batch as Array<Record<string, unknown>>).slice(0, 600) : [body];
+    if (!batch.some((f) => isFinite(Number(f?.lat)) && isFinite(Number(f?.lng)))) {
+      throw new BadRequestException('Bad coordinates');
     }
-    pts.push(cur);
-    const up = await this.prisma.trip.update({
-      where: { id },
-      data: { points: pts as never, distanceM: t.distanceM + add },
-    });
-    return { distanceM: up.distanceM, points: pts.length };
+    const r = await this.takeFixes(t, batch.filter(Boolean));
+    return { distanceM: r.distanceM, points: r.points };
   }
 
   @Post(':id/end')
   async end(@Param('id') id: string, @Body() body: Record<string, unknown>, @Req() req: Request & Jwt) {
-    const t = await this.prisma.trip.findUnique({ where: { id } });
+    let t = await this.prisma.trip.findUnique({ where: { id } });
     if (!t || t.userId !== (req.user?.sub || '')) throw new NotFoundException('Not your trip');
 
-    // A planned figure to measure against: whatever the app sent at start,
-    // else the shortest route between the first and last GPS fix (one Ola
-    // call, best-effort). Without one there is nothing to compare.
+    /* Where the phone is as the trip ends. A phone that slept through the
+       drive reports again the moment the app is opened to press End - and
+       that one position is what lets the silent stretch be bridged instead of
+       the whole trip reading zero. */
+    if (t.status === 'active' && body.lat != null && body.lng != null) {
+      const r = await this.takeFixes(t, [body]).catch(() => null);
+      if (r?.row) t = r.row;
+    }
+
+    // A planned figure to measure against: whatever the app sent at start or
+    // the first fix worked out, else the shortest route between the first and
+    // last GPS fix (one Ola call, best-effort). Without one there is nothing
+    // to compare.
     const pts = (Array.isArray(t.points) ? t.points : []) as unknown as Pt[];
     let plannedM = t.plannedM;
     if (!plannedM && pts.length >= 2) {
@@ -479,6 +599,9 @@ export class TripsController {
       startAt: t.startAt.toISOString(), endAt: t.endAt ? t.endAt.toISOString() : null,
       distanceM: t.distanceM,
       plannedM: Number(x.plannedM) || 0,
+      // How much of the distance is estimate, and is there a route to compare with.
+      estM: Number(x.estM) || 0,
+      hasRoute: !!x.plannedLine,
       dest: String(x.dest || ''),
       startPlace: String(x.startPlace || ''),
       endPlace: String(x.endPlace || ''),
@@ -563,16 +686,38 @@ export class TripsController {
       }
     }
     const [u, rate] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: t.userId }, select: { name: true, color: true } }),
+      this.prisma.user.findUnique({ where: { id: t.userId }, select: { name: true, color: true, role: true } }),
       this.kmRate(t.branch, t.userId),
     ]);
+
+    /* The trip, read: every stretch as driven, walked or estimated, on the
+       planned road or off it, the stops, and the findings in sentences. One
+       payload, so the map and the numbers beside it cannot disagree. */
+    const pts = (Array.isArray(t.points) ? t.points : []) as unknown as Pt[];
+    const planned = t.plannedLine ? decodePolyline(t.plannedLine) : [];
+    const destAt = t.destLat != null && t.destLng != null ? { lat: t.destLat, lng: t.destLng } : null;
+    const read = readTrip(pts, planned, destAt);
+
     return {
       ...this.shape(t),
       userName: u?.name || 'Former staff',
       userColor: u?.color || '#888',
+      userRole: u?.role || '',
       cost: Math.round((t.distanceM / 1000) * rate),
       rate,
       canManage: this.manage(req.user?.role),
+      mine,
+      path: pts.map((q, i) => ({
+        lat: q.lat, lng: q.lng, t: q.t, k: read.kinds[i], o: read.off[i] ? 1 : 0, e: q.e ? 1 : 0,
+      })),
+      planned: planned.map((q) => [q.lng, q.lat]),
+      destAt,
+      stops: read.stops,
+      stats: read.stats,
+      checks: tripChecks(read, {
+        distanceM: t.distanceM, plannedM: t.plannedM, estM: t.estM,
+        hasDest: !!t.dest, hasPlan: planned.length >= 2, done: t.status !== 'active',
+      }),
     };
   }
 

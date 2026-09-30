@@ -788,7 +788,21 @@ model Trip {
   endAt     DateTime?
   distanceM Int       @default(0) // metres along the actual GPS breadcrumb path
   plannedM  Int       @default(0) // shortest-route metres, for the deviation check
-  points    Json      @default("[]") // [{lat,lng,t}]
+  /// [{lat,lng,t, a?, s?, e?, g?}] - a = accuracy (m), s = the phone's own speed
+  /// (m/s). e:1 marks a point that is NOT a fix: it belongs to the road route
+  /// used to bridge a stretch where the GPS was silent. g:1 marks the first
+  /// real fix after such a stretch.
+  points    Json      @default("[]")
+  /// Metres inside distanceM that were taken from the road map rather than
+  /// measured - the stretches where the phone reported nothing.
+  estM      Int       @default(0)
+  /// Where the trip was headed, once the destination text has been found on
+  /// the map, and the shortest road route there from the first GPS fix (an
+  /// encoded polyline, precision 5). The route actually driven is judged
+  /// against this line, not only against its length.
+  destLat     Float?
+  destLng     Float?
+  plannedLine String  @default("")
   // The office's verdict on a finished trip. 'auto' = inside the limits, no
   // one had to look; 'pending' = flagged, waiting on the admin; then the
   // admin's approved / rejected. Only 'rejected' drops out of the claim.

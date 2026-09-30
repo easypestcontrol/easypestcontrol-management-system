@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { api, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { usePager } from '@/components/pager';
@@ -27,7 +28,18 @@ interface Trip {
   id: string; userId: string; userName?: string; purpose: string; jobId: string;
   dest: string; status: string; startAt: string; endAt: string | null;
   distanceM: number; mins: number; points: number;
+  plannedM?: number; estM?: number; review?: string; flagged?: boolean;
   last: { lat: number; lng: number; t: string } | null;
+}
+
+/** Where a finished trip stands, in two words and a colour. */
+function tripState(t: Trip): { label: string; cls: string } {
+  if (t.status === 'active') return { label: 'Live now', cls: 'bg-navy text-white' };
+  if (t.status === 'cancelled') return { label: 'Cancelled', cls: 'bg-wash text-muted border border-line' };
+  if (t.review === 'rejected') return { label: 'Rejected', cls: 'bg-rose text-rose-ink' };
+  if (t.review === 'pending') return { label: 'Needs review', cls: 'bg-amber text-amber-ink' };
+  if (t.points < 2) return { label: 'No GPS', cls: 'bg-wash text-muted border border-line' };
+  return { label: 'Approved', cls: 'bg-mint text-mint-ink' };
 }
 interface TodaySvc { jobId: string; slot: string; client: string; dest: string; services: string }
 interface Place { id: string; name: string; dest: string }
@@ -98,6 +110,8 @@ const hhmm = (t: string) => {
 };
 
 export default function TripPage() {
+  const router = useRouter();
+  const [ending, setEnding] = useState(false);
   const [me, setMe] = useState<SessionUser | null>(null);
   const [active, setActive] = useState<Trip | null>(null);
   const [rows, setRows] = useState<Trip[] | null>(null);
@@ -209,9 +223,23 @@ export default function TripPage() {
   }
 
   async function end() {
-    if (!active) return;
+    if (!active || ending) return;
+    setEnding(true);
+    /* Where the phone is right now goes with the request. A phone that slept
+       through the drive wakes when the app is opened to press End, and that
+       one position is what lets the silent stretch be bridged along the road
+       instead of the whole trip reading zero. Six seconds, then it ends
+       without one - nobody should be held at a gate waiting for a satellite. */
+    let at: { lat?: number; lng?: number; acc?: number } = {};
     try {
-      await api.post('/trips/' + active.id + '/end', {});
+      const pos = await Promise.race([
+        getPosition(),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error('slow')), 6000)),
+      ]);
+      at = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy };
+    } catch { /* ends without it */ }
+    try {
+      await api.post('/trips/' + active.id + '/end', at);
       setActive(null);
       setGpsState('idle');
       setShowMap(false); setDestLL(null); setRoad(null); setRoadErr('');
@@ -219,12 +247,28 @@ export default function TripPage() {
       window.dispatchEvent(new Event('trip:changed')); // the tracker stops
       load(all);
     } catch { /* stays active */ }
+    setEnding(false);
   }
+
+  /* The month in four numbers, from the rows already on the page. */
+  // The local month - the UTC one is last month until 5:30 am on the 1st.
+  const nowD = new Date();
+  const monthKey = nowD.getFullYear() + '-' + String(nowD.getMonth() + 1).padStart(2, '0');
+  const thisMonth = (rows || []).filter((t) => {
+    const d = new Date(t.startAt);
+    return !Number.isNaN(d.getTime())
+      && d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') === monthKey
+      && t.status !== 'cancelled' && t.review !== 'rejected';
+  });
+  const monthM = thisMonth.reduce((a, t) => a + t.distanceM, 0);
+  const monthMins = thisMonth.filter((t) => t.status !== 'active').reduce((a, t) => a + t.mins, 0);
+  const toReview = (rows || []).filter((t) => t.status === 'done' && t.review === 'pending').length;
+  const noGps = thisMonth.filter((t) => t.status === 'done' && t.points < 2).length;
 
   const canSeeAll = !!me && ['admin', 'ops'].includes(me.role);
 
   return (
-    <div className="p-4 lg:p-6 max-w-[860px] max-lg:bg-ground max-lg:min-h-full">
+    <div className="p-4 lg:p-6 max-w-[1320px] max-lg:bg-ground max-lg:min-h-full">
       {/* The title and the one button, on one line.
           The paragraph under the heading explained what a trip is to the
           people who drive them for a living, and it pushed Add trip onto a
@@ -289,9 +333,9 @@ export default function TripPage() {
                 {roadBusy ? 'Loading route…' : showMap ? 'Refresh route & map' : 'Preview on map'}
               </button>
             )}
-            <button onClick={end}
-              className="h-12 lg:h-9 px-5 rounded border border-line text-accent text-[13px] font-semibold hover:bg-red-wash">
-              End trip
+            <button onClick={end} disabled={ending}
+              className="h-12 lg:h-9 px-5 rounded border border-line text-accent text-[13px] font-semibold hover:bg-red-wash disabled:opacity-60">
+              {ending ? 'Ending…' : 'End trip'}
             </button>
           </div>
           {showMap && olaKey && (
@@ -347,6 +391,29 @@ export default function TripPage() {
         </section>
       )}
 
+      {/* ------------------------------------------------ the month, at a desk
+          The page was an 860px column with the rest of the monitor empty. The
+          width now carries what the table alone does not say at a glance. */}
+      <div className="max-lg:hidden grid grid-cols-4 gap-3 mb-5" data-trip-tiles>
+        {([
+          ['road', 'bg-sky text-sky-ink', String(thisMonth.length), all ? 'Trips this month' : 'My trips this month', 'started since the 1st'],
+          ['branch', 'bg-mint text-mint-ink', km(monthM), 'Distance',
+            noGps ? noGps + (noGps === 1 ? ' trip' : ' trips') + ' recorded no GPS' : 'recorded by GPS'],
+          ['clock', 'bg-amber text-amber-ink', dur(monthMins), 'Time on the road', 'start to end'],
+          ['alert', toReview ? 'bg-rose text-rose-ink' : 'bg-wash text-muted',
+            String(toReview), 'Waiting for review', toReview ? 'flagged by the route check' : 'nothing flagged'],
+        ] as Array<[string, string, string, string, string]>).map(([icon, cls, v, l, sub]) => (
+          <div key={l} className="card p-5">
+            <span className={'w-11 h-11 rounded-[12px] flex items-center justify-center mb-4 ' + cls}>
+              <Icon name={icon as 'road'} size={18} />
+            </span>
+            <span className="block text-2xl font-bold tracking-tight tabular-nums">{v}</span>
+            <span className="block text-[13px] font-medium text-muted mt-0.5">{l}</span>
+            <span className="block text-[11px] text-muted-2">{sub}</span>
+          </div>
+        ))}
+      </div>
+
       {/* --------------------------------------------------------- history */}
       {/* "My trips" under "Trips" said the same thing twice, and the days
           below already label what follows. The desk keeps the heading; the
@@ -387,8 +454,9 @@ export default function TripPage() {
               {day.trips.map((t) => {
                 const n = tripName(t.purpose);
                 return (
-                  <div key={t.id} className="flex items-start gap-3 px-4 py-3.5
-                    border-b border-line-soft last:border-b-0">
+                  <button key={t.id} type="button" onClick={() => router.push('/trips/' + t.id)}
+                    className="w-full text-left flex items-start gap-3 px-4 py-3.5
+                    border-b border-line-soft last:border-b-0 active:bg-wash">
                     <span className={'w-10 h-10 rounded-full shrink-0 flex items-center justify-center '
                       + (t.status === 'active' ? 'bg-accent text-white' : 'bg-rose text-accent')}>
                       <Icon name="road" size={18} />
@@ -413,9 +481,13 @@ export default function TripPage() {
                         {t.status === 'active' && (
                           <span className="text-accent font-bold"> · live now</span>
                         )}
+                        {t.status === 'done' && t.review === 'pending' && (
+                          <span className="text-amber-ink font-bold"> · needs review</span>
+                        )}
                       </span>
                     </span>
-                  </div>
+                    <Icon name="chevRight" size={16} className="text-muted-2 shrink-0 mt-3" />
+                  </button>
                 );
               })}
             </div>
@@ -424,31 +496,45 @@ export default function TripPage() {
 
         <table className="ztable max-lg:hidden">
           <thead><tr>
-            <th>Trip</th>{all && <th>Person</th>}<th>Purpose</th><th>Started</th>
-            <th className="text-right">Distance</th><th className="text-right">Duration</th>
+            <th>Trip</th>{all && <th>Person</th>}<th>Purpose &amp; destination</th><th>Started</th>
+            <th className="text-right">Distance</th><th className="text-right">Shortest route</th>
+            <th className="text-right">Duration</th><th>Status</th><th className="w-8"></th>
           </tr></thead>
           <tbody>
             {!rows ? (
-              <tr><td colSpan={all ? 6 : 5} className="text-center text-muted py-6">Loading…</td></tr>
+              <tr><td colSpan={all ? 9 : 8} className="text-center text-muted py-6">Loading…</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={all ? 6 : 5} className="text-center text-muted py-6">
+              <tr><td colSpan={all ? 9 : 8} className="text-center text-muted py-6">
                 No trips yet — the first one starts above.
               </td></tr>
-            ) : pg.pageRows.map((t) => (
-              <tr key={t.id}>
-                <td className="font-mono text-[12px]">{t.id}</td>
-                {all && <td>{t.userName}</td>}
-                <td className="max-w-[260px]">
-                  <span className="block truncate">{t.purpose}</span>
-                  {t.dest && <span className="block text-[11px] text-muted-2 truncate">→ {t.dest}</span>}
-                </td>
-                <td className="text-[12.5px]">{when(t.startAt)}</td>
-                <td className="text-right font-semibold">{km(t.distanceM)}</td>
-                <td className="text-right text-[12.5px]">
-                  {t.status === 'active' ? <span className="zpill navy">live</span> : dur(t.mins)}
-                </td>
-              </tr>
-            ))}
+            ) : pg.pageRows.map((t) => {
+              const st = tripState(t);
+              return (
+                <tr key={t.id} className="zrow" data-trip-row onClick={() => router.push('/trips/' + t.id)}>
+                  <td className="font-mono text-[12px]">{t.id}</td>
+                  {all && <td>{t.userName}</td>}
+                  <td className="max-w-[420px]">
+                    <span className="block truncate font-medium">{t.purpose}</span>
+                    {t.dest && <span className="block text-[11.5px] text-muted-2 truncate">→ {t.dest}</span>}
+                  </td>
+                  <td className="text-[12.5px] whitespace-nowrap">{when(t.startAt)}</td>
+                  <td className="text-right font-semibold whitespace-nowrap">
+                    {km(t.distanceM)}
+                    {(t.estM || 0) > 0 && (
+                      <span className="block text-[10.5px] font-normal text-muted-2">{km(t.estM || 0)} estimated</span>
+                    )}
+                  </td>
+                  <td className="text-right text-[12.5px] whitespace-nowrap">{t.plannedM ? km(t.plannedM) : '—'}</td>
+                  <td className="text-right text-[12.5px] whitespace-nowrap">{t.status === 'active' ? '—' : dur(t.mins)}</td>
+                  <td>
+                    <span className={'inline-block px-2 py-0.5 rounded-full text-[10.5px] font-bold whitespace-nowrap ' + st.cls}>
+                      {st.label}
+                    </span>
+                  </td>
+                  <td className="text-muted-2"><Icon name="chevRight" size={14} /></td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
         {pg.el}

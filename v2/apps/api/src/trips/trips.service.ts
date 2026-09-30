@@ -14,6 +14,7 @@
    ========================================================================== */
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { decodePolyline, readTrip, type Pt } from './analysis';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const todayISO = () => {
@@ -87,14 +88,29 @@ export class TripsService {
     if (!t || t.status !== 'active') return t;
 
     const plannedM = opts.plannedM ?? t.plannedM;
-    let flagged = false;
-    let flagReason = '';
+    const why: string[] = [];
     if (plannedM > 0 && t.distanceM > plannedM * 1.4 + 2000) {
-      flagged = true;
       const over = ((t.distanceM - plannedM) / 1000).toFixed(1);
-      flagReason = over + ' km longer than the shortest route (' +
-        (t.distanceM / 1000).toFixed(1) + ' km driven vs ' + (plannedM / 1000).toFixed(1) + ' km).';
+      why.push(over + ' km longer than the shortest route (' +
+        (t.distanceM / 1000).toFixed(1) + ' km driven vs ' + (plannedM / 1000).toFixed(1) + ' km).');
     }
+    /* Length is not the only way a drive goes wrong. A trip can come in at
+       the planned kilometres by a different road altogether, and a trip the
+       phone barely saw can be mostly estimate. Both are worth the office's
+       eyes before they are paid. */
+    const pts = (Array.isArray(t.points) ? t.points : []) as unknown as Pt[];
+    const planned = t.plannedLine ? decodePolyline(t.plannedLine) : [];
+    const read = readTrip(pts, planned, null).stats;
+    if (planned.length >= 2 && read.offRouteM >= 1000 && read.onRoutePct !== null && read.onRoutePct < 65) {
+      why.push('Took a different road for ' + (read.offRouteM / 1000).toFixed(1) + ' km of the ' +
+        (read.judgedM / 1000).toFixed(1) + ' km recorded by GPS.');
+    }
+    if (t.estM >= 1000 && t.estM > t.distanceM * 0.5) {
+      why.push((t.estM / 1000).toFixed(1) + ' km of the ' + (t.distanceM / 1000).toFixed(1) +
+        ' km is estimated from the road map - the GPS was silent for most of the trip.');
+    }
+    const flagged = why.length > 0;
+    const flagReason = why.join(' ');
     const up = await this.prisma.trip.update({
       where: { id },
       data: {
