@@ -90,11 +90,20 @@ export default function QuoteDoc({ q, company }: { q: QuoteFull; company: DocCom
             <div className="text-[11.5px] text-muted mt-2 leading-relaxed">
               Date: <span className="font-semibold text-ink">{fmtDate(q.date)}</span><br />
               Valid till: <span className="font-semibold text-ink">{fmtDate(validOf(q))}</span>
+              {q.refNo && <><br />Ref: <span className="font-semibold text-ink">{q.refNo}</span></>}
             </div>
           </div>
         </div>
 
         <div className="border-t-2 border-accent my-6" />
+
+        {/* The subject the quotation was raised under — what it is at a glance. */}
+        {q.title && (
+          <div className="mb-5 -mt-1">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted mb-0.5">Subject</div>
+            <div className="text-[15px] font-bold text-navy leading-snug">{q.title}</div>
+          </div>
+        )}
 
         {/* -------------------------------------------- for whom, and what */}
         <div className="flex flex-wrap justify-between gap-6">

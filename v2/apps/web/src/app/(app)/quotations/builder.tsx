@@ -640,23 +640,17 @@ export default function Builder({ edit, presetClient, presetLead }: {
                 does not match the customer it was raised for — and with ten
                 flats on one account, typing is not a realistic ask.
 
-                Ticking more than one is deliberate: a contract that covers
-                three blocks of the same property should print all three.   */}
+                One site ships per quotation, so this is a radio: picking a
+                site replaces the shipping address with that one.            */}
             {sitePicks.length > 0 && (
               <div className="card divide-y divide-line-soft mb-2">
                 {sitePicks.map((sp) => {
-                  const on = shipAddr.split('\n\n').includes(sp.text);
+                  const on = shipAddr.trim() === sp.text.trim();
                   return (
                     <label key={sp.label}
                       className="flex items-start gap-2.5 px-3 py-2 cursor-pointer hover:bg-wash">
-                      <input type="checkbox" checked={on} className="mt-0.5 accent-[#FF0000]"
-                        onChange={() => {
-                          const parts = shipAddr.split('\n\n').filter(Boolean);
-                          const next = on
-                            ? parts.filter((x) => x !== sp.text)
-                            : [...parts, sp.text];
-                          setShipAddr(next.join('\n\n'));
-                        }} />
+                      <input type="radio" name="ship-site" checked={on} className="mt-0.5 accent-[#FF0000]"
+                        onChange={() => setShipAddr(sp.text)} />
                       <span className="min-w-0">
                         <span className="block text-[12.5px] font-semibold">{sp.label}</span>
                         <span className="block text-[11.5px] text-muted whitespace-pre-line leading-snug">
