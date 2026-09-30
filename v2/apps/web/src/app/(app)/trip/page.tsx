@@ -135,6 +135,16 @@ export default function TripPage() {
   const [navOpen, setNavOpen] = useState<false | 'directions' | 'start'>(false);
   const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
   const [mapKey, setMapKey] = useState(0);
+  /* Opened from the phone's "End trip" notification button (/trip?end=1):
+     the question is asked at the top of the screen, one tap from done. It is
+     asked, not done - a thumb in a pocket is not a decision to end a trip. */
+  const [askEnd, setAskEnd] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('end') === '1') {
+      setAskEnd(true);
+      window.history.replaceState(null, '', '/trip');
+    }
+  }, []);
 
   const load = useCallback((showAll: boolean) => {
     api.get<Trip[]>('/trips' + (showAll ? '?all=1' : '')).then(setRows).catch(() => setRows([]));
@@ -287,6 +297,26 @@ export default function TripPage() {
           </button>
         )}
       </div>
+
+      {active && askEnd && (
+        <section data-end-ask className="rounded-md border-2 border-accent bg-red-wash p-4 mb-4">
+          <p className="text-[15px] font-semibold">Have you reached {active.dest || 'your destination'}?</p>
+          <p className="text-[12.5px] text-ink-2 mt-0.5">
+            Ending the trip stops recording your route and saves the distance.
+          </p>
+          <div className="flex gap-2 mt-3">
+            <button onClick={() => { void end().then(() => setAskEnd(false)); }} disabled={ending}
+              className="h-12 lg:h-9 px-5 rounded bg-accent text-white text-[14px] lg:text-[13px] font-bold
+                hover:brightness-90 disabled:opacity-60 max-lg:flex-1">
+              {ending ? 'Ending…' : 'Yes, end trip'}
+            </button>
+            <button onClick={() => setAskEnd(false)}
+              className="h-12 lg:h-9 px-4 rounded border border-line bg-white text-[13px] font-semibold hover:bg-wash">
+              Not yet
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* ------------------------------------------------------ active trip */}
       {active && (

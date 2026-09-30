@@ -6,6 +6,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.content.Intent;
 import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Build;
@@ -27,6 +28,9 @@ import java.io.OutputStream;
 
 public class MainActivity extends BridgeActivity {
 
+    /** A page of the site to open, handed over by the trip notification. */
+    static final String OPEN_URL = "pestops.open";
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // Before super.onCreate: the bridge lists its plugins as it is built,
@@ -35,6 +39,31 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         createAlertsChannel();
         wireDownloads();
+        openAsked(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        openAsked(intent);
+    }
+
+    /**
+     * Open the page a notification pointed at - only on the site this app is
+     * a window onto, never anywhere else.
+     */
+    private void openAsked(Intent intent) {
+        if (intent == null) return;
+        String url = intent.getStringExtra(OPEN_URL);
+        intent.removeExtra(OPEN_URL);
+        if (url == null || url.isEmpty() || getBridge() == null) return;
+        String site = getBridge().getServerUrl();
+        if (site == null || site.isEmpty()) site = getBridge().getAppUrl();
+        Uri want = Uri.parse(url);
+        Uri ours = Uri.parse(site == null ? "" : site);
+        if (want.getHost() == null || !want.getHost().equals(ours.getHost())) return;
+        WebView web = getBridge().getWebView();
+        if (web != null) web.post(() -> web.loadUrl(url));
     }
 
     /**

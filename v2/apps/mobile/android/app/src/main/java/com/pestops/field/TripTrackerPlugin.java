@@ -81,6 +81,11 @@ public class TripTrackerPlugin extends Plugin {
         i.putExtra("tripId", call.getString("tripId", ""));
         i.putExtra("token", call.getString("token", ""));
         i.putExtra("base", call.getString("base", ""));
+        // What the notification says: where the trip is going and since when.
+        i.putExtra("dest", call.getString("dest", ""));
+        i.putExtra("purpose", call.getString("purpose", ""));
+        Double at = call.getDouble("startAt");
+        i.putExtra("startAt", at != null ? at.longValue() : System.currentTimeMillis());
         try {
             ContextCompat.startForegroundService(ctx, i);
         } catch (Exception e) {

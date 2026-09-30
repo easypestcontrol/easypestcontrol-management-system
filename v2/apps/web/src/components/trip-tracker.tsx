@@ -41,7 +41,12 @@ const HOLD = 900;
 
 /** The Android app's own recorder (TripTrackerPlugin.java), when this is that app. */
 interface NativeTracker {
-  start(o: { tripId: string; token: string; base: string }): Promise<unknown>;
+  /** dest / purpose / startAt name the trip on the phone's notification
+      (app 1.2+; an older app ignores them). */
+  start(o: {
+    tripId: string; token: string; base: string;
+    dest?: string; purpose?: string; startAt?: number;
+  }): Promise<unknown>;
   stop(): Promise<unknown>;
 }
 function nativeTracker(): NativeTracker | null {
@@ -133,14 +138,20 @@ export default function TripTracker() {
       }
     };
 
-    const begin = (id: string) => {
+    type Active = { id: string; dest?: string; purpose?: string; startAt?: string };
+    const begin = (t: Active) => {
+      const id = t.id;
       if (tripId && tripId !== id) { queue = []; stopNative(); } // a different trip
       tripId = id;
       const nt = nativeTracker();
       if (!nt) { watchHere(); return; }
       if (nativeOn) return;
       nativeOn = true; // claimed before the await, so two heartbeats cannot both start it
-      nt.start({ tripId: id, token: getToken() || '', base: window.location.origin + '/api' })
+      nt.start({
+        tripId: id, token: getToken() || '', base: window.location.origin + '/api',
+        dest: t.dest || '', purpose: t.purpose || '',
+        startAt: t.startAt ? new Date(t.startAt).getTime() : Date.now(),
+      })
         .then(() => {
           if (gone || tripId !== id) { stopNative(); return; }
           stopWatch?.(); stopWatch = null;
@@ -165,8 +176,8 @@ export default function TripTracker() {
     };
 
     const check = () => {
-      api.get<{ id: string } | null>('/trips/active')
-        .then((t) => { if (gone) return; if (t) begin(t.id); else stop(); })
+      api.get<Active | null>('/trips/active')
+        .then((t) => { if (gone) return; if (t) begin(t); else stop(); })
         .catch(() => {});
     };
 
