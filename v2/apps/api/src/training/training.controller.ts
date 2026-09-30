@@ -8,6 +8,8 @@ import {
   BadRequestException, Body, Controller, Delete, Get, NotFoundException,
   Param, Patch, Post, Req, Res, UseGuards,
 } from '@nestjs/common';
+// toISO reads the LOCAL calendar (India time on the server); toISOString() is UTC and is a day behind until 5:30 am.
+import { toISO } from 'shared';
 import type { Request, Response } from 'express';
 import type { Role } from '@prisma/client';
 import * as fs from 'fs';
@@ -103,7 +105,7 @@ export class TrainingController {
       hasVideo: !!t.video, link: t.link,
       files: filesOut(filesOf(t)),
       by: nameOf.get(t.by) || '—',
-      createdAt: t.createdAt.toISOString().slice(0, 10),
+      createdAt: toISO(t.createdAt),
       canManage: manage,
     }));
   }

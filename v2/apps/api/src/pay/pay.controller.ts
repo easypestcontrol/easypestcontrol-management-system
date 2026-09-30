@@ -12,7 +12,7 @@ import type { Request, Response} from 'express';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { open } from '../secrets.util';
-import { docTotals } from 'shared';
+import { docTotals, toISO } from 'shared';
 import { allocate, fromPaise } from './allocate';
 
 interface Jwt { user?: { sub?: string; role?: string } }
@@ -154,7 +154,7 @@ export class PayController {
           id: 'PI-' + seq.value, gatewayRef: qrId, paymentRef: hit.id,
           kind: 'qr', invoiceId,
           amountPaise: Math.round(hit.amount), status: 'paid',
-          paidAt: new Date().toISOString().slice(0, 10),
+          paidAt: toISO(new Date()),
         },
       });
     } catch {
@@ -184,7 +184,7 @@ export class PayController {
           co?.state || 'Tamil Nadu', co?.gstRate ?? 18,
         ).total;
       },
-      new Date().toISOString().slice(0, 10),
+      toISO(new Date()),
     );
     const receipt = res.allocations[0]?.receiptId || '';
     await this.prisma.paymentIntent.updateMany({

@@ -245,8 +245,10 @@ export class LeadsController {
       update: { value: { increment: 1 } },
     });
 
+    // The time as well as the day: two leads with the same name on different
+    // days are told apart by when each was captured.
     const log: LogEntry[] = [{
-      at: todayISO(),
+      at: nowStamp(),
       text: 'Lead captured' + (returning ? ' — returning customer' : ''),
       by: req.user.sub,
     }];
@@ -254,7 +256,7 @@ export class LeadsController {
     // the activity trail — the value they priced is on the lead itself.
     if (services.length) {
       log.unshift({
-        at: todayISO(),
+        at: nowStamp(),
         text: 'Services required: ' + interest
           .map((sid) => services.find((x) => x.id === sid)?.name || sid).join(', '),
         by: req.user.sub,

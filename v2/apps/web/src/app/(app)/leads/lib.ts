@@ -96,13 +96,39 @@ export function tomorrowISO() {
 export const dayDelta = (iso: string) => daysBetween(todayISO(), iso);
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** A stamp that names an instant: it ends in Z or carries an offset. */
+const INSTANT = /T.*(Z|[+-]\d\d:?\d\d)$/;
+
+/**
+ * The calendar day a stamp falls on, HERE.
+ *
+ * A database timestamp arrives as a UTC instant ("2026-09-29T20:00:00Z").
+ * Cutting that at ten characters gives the day in London, not in Chennai: a
+ * lead captured at half past one in the morning was filed under the day
+ * before and read "Yesterday" the moment it was saved. An instant is turned
+ * into a Date first, so the day is the one on the wall here. A plain
+ * "YYYY-MM-DD" or a wall-clock "YYYY-MM-DDTHH:MM" is already local and is
+ * taken as written.
+ */
+export function localDay(iso: string): string {
+  const s = String(iso || '');
+  if (INSTANT.test(s)) {
+    const d = new Date(s);
+    if (!Number.isNaN(d.getTime())) {
+      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    }
+  }
+  return s.slice(0, 10);
+}
+
 export function fmtDate(iso: string) {
-  const p = String(iso || '').slice(0, 10).split('-').map(Number);
+  const p = localDay(iso).split('-').map(Number);
   if (!p[0] || !p[1] || !p[2]) return '—';
   return p[2] + ' ' + MON[p[1] - 1] + ' ' + p[0];
 }
 export function fmtShort(iso: string) {
-  const p = String(iso || '').slice(0, 10).split('-').map(Number);
+  const p = localDay(iso).split('-').map(Number);
   if (!p[0] || !p[1] || !p[2]) return '—';
   return p[2] + ' ' + MON[p[1] - 1];
 }
@@ -116,9 +142,27 @@ export function fmtTime(hhmm: string) {
   return h + ':' + m + ' ' + ap;
 }
 
+/**
+ * A stamp as a person reads it: "30 Sep 2026, 11:56 AM", or just the day when
+ * the stamp carries no time. Takes a database instant, a wall-clock
+ * "YYYY-MM-DDTHH:MM" from the activity trail, or a bare date.
+ */
+export function fmtStamp(at: string): string {
+  const s = String(at || '');
+  if (!s) return '';
+  let hm = '';
+  if (INSTANT.test(s)) {
+    const d = new Date(s);
+    if (!Number.isNaN(d.getTime())) hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
+  } else if (s.length >= 16 && s[10] === 'T') {
+    hm = s.slice(11, 16);
+  }
+  return hm ? fmtDate(s) + ', ' + fmtTime(hm) : fmtDate(s);
+}
+
 /** 'Today' / 'Tomorrow' / 'In 3 days' / '2 days ago' / a date (store.js:338). */
 export function relDay(iso: string) {
-  const d = String(iso || '').slice(0, 10);
+  const d = localDay(iso);
   if (!d) return '—';
   const n = dayDelta(d);
   if (n === 0) return 'Today';

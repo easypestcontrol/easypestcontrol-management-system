@@ -2,6 +2,8 @@ import {
   BadRequestException, Body, Controller, Delete, Get, NotFoundException,
   Param, Patch, Post, Query, Req, UseGuards,
 } from '@nestjs/common';
+// toISO reads the LOCAL calendar (India time on the server); toISOString() is UTC and is a day behind until 5:30 am.
+import { toISO } from 'shared';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { branchScope, branchWhere, clampScope, inScope, inferBranch } from '../branch.util';
@@ -157,7 +159,7 @@ export class ClientsController {
     return this.prisma.client.create({
       data: {
         id: 'CL-' + String(seq.value).padStart(3, '0'),
-        since: new Date().toISOString().slice(0, 10),
+        since: toISO(new Date()),
         name: String(body.name || 'Unnamed'),
         ...data,
       } as never,

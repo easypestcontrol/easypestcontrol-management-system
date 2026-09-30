@@ -6,6 +6,8 @@
    feeds the live map.
    ========================================================================== */
 import { mustBeOpenDate } from '../expenses/window';
+// toISO reads the LOCAL calendar (India time on the server); toISOString() is UTC and is a day behind until 5:30 am.
+import { toISO } from 'shared';
 import {
   BadRequestException, Body, Controller, Get, NotFoundException,
   Param, Post, Query, Req, UseGuards,
@@ -183,7 +185,7 @@ export class TripsController {
      * that matters, because it is what they bill. One counter per month, so a
      * new month starts clean without anything having to reset it.
      */
-    const key = 'ola.calls.' + new Date().toISOString().slice(0, 7);
+    const key = 'ola.calls.' + toISO(new Date()).slice(0, 7);
     await this.prisma.seq.upsert({
       where: { key }, create: { key, value: 1 }, update: { value: { increment: 1 } },
     }).catch(() => { /* metering must never break the call it is counting */ });

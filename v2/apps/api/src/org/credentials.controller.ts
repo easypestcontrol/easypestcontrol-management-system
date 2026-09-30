@@ -24,6 +24,8 @@ import {
   BadRequestException, Body, Controller, Delete, Get, NotFoundException,
   Param, Patch, Post, UseGuards,
 } from '@nestjs/common';
+// toISO reads the LOCAL calendar (India time on the server); toISOString() is UTC and is a day behind until 5:30 am.
+import { toISO } from 'shared';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { NEEDS, SYNCABLE, UsageUnavailable, readUsage } from './credential-sync';
@@ -255,7 +257,7 @@ export class CredentialsController {
 
     try {
       // Ola publishes no usage endpoint, so the honest figure is our own count.
-      const month = 'ola.calls.' + new Date().toISOString().slice(0, 7);
+      const month = 'ola.calls.' + toISO(new Date()).slice(0, 7);
       const counter = await this.prisma.seq.findUnique({ where: { key: month } });
 
       const op = (await this.opKeys())[c.service];

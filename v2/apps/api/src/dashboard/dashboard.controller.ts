@@ -1,4 +1,6 @@
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+// toISO reads the LOCAL calendar (India time on the server); toISOString() is UTC and is a day behind until 5:30 am.
+import { toISO } from 'shared';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { branchScope, branchWhere, clampScope } from '../branch.util';
@@ -25,8 +27,8 @@ export class DashboardController {
     @Query('branch') branch?: string,
   ) {
     const now = new Date();
-    const today = now.toISOString().slice(0, 10);
-    const d90 = new Date(now.getTime() - 90 * 86400000).toISOString().slice(0, 10);
+    const today = toISO(now);
+    const d90 = toISO(new Date(now.getTime() - 90 * 86400000));
     const bw = branchWhere(clampScope(await branchScope(this.prisma, req.user), branch));
 
     const [

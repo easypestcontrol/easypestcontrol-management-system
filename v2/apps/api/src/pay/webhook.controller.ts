@@ -22,13 +22,13 @@
    ========================================================================== */
 import { Body, Controller, Headers, HttpCode, Post } from '@nestjs/common';
 import * as crypto from 'crypto';
-import { docTotals } from 'shared';
+import { docTotals, toISO } from 'shared';
 import { PrismaService } from '../prisma.service';
 import { Public } from '../auth/auth.guard';
 import { open } from '../secrets.util';
 import { allocate, fromPaise } from './allocate';
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+const todayISO = () => toISO(new Date());
 
 interface Entity {
   id?: string;

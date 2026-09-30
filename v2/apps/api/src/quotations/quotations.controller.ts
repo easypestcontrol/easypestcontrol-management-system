@@ -9,6 +9,8 @@ import {
   BadRequestException, Body, ConflictException, Controller, Get,
   NotFoundException, Param, Patch, Post, Query, Req, UseGuards,
 } from '@nestjs/common';
+// toISO reads the LOCAL calendar (India time on the server); toISOString() is UTC and is a day behind until 5:30 am.
+import { toISO } from 'shared';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { composeQuote, todayISO, type QuoteRow } from './shape';
@@ -268,7 +270,7 @@ export class QuotationsController {
         where: { id },
         data: {
           approvedBy: req.user?.sub || 'us',
-          approvedAt: new Date().toISOString().slice(0, 10),
+          approvedAt: toISO(new Date()),
         },
       });
     } else if (action === 'sent') {

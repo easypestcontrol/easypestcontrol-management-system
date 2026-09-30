@@ -3,6 +3,8 @@
 /* Site audits — the periodic hygiene walk-through, scored out of 100. */
 
 import { useEffect, useState } from 'react';
+// toISO reads the local calendar.
+import { toISO } from 'shared';
 import { api, type Client } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { useBranchFilter } from '@/components/branch-filter';
@@ -168,7 +170,8 @@ function NewAudit({ clients, onDone, onClose }: {
   clients: Client[]; onDone: () => void; onClose: () => void;
 }) {
   const [clientId, setClientId] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  // Today HERE: toISOString() is UTC and offers yesterday until 5:30 am.
+  const [date, setDate] = useState(() => toISO(new Date()));
   const [auditor, setAuditor] = useState('');
   const [score, setScore] = useState(80);
   const [text, setText] = useState('');

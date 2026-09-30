@@ -14,7 +14,7 @@ import { Icon } from '@/components/icons';
 import { isFieldTech, money, moneyShort } from 'shared';
 import TimePicker from '@/components/time-picker';
 import {
-  stageLabel, isOpen, assignableUsers, dueState, fmtDate, relDay,
+  stageLabel, isOpen, assignableUsers, dueState, fmtDate, fmtStamp, relDay,
   tomorrowISO, initials, LEAD_SOURCES, PROPERTY_TYPES,
   type LeadDetail, type BootUser, type BootService,
 } from './lib';
@@ -255,7 +255,8 @@ export default function LeadDrawer({ id, boot, canAssign, onClose, onChanged }: 
     ['Property type', l.type],
     ['Location', l.area],
     ['Lead source', l.source],
-    ['Captured', fmtDate(l.createdAt) + ' · ' + relDay(l.createdAt)],
+    // The exact moment, then how long ago: "25 Sep 2026, 6:36 PM · 5 days ago".
+    ['Captured', fmtStamp(l.createdAt) + ' · ' + relDay(l.createdAt)],
   ];
 
   const input = (k: string, ph = '') => (
@@ -624,7 +625,7 @@ export default function LeadDrawer({ id, boot, canAssign, onClose, onChanged }: 
                   )}
                   <p className="text-[13px] font-medium leading-snug">{e.text}</p>
                   <p className="text-[11.5px] text-muted mt-0.5">
-                    {String(e.at).replace('T', ' · ')}{e.by ? ' · ' + userName(e.by) : ''}
+                    {fmtStamp(e.at)}{e.by ? ' · ' + userName(e.by) : ''}
                   </p>
                 </div>
               ))}
