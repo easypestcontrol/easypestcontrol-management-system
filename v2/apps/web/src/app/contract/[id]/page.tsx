@@ -32,8 +32,11 @@ interface Doc {
     service: string; visits: number; freq: string; crew: number;
     rate: number; amount: number;
   }>;
+  /** The subject the contract was written under (the form's "Subject"). */
   scope?: string;
   notes?: string;
+  /** The customer's PO or our quotation reference (the form's "Reference no."). */
+  refNo?: string;
   place?: string;
   totals?: { sub: number; disc: number; rows: Array<[string, number]>; total: number };
   schedule: Array<{
@@ -186,6 +189,7 @@ export default function PublicContract() {
               </div>
               <div className="text-[13px] font-semibold text-gray-500">{doc.id}</div>
               <div className="text-[11.5px] text-gray-500 mt-2 leading-relaxed">
+                {doc.refNo && <>Ref. no.: <strong className="text-gray-900">{doc.refNo}</strong><br /></>}
                 Period: <strong className="text-gray-900">{fmtD(doc.start)} → {fmtD(doc.end)}</strong><br />
                 Value: <strong className="text-gray-900">{money(doc.value)}</strong> · {doc.billing} billing
               </div>
@@ -193,6 +197,17 @@ export default function PublicContract() {
           </div>
 
           <div className="border-t-2 border-[#141414] my-6" />
+
+          {/* The subject, first - what this agreement is for, the way the
+              quotation opens. It used to sit half-way down as "Scope of work". */}
+          {(doc.scope || doc.notes) && (
+            <div className="mb-5" data-contract-subject>
+              <div className="text-[10.5px] uppercase tracking-wider text-gray-400 font-semibold mb-1">Subject</div>
+              <p className="text-[14px] font-semibold text-[#141414] leading-snug whitespace-pre-line">
+                {doc.scope || doc.notes}
+              </p>
+            </div>
+          )}
 
           {/* customer + site - three columns, always: a long address wraps
               inside its own column instead of dropping under the others. */}
@@ -289,17 +304,6 @@ export default function PublicContract() {
                   {doc.billing} billing{doc.place ? ' · place of supply ' + doc.place : ''}
                 </p>
               </div>
-            </div>
-          )}
-
-          {(doc.scope || doc.notes) && (
-            <div className="mt-6">
-              <div className="text-[10.5px] uppercase tracking-wider text-gray-400 font-semibold mb-1">
-                Scope of work
-              </div>
-              <p className="text-[12px] text-gray-700 leading-relaxed whitespace-pre-line">
-                {doc.scope || doc.notes}
-              </p>
             </div>
           )}
 

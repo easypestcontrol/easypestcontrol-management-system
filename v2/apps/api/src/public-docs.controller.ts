@@ -309,6 +309,7 @@ export class PublicDocsController {
       start: c.start, end: c.end, months: c.months,
       site: c.site || '', billAddr: c.billAddr || '',
       scope: c.scope || '', notes: c.notes || '',
+      refNo: c.refNo || '',
       place: t.tax.place,
       totals: {
         sub: t.sub, disc: t.disc, rows: t.tax.rows, total: t.total,
