@@ -425,6 +425,9 @@ html, body {
    every one of those printed onto the document. A tax invoice with a
    "Pay now" button on it is not a tax invoice.                             */
 @page { size: A4; margin: 12mm; }
+/* The customer documents (contract, invoice, service report) print edge to
+   edge and carry their own margin - see `.paper` below. */
+@page doc { size: A4; margin: 0; }
 
 /* The tab bar's highlight slides between tabs rather than blinking from one
    to the next. Slightly overshooting easing makes it feel like a thing that
@@ -477,6 +480,23 @@ html, body {
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
+    /* The PDF is the preview, not a browser printout of it.
+       - The browser writes its own header and footer (date and time, the tab
+         title "PestOps", the address, "1/2") into the page margin. A page
+         with no margin has nowhere to put them, so the sheet takes the
+         whole paper (`@page doc` below) and keeps its white border itself,
+         repeated on every page it runs onto.
+       - Backgrounds are dropped by default when printing - the black table
+         heading, the grey schedule cards, the red stamp. `exact` keeps
+         every shade the preview has. */
+    page: doc;
+    padding: 12mm !important;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+  .paper, .paper * {
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
   }
   .paper-page { padding: 0 !important; background: #fff !important; min-height: 0 !important; }
   .paper > * { padding: 0 !important; }
@@ -492,7 +512,9 @@ html, body {
      so the phone's type scale above applies to it - every label a size up,
      which is right for a hand and wrong for a sheet laid out to the pixel:
      it is what made a one-visit agreement run to a second page. */
-  .paper.contract-doc { width: 740px !important; zoom: 0.95 !important; }
+  /* 740px of sheet plus its 12mm border each side, scaled to the 210mm of
+     A4 (794px): 831px x 0.955. */
+  .paper.contract-doc { width: 831px !important; zoom: 0.955 !important; }
   .contract-doc .text-\[10px\] { font-size: 10px; }
   .contract-doc .text-\[10\.5px\] { font-size: 10.5px; }
   .contract-doc .text-\[11px\] { font-size: 11px; }

@@ -543,11 +543,14 @@ export function PickChip({ label, value, options, onPick }: {
   onPick: (v: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
   const on = !!value;
   const picked = options.find((o) => o.key === value);
+  const needle = q.trim().toLowerCase();
+  const shown = needle ? options.filter((o) => o.label.toLowerCase().includes(needle)) : options;
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)}
+      <button type="button" onClick={() => { setQ(''); setOpen(true); }}
         className={'h-[34px] pl-3.5 pr-2.5 rounded-full text-[13.5px] font-semibold '
           + 'inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 '
           + (on ? 'bg-accent text-white' : 'bg-white border border-line text-ink')}>
@@ -565,7 +568,19 @@ export function PickChip({ label, value, options, onPick }: {
             <p className="px-5 py-2 text-[12px] font-bold uppercase tracking-[0.06em] text-muted-2">
               {label}
             </p>
-            {options.map((o) => {
+            <div className="px-4 pb-2">
+              <label className="flex items-center gap-2.5 h-11 px-3.5 rounded-xl bg-ground
+                focus-within:ring-2 focus-within:ring-accent/30">
+                <Icon name="search" size={16} className="text-muted-2 shrink-0" />
+                <input value={q} onChange={(e) => setQ(e.target.value)} autoFocus={options.length > 8}
+                  placeholder={'Search ' + label.toLowerCase()}
+                  className="flex-1 min-w-0 bg-transparent text-[15px] outline-none" />
+              </label>
+            </div>
+            {shown.length === 0 && (
+              <p className="px-5 py-4 text-[14px] text-muted">Nothing matches that.</p>
+            )}
+            {shown.map((o) => {
               const sel = o.key === value;
               return (
                 <button key={o.key || 'all'} type="button"

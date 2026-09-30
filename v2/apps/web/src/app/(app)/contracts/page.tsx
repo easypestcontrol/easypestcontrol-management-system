@@ -18,10 +18,13 @@ import {
   type Boot, type ContractRow,
 } from './lib';
 import { useBranchFilter } from '@/components/branch-filter';
-import { ListScreen } from '@/components/mobile';
+import PhoneContracts, { stageOf } from './phone-list';
 
 const TABS = [
   { id: 'active', label: 'Live' },
+  { id: 'running', label: 'Active' },
+  { id: 'scheduled', label: 'Scheduled' },
+  { id: 'completed', label: 'Completed' },
   { id: 'expiring', label: 'Expiring soon' },
   { id: 'expired', label: 'Expired' },
   { id: 'amc', label: 'AMC' },
@@ -46,6 +49,7 @@ export default function Contracts() {
     api.get<SessionUser>('/auth/me').then(setMe).catch(() => {});
   }, [bf.branch]);
 
+  const branchName = (id: string) => boot?.branches.find((b) => b.id === id)?.name || '';
   const userName = (id: string) =>
     boot?.users.find((u) => u.id === id)?.name || id;
 
@@ -54,6 +58,9 @@ export default function Contracts() {
     return {
       all: all.length,
       active: all.filter((r) => r.statusKey !== 'expired').length,
+      running: all.filter((r) => stageOf(r) === 'active').length,
+      scheduled: all.filter((r) => stageOf(r) === 'scheduled').length,
+      completed: all.filter((r) => stageOf(r) === 'completed').length,
       expiring: all.filter((r) => r.statusKey === 'expiring').length,
       expired: all.filter((r) => r.statusKey === 'expired').length,
       amc: all.filter((r) => !r.one).length,
@@ -68,12 +75,16 @@ export default function Contracts() {
       if (tab === 'amc' && r.one) return false;
       if (tab === 'onetime' && !r.one) return false;
       if (tab === 'active' && r.statusKey === 'expired') return false;
+      if (tab === 'running' && stageOf(r) !== 'active') return false;
+      if (tab === 'scheduled' && stageOf(r) !== 'scheduled') return false;
+      if (tab === 'completed' && stageOf(r) !== 'completed') return false;
       if (tab === 'expiring' && r.statusKey !== 'expiring') return false;
       if (tab === 'expired' && r.statusKey !== 'expired') return false;
       if (!needle) return true;
-      return (r.key + r.clientName).toLowerCase().indexOf(needle) >= 0;
+      return (r.key + ' ' + r.clientName + ' ' + branchName(r.branch)).toLowerCase().indexOf(needle) >= 0;
     }).sort((a, b) => ((a.end || '') < (b.end || '') ? 1 : -1));
-  }, [rows, tab, q]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, tab, q, boot]);
   const pg = usePager(filtered);
 
   // Annual value = every non-expired row, exactly the v1 header stat.
@@ -84,30 +95,7 @@ export default function Contracts() {
 
   return (
     <>
-      {/* How far through the visits, and is it still live. Editing a plan is a desk job and stays on the desktop. */}
-      <ListScreen
-        back="/dashboard"
-        title="Contracts"
-        loading={!rows}
-        search={q}
-        onSearch={setQ}
-        rows={(rows || []).map((c) => ({
-          id: c.key,
-          href: '/contracts/' + c.key,
-          title: c.clientName || c.clientId,
-          amount: c.value ? money(c.value) : undefined,
-          meta: [c.planText, c.done + ' of ' + c.total + ' visits'].filter(Boolean).join(' \u00b7 '),
-          tone: (c.statusKey === 'active' ? 'good'
-            : c.statusKey === 'expired' ? 'bad'
-            : c.statusKey === 'due' ? 'warn' : 'plain') as 'good' | 'bad' | 'warn' | 'plain',
-          state: c.statusLabel || 'Contract',
-        }))}
-        empty={q ? 'Nothing matches that' : 'No contracts yet'}
-        emptyHint={q ? 'Try the customer name.'
-          : 'A contract is created from an approved quotation.'}
-        fabOnClick={() => setChoose(true)}
-        fabLabel="New contract"
-      />
+      <PhoneContracts rows={rows} boot={boot} onNew={canCreate ? () => setChoose(true) : undefined} />
     <div className="max-lg:hidden">
       {/* ------------------------------------------------------- header */}
       <div className="flex items-center justify-between px-6 h-[56px] border-b border-line">
@@ -171,7 +159,7 @@ export default function Contracts() {
         <label className="flex items-center gap-2 w-[280px] h-8 px-3 rounded border border-line bg-wash focus-within:bg-white">
           <Icon name="search" size={14} className="text-muted-2" />
           <input value={q} onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by contract number or customer…"
+            placeholder="Search contract no., customer or branch…"
             className="flex-1 bg-transparent outline-none text-[13px]" />
         </label>
       </div>
@@ -190,7 +178,7 @@ export default function Contracts() {
         <table className="ztable">
           <thead>
             <tr>
-              <th>Contract</th><th>Customer</th><th>Type &amp; status</th><th>Scheduled</th>
+              <th>Contract</th><th>Customer</th><th>Branch</th><th>Type &amp; status</th><th>Scheduled</th>
               <th>Services</th><th>Progress</th><th className="text-right">Value</th><th>Next</th>
             </tr>
           </thead>
@@ -222,6 +210,7 @@ export default function Contracts() {
                     </span>
                   </span>
                 </td>
+                <td className="whitespace-nowrap text-[12.5px]">{branchName(r.branch) || '—'}</td>
                 <td className="whitespace-nowrap">
                   <span className="zpill outline">{r.one ? 'One-time' : 'AMC'}</span>
                   <span className="block mt-1">

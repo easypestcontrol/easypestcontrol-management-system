@@ -149,6 +149,7 @@ export interface ContractRow {
   totalVisits: number;
   statusKey: string;
   statusLabel: string;
+  branch: string;
   next: string;
 }
 

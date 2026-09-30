@@ -146,16 +146,25 @@ export default function SelectUpgrade() {
           </button>
         </div>
 
-        {opts.length > 8 && (
-          <div className="px-4 pb-2 shrink-0">
-            <label className="flex items-center gap-2.5 h-11 px-3.5 rounded-xl bg-ground">
-              <Icon name="search" size={16} className="text-muted-2 shrink-0" />
-              <input value={q} onChange={(e) => setQ(e.target.value)} autoFocus
-                placeholder="Search"
-                className="flex-1 min-w-0 bg-transparent text-[15px] outline-none" />
-            </label>
-          </div>
-        )}
+        {/* A search on every list, not only long ones: the customer list is
+            six names today and six hundred once the business is on it. The
+            keyboard comes up by itself only where the list is long enough to
+            need it - on a short one it would cover the choices. */}
+        <div className="px-4 pb-2 shrink-0" data-select-search>
+          <label className="flex items-center gap-2.5 h-11 px-3.5 rounded-xl bg-ground
+            focus-within:ring-2 focus-within:ring-accent/30">
+            <Icon name="search" size={16} className="text-muted-2 shrink-0" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} autoFocus={opts.length > 8}
+              placeholder={'Search ' + (title === 'Choose' ? '' : title.toLowerCase())}
+              className="flex-1 min-w-0 bg-transparent text-[15px] outline-none" />
+            {q && (
+              <button type="button" onClick={() => setQ('')} aria-label="Clear search"
+                className="shrink-0 w-6 h-6 rounded-full bg-line-soft flex items-center justify-center">
+                <Icon name="x" size={12} className="text-muted" />
+              </button>
+            )}
+          </label>
+        </div>
 
         <div className="overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+96px)]">
           {shown.length === 0 ? (

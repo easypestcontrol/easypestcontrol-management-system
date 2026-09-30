@@ -105,6 +105,11 @@ export default function PublicContract() {
       .catch(() => setMissing(true));
   }, [id]);
 
+  // "Save as PDF" names the file after the page title: the contract, not the app.
+  useEffect(() => {
+    if (doc) document.title = 'Contract ' + doc.id + (doc.client?.name ? ' - ' + doc.client.name : '');
+  }, [doc]);
+
   if (missing) {
     return <p className="p-10 text-center text-[14px] text-gray-500">This contract is not available.</p>;
   }
@@ -306,7 +311,7 @@ export default function PublicContract() {
             </div>
             <div className="rounded border border-[#e3e6ee] divide-y divide-[#eef0f5]">
               {doc.schedule.map((s, i) => (
-                <div key={s.id} className="flex items-center gap-3 px-3.5 py-2 text-[12.5px]">
+                <div key={s.id} className="flex items-center gap-3 px-3.5 py-2 text-[12.5px] break-inside-avoid">
                   <span className="text-gray-400 w-5 shrink-0">{i + 1}</span>
                   <span className="flex-1 min-w-0">
                     <span className="block font-medium truncate">{s.services}</span>
