@@ -12,7 +12,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, clearToken, getToken, type Bootstrap, type SessionUser } from '@/lib/api';
+import { api, clearToken, getToken, TOKEN_KEY, type Bootstrap, type SessionUser } from '@/lib/api';
 import { Icon, type IconName } from './icons';
 import { homeFor, isFieldTech } from 'shared';
 import { ensureNotifyReady, localNotify } from '@/lib/local-notify';
@@ -159,6 +159,21 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     if (!getToken()) { router.replace('/login'); return; }
     api.get<SessionUser>('/auth/me').then(setMe).catch(() => {});
     api.get<Bootstrap>('/org/bootstrap').then(setBoot).catch(() => {});
+  }, [router]);
+
+  /* One browser, one sign-in: every tab shares the stored token. Signing in
+     as somebody else in another tab swapped the token under this one, which
+     kept showing the old name while its requests went out as the new person
+     - an admin page answering "Not allowed for your role". When the sign-in
+     changes elsewhere, this tab follows it instead of pretending. */
+  useEffect(() => {
+    const onStore = (e: StorageEvent) => {
+      if (e.key !== TOKEN_KEY && e.key !== null) return;
+      if (!getToken()) router.replace('/login');
+      else window.location.reload();
+    };
+    window.addEventListener('storage', onStore);
+    return () => window.removeEventListener('storage', onStore);
   }, [router]);
 
   /* ---------------------------------------------- per-role page visibility

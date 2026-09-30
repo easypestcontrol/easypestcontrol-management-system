@@ -3,7 +3,7 @@
    it and lands on the login page — one code path for "session over" everywhere.
    ========================================================================== */
 
-const TOKEN_KEY = 'pestops.token';
+export const TOKEN_KEY = 'pestops.token';
 
 export const getToken = () =>
   typeof window === 'undefined' ? null : localStorage.getItem(TOKEN_KEY);
