@@ -179,13 +179,15 @@ export class ClientsController {
    * money reports go quietly wrong. So this refuses and says what is in the
    * way, which is a thing the person can act on.
    *
-   * Admins only. Anyone else can edit a customer, not erase one.
+   * The office - admin, ops, sales - may remove one; the guard above is
+   * what keeps it safe, not the role.
    */
   @Delete(':id')
-  @Roles('admin')
+  @Roles('admin', 'ops', 'sales')
   async remove(@Param('id') id: string, @Req() req: AuthedReq) {
     const c = await this.prisma.client.findUnique({ where: { id } });
-    if (!c || !inScope(await branchScope(this.prisma, req.user), c.branch)) {
+    // The office sees the whole book (see OFFICE), so it may act on the whole book.
+    if (!c || (!OFFICE.has(req.user?.role || '') && !inScope(await branchScope(this.prisma, req.user), c.branch))) {
       throw new NotFoundException('No such customer');
     }
 

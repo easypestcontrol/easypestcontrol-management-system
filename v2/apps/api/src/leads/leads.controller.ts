@@ -22,7 +22,7 @@ import {
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { docTotals } from 'shared';
-import { branchScope, clampScope, inScope } from '../branch.util';
+import { clampScope, inScope, salesScope } from '../branch.util';
 
 interface LogEntry { at: string; text: string; by: string }
 interface AuthedReq { user: { sub: string; role: string } }
@@ -106,7 +106,7 @@ export class LeadsController {
     @Query('owner') owner?: string,
     @Query('branch') branch?: string,
   ) {
-    const raw = await branchScope(this.prisma, req.user);
+    const raw = await salesScope(this.prisma, req.user);
     const scope = clampScope(raw, branch);
     const and: Record<string, unknown>[] = [];
 
@@ -147,7 +147,7 @@ export class LeadsController {
     if (!l) throw new NotFoundException('No such lead');
     /* In branch scope, or assigned to you — the owner can always open their own
        lead even when it was captured without a branch (see list()). */
-    if (!inScope(await branchScope(this.prisma, req.user), l.branch)
+    if (!inScope(await salesScope(this.prisma, req.user), l.branch)
       && l.owner !== req.user.sub) {
       throw new NotFoundException('No such lead');
     }

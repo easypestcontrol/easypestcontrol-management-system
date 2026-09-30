@@ -144,6 +144,9 @@ export default function ContractPage() {
   const cl = c.client;
   const one = c.mode === 'onetime';
   const canManage = !!me && ['admin', 'ops'].indexOf(me.role) >= 0;
+  // The salesperson may read, share and edit the agreement they sold; the
+  // plan, the crew, the invoicing and the renewal stay the office's.
+  const canEdit = canManage || me?.role === 'sales';
   const daysLeft = c.daysLeft;
   const shortRows = c.staffing.rows.filter((r) => r.short > 0);
   const assignedAll: string[] = [];
@@ -201,7 +204,7 @@ export default function ContractPage() {
             </p>
           </div>
         </div>
-        {canManage && (
+        {canEdit && (
           <div className="flex gap-2 flex-wrap">
             <ShareLink path={'/contract/' + c.id} title={'Contract ' + c.id}
               phone={c.client?.phone}
@@ -221,16 +224,20 @@ export default function ContractPage() {
             <button className={btnGhost} onClick={() => router.push('/contracts/' + c.id + '/edit')}>
               Edit
             </button>
-            <button className={btnGhost} onClick={() => setDialog('plan')}>Service plan</button>
-            <button className={btnGhost} onClick={() => setDialog('assign')}>Assign technicians</button>
-            <button className={btnRed} onClick={raiseInvoice}
-              title={c.billingMode === 'pervisit'
-                ? 'Per-service contracts invoice themselves when a service completes'
-                : 'Raise the next installment from the billing plan'}>
-              Raise invoice
-            </button>
-            {daysLeft <= 45 && (
-              <button className={btnRed} onClick={() => setDialog('renew')}>Renew contract</button>
+            {canManage && (
+              <>
+                <button className={btnGhost} onClick={() => setDialog('plan')}>Service plan</button>
+                <button className={btnGhost} onClick={() => setDialog('assign')}>Assign technicians</button>
+                <button className={btnRed} onClick={raiseInvoice}
+                  title={c.billingMode === 'pervisit'
+                    ? 'Per-service contracts invoice themselves when a service completes'
+                    : 'Raise the next installment from the billing plan'}>
+                  Raise invoice
+                </button>
+                {daysLeft <= 45 && (
+                  <button className={btnRed} onClick={() => setDialog('renew')}>Renew contract</button>
+                )}
+              </>
             )}
           </div>
         )}

@@ -12,7 +12,7 @@ import {
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { composeQuote, todayISO, type QuoteRow } from './shape';
-import { branchScope, branchWhere, clampScope, clientBranch, inScope } from '../branch.util';
+import { branchWhere, clampScope, clientBranch, inScopeOrMine, salesScope, scopeOrMineWhere } from '../branch.util';
 
 interface ScopedReq { user?: { sub?: string; role?: string } }
 
@@ -64,10 +64,12 @@ export class QuotationsController {
   @Get()
   @Roles('admin', 'ops', 'sales')
   async list(@Req() req: ScopedReq, @Query('branch') branch?: string) {
-    const scope = clampScope(await branchScope(this.prisma, req.user), branch);
+    const scope = clampScope(await salesScope(this.prisma, req.user), branch);
+    // The dropdown is a filter and means exactly that branch; otherwise the
+    // person's branches plus whatever is assigned to them.
     const [quotes, clients, leads] = await Promise.all([
       this.prisma.quotation.findMany({
-        where: branchWhere(scope),
+        where: (branch ? branchWhere(scope) : scopeOrMineWhere(scope, req.user?.sub)) as never,
         include: { items: { orderBy: { order: 'asc' } } },
         orderBy: { createdAt: 'desc' }, // v1 unshifts new quotes to the front
       }),
@@ -109,7 +111,7 @@ export class QuotationsController {
       include: { items: { orderBy: { order: 'asc' } } },
     });
     if (!q) throw new NotFoundException('No such quotation');
-    if (req && !inScope(await branchScope(this.prisma, req.user), q.branch)) {
+    if (req && !inScopeOrMine(await salesScope(this.prisma, req.user), q.branch, q.owner, req.user?.sub)) {
       throw new NotFoundException('No such quotation');
     }
     return composeQuote(this.prisma, q as unknown as QuoteRow);
@@ -119,7 +121,7 @@ export class QuotationsController {
 
   @Post()
   @Roles('admin', 'ops', 'sales')
-  async create(@Body() body: Record<string, unknown>) {
+  async create(@Body() body: Record<string, unknown>, @Req() req?: ScopedReq) {
     const title = String(body.title || '').trim();
     if (!title) throw new BadRequestException('Give the quotation a title');
     const clientId = String(body.clientId || '');
@@ -143,7 +145,7 @@ export class QuotationsController {
       : null;
     const id = typed && !clash ? typed : 'QT-' + seq.value;
 
-    const owner = String(body.owner || '');
+    const owner = String(body.owner || req?.user?.sub || '');
     const q = await this.prisma.quotation.create({
       data: {
         id,

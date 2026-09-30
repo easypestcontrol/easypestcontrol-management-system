@@ -73,3 +73,41 @@ export function branchWhere(scope: string[] | null): { branch?: { in: string[] }
 export function inScope(scope: string[] | null, branch: string): boolean {
   return scope === null || scope.includes(branch || '');
 }
+
+/* ------------------------------------------------------- the sales book
+
+   The customer book is already a shared sales asset (clients.controller):
+   the whole office sees every customer. Leads, quotations and contracts are
+   the same book one step earlier, and a salesperson works it wherever the
+   enquiry comes from - a returning Chennai customer rings the Coimbatore
+   number. So the SALES role sees the whole sales book; the branch stamp still
+   routes the work, it just does not hide the record from the person selling.
+   Ops stays a branch manager, walled as before.
+
+   And whoever a record is assigned to can always open it, wherever it sits.
+   Leads worked that way already; a quotation raised from such a lead
+   inherits the lead's branch and used to answer "not found" to the very
+   person who wrote it. */
+
+/** Roles that see every branch's leads, quotations and contracts. */
+export const SALES_BOOK = new Set(['admin', 'sales']);
+
+/** The scope for the sales book: everything for the roles above, else the branch wall. */
+export async function salesScope(
+  prisma: PrismaClient,
+  user: { sub?: string; role?: string } | undefined,
+): Promise<string[] | null> {
+  if (user?.role && SALES_BOOK.has(user.role)) return null;
+  return branchScope(prisma, user);
+}
+
+/** In scope, or assigned to the person asking. */
+export function inScopeOrMine(scope: string[] | null, branch: string, owner: string, me?: string): boolean {
+  return inScope(scope, branch) || (!!me && !!owner && owner === me);
+}
+
+/** List fragment: rows in the person's branches, or owned by them. */
+export function scopeOrMineWhere(scope: string[] | null, me?: string): Record<string, unknown> {
+  if (scope === null) return {};
+  return me ? { OR: [{ branch: { in: scope } }, { owner: me }] } : { branch: { in: scope } };
+}

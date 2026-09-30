@@ -16,7 +16,7 @@ import { ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
-import { branchScope, branchWhere, clampScope, inScope } from '../branch.util';
+import { branchWhere, clampScope, inScopeOrMine, salesScope, scopeOrMineWhere } from '../branch.util';
 import { billingPlan,
   addDays, addMonths, cadenceLabel, dayOfMonth, daysBetween, docTermsFor, docTotals, lineCrew,
   peakCrew, planVisits, staffing, toMin, toHHMM,
@@ -176,10 +176,10 @@ export class ContractsController {
    */
   @Get()
   async list(@Req() req: { user?: { sub?: string; role?: string } }, @Query('branch') branch?: string) {
-    const scope = clampScope(await branchScope(this.prisma, req.user), branch);
+    const scope = clampScope(await salesScope(this.prisma, req.user), branch);
     const [contracts, jobs, clients, services] = await Promise.all([
       this.prisma.contract.findMany({
-        where: branchWhere(scope),
+        where: (branch ? branchWhere(scope) : scopeOrMineWhere(scope, req.user?.sub)) as never,
         include: { plan: { orderBy: { order: 'asc' } } },
       }),
       this.prisma.job.findMany(),
@@ -407,7 +407,7 @@ export class ContractsController {
       where: { id }, include: { plan: { orderBy: { order: 'asc' } } },
     });
     if (!c) throw new NotFoundException('No such contract');
-    if (req && !inScope(await branchScope(this.prisma, req.user), c.branch)) {
+    if (req && !inScopeOrMine(await salesScope(this.prisma, req.user), c.branch, c.owner, req.user?.sub)) {
       throw new NotFoundException('No such contract');
     }
 
@@ -867,7 +867,7 @@ export class ContractsController {
   /* ------------------------------------------------------------------ edit */
 
   @Patch(':id')
-  @Roles('admin', 'ops')
+  @Roles('admin', 'ops', 'sales')
   async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
     const data: Record<string, unknown> = {};
     for (const k of PATCHABLE) if (k in body) data[k] = body[k];
