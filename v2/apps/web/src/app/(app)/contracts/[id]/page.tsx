@@ -155,8 +155,9 @@ export default function ContractPage() {
   const cl = c.client;
   const one = c.mode === 'onetime';
   const canManage = !!me && ['admin', 'ops'].indexOf(me.role) >= 0;
-  // The salesperson may read, share and edit the agreement they sold; the
-  // plan, the crew, the invoicing and the renewal stay the office's.
+  // The salesperson may read, share and edit the agreement they sold, and say
+  // who goes - "which technician is coming?" is asked of the person who sold
+  // it. The plan, the invoicing and the renewal stay the office's.
   const canEdit = canManage || me?.role === 'sales';
   const daysLeft = c.daysLeft;
   const shortRows = c.staffing.rows.filter((r) => r.short > 0);
@@ -192,7 +193,14 @@ export default function ContractPage() {
     <>
       {/* How far through, and is the money coming in. Editing the plan is
           surgery and stays on the desktop. */}
-      <ContractMobile c={c} role={me?.role || ''} onChanged={load} onSignLink={() => setSignLink(true)} />
+      <ContractMobile c={c} role={me?.role || ''} onChanged={load} onSignLink={() => setSignLink(true)}
+        onAssign={() => setDialog('assign')} notice={flash} />
+      {/* Out here, not inside the desktop layout below: the phone page opens
+          the same dialog, and that layout is hidden on a phone. */}
+      {dialog === 'assign' && (
+        <AssignDialog c={c} boot={boot} onClose={() => setDialog('')}
+          onSaved={(msg) => { setDialog(''); setFlash(msg); load(); }} />
+      )}
       {signLink && (
         <ShareSheet path={'/contract/' + c.id} title="Send the link to sign" phone={cl?.phone}
           text={'Your service agreement ' + c.id + ' with ' + boot.company.name
@@ -242,9 +250,13 @@ export default function ContractPage() {
               Edit
             </button>
             {canManage && (
+              <button className={btnGhost} onClick={() => setDialog('plan')}>Service plan</button>
+            )}
+            {c.plan.length > 0 && (
+              <button className={btnGhost} onClick={() => setDialog('assign')}>Assign technicians</button>
+            )}
+            {canManage && (
               <>
-                <button className={btnGhost} onClick={() => setDialog('plan')}>Service plan</button>
-                <button className={btnGhost} onClick={() => setDialog('assign')}>Assign technicians</button>
                 <button className={btnRed} onClick={raiseInvoice}
                   title={c.billingMode === 'pervisit'
                     ? 'Per-service contracts invoice themselves when a service completes'
@@ -303,7 +315,7 @@ export default function ContractPage() {
             {shortRows.map((r) => svcName(r.svId) + ' needs ' + r.short + ' more of ' + r.need).join(' · ')}
             {shortRows.length ? '. ' : ''}Services will go out with nobody on them until this is done.
           </p>
-          {canManage && (
+          {canEdit && (
             <button className={btnRed + ' mt-2.5'} onClick={() => setDialog('assign')}>
               Assign technicians
             </button>
@@ -613,10 +625,6 @@ export default function ContractPage() {
       </div>
 
       {/* ------------------------------------------------------- dialogs */}
-      {dialog === 'assign' && (
-        <AssignDialog c={c} boot={boot} onClose={() => setDialog('')}
-          onSaved={(msg) => { setDialog(''); setFlash(msg); load(); }} />
-      )}
       {dialog === 'plan' && (
         <PlanDialog c={c} boot={boot} onClose={() => setDialog('')}
           onSaved={(msg) => { setDialog(''); setFlash(msg); load(); }} />
@@ -762,8 +770,12 @@ function AssignDialog({ c, boot, onClose, onSaved }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-navy/40 flex items-center justify-center p-6" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-pop w-full max-w-[720px] max-h-[88vh] overflow-y-auto p-6"
+    /* A centred dialog at a desk; on a phone it sits at the bottom, over the
+       tab bar, so the Save button is under the thumb. */
+    <div className="fixed inset-0 z-[80] bg-navy/40 flex items-center justify-center p-6
+      max-lg:items-end" onClick={onClose}>
+      <div data-assign-dialog className="bg-white rounded-lg shadow-pop w-full max-w-[720px] max-h-[88vh] overflow-y-auto p-6
+        max-lg:rounded-2xl max-lg:max-h-[88dvh] max-lg:p-4"
         onClick={(e) => e.stopPropagation()}>
         <h2 className="text-[16px] font-semibold">Assign technicians</h2>
         <p className="text-muted text-[12.5px] mt-0.5">

@@ -41,17 +41,23 @@ function billState(r: BillingRow): { tone: Tone; label: string } {
   return { tone: 'info', label: 'Raised' };
 }
 
-export default function ContractMobile({ c, role, onChanged, onSignLink }: {
+export default function ContractMobile({ c, role, onChanged, onSignLink, onAssign, notice }: {
   role: string;
   /** The contract changed here (a signature went on) - read it again. */
   onChanged: () => void;
   /** Open the share sheet for the link the customer signs from. */
   onSignLink: () => void;
+  /** Open the technician picker. */
+  onAssign: () => void;
+  /** What the last action did - "Every service staffed - 3 services updated". */
+  notice?: string;
   c: {
     id: string; mode: string; billingMode: string; start: string; end: string; value: number;
     freq: string; planSummaryText: string; daysLeft: number;
     client: { id: string; name: string; phone?: string; contact?: string } | null;
     signCustomer?: string; agreedAt?: string;
+    plan: Array<{ svId: string }>;
+    staffing: { missing: number; ok: boolean };
     jobs: Job[];
     progress: { done: number; total: number; pct: number };
     status: { key: string; label: string };
@@ -59,8 +65,8 @@ export default function ContractMobile({ c, role, onChanged, onSignLink }: {
   };
 }) {
   const ahead = c.jobs.filter((j) => j.status !== 'completed' && j.status !== 'cancelled');
-  // The salesperson and the office may edit the agreement's details; the
-  // visit plan and the crew stay a desk job.
+  // The salesperson and the office may edit the agreement's details and say
+  // who goes; reshaping the visit plan stays a desk job.
   const canEdit = ['admin', 'ops', 'sales'].includes(role);
   const tone: Tone = c.status.key === 'active' ? 'good'
     : c.status.key === 'expired' ? 'bad'
@@ -133,6 +139,45 @@ export default function ContractMobile({ c, role, onChanged, onSignLink }: {
           </Card>
         )}
 
+        {notice && (
+          <p data-notice className="rounded-xl border border-line bg-white px-3.5 py-2.5 text-[13.5px] text-ink-2 leading-relaxed">
+            {notice}
+          </p>
+        )}
+
+        {/* Who is going. A service with nobody on it goes out with nobody,
+            so the gap is said in red and the way to close it is right here -
+            it used to be a desktop-only button. */}
+        {c.plan.length > 0 && (
+          <Card title="Technicians">
+            <div data-staffing={c.staffing.ok ? 'ok' : 'short'}>
+              {c.staffing.ok ? (
+                <p className="text-[14px] text-ink-2 leading-relaxed">
+                  Every service on this contract has its technician.
+                </p>
+              ) : (
+                <>
+                  <p className="text-[14.5px] font-bold text-accent">
+                    {c.staffing.missing} technician{c.staffing.missing === 1 ? '' : 's'} still to be assigned
+                  </p>
+                  <p className="text-[13px] text-muted mt-1 leading-relaxed">
+                    Services go out with nobody on them until this is done.
+                  </p>
+                </>
+              )}
+              {canEdit && (
+                <button type="button" onClick={onAssign}
+                  className={'mt-3 w-full h-[44px] rounded-lg text-[14.5px] font-semibold '
+                    + (c.staffing.ok
+                      ? 'border border-line bg-white active:bg-wash'
+                      : 'bg-accent text-white active:brightness-90')}>
+                  {c.staffing.ok ? 'Change technicians' : 'Assign technicians'}
+                </button>
+              )}
+            </div>
+          </Card>
+        )}
+
         {/* Signed or not is the first thing asked about an agreement, and
             the phone is where a signature is usually collected. */}
         <Card title="Customer signature">
@@ -187,7 +232,7 @@ export default function ContractMobile({ c, role, onChanged, onSignLink }: {
         )}
 
         <p className="text-[13px] text-muted text-center px-4 pb-4 leading-relaxed">
-          Edit changes the agreement itself. Moving visits, changing the crew and
+          Edit changes the agreement itself. Reshaping the service plan and
           re-sequencing the billing are on the desktop — that is surgery, and it
           wants a mouse.
         </p>

@@ -89,7 +89,14 @@ export function inScope(scope: string[] | null, branch: string): boolean {
    inherits the lead's branch and used to answer "not found" to the very
    person who wrote it. */
 
-/** Roles that see every branch's leads, quotations and contracts. */
+/* The book does not stop at the signature. A contract's visits are that same
+   contract, dated - the salesperson who may open the agreement and put a
+   technician on it has to be able to open the visits it generated. Services,
+   the schedule and the dispatch board therefore read the same scope: they
+   used the branch wall, so a visit listed on a contract page answered
+   "Service not found" to the person who sold it. */
+
+/** Roles that see every branch's leads, quotations, contracts and the services they generate. */
 export const SALES_BOOK = new Set(['admin', 'sales']);
 
 /** The scope for the sales book: everything for the roles above, else the branch wall. */

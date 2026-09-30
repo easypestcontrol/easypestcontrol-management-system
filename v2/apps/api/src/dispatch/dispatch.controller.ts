@@ -15,7 +15,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
-import { branchScope, branchWhere, inScope } from '../branch.util';
+import { branchWhere, inScope, salesScope } from '../branch.util';
 import {
   autoAssignPlan, balancePlan, dropCheck, freeGaps, suggestTechs, workHours,
   addDays, dayOfWeek, toISO, toMin, toHHMM,
@@ -215,7 +215,7 @@ export class DispatchController {
   @Roles('admin', 'ops', 'sales')
   async day(@Req() req: { user?: { sub?: string; role?: string } }, @Query('date') dateQ?: string) {
     const date = dateQ || toISO(new Date());
-    const scope = await branchScope(this.prisma, req?.user);
+    const scope = await salesScope(this.prisma, req?.user);
     const c = await this.loadDay(date, scope);
 
     // The 7-day strip: counts for the surrounding days (v1 board.js:184-201).
@@ -304,7 +304,7 @@ export class DispatchController {
     if (!jobId || !techId || !Number.isFinite(startMin)) {
       throw new BadRequestException('jobId, techId and startMin are required');
     }
-    const scope = await branchScope(this.prisma, req?.user);
+    const scope = await salesScope(this.prisma, req?.user);
     const job = await this.prisma.job.findUnique({ where: { id: jobId } });
     // Outside the wall reads as absent, not as refused — a 403 would confirm
     // the job exists to somebody with no business knowing it.
@@ -332,7 +332,7 @@ export class DispatchController {
     @Query('limit') limitQ?: string,
   ) {
     if (!jobId) throw new BadRequestException('jobId is required');
-    const scope = await branchScope(this.prisma, req?.user);
+    const scope = await salesScope(this.prisma, req?.user);
     const job = await this.prisma.job.findUnique({ where: { id: jobId } });
     if (!job || !inScope(scope, job.branch)) throw new NotFoundException('No such job');
     const date = dateQ || job.date;
@@ -446,7 +446,7 @@ export class DispatchController {
     @Body() body: { date?: string },
   ) {
     const date = String(body.date || '') || toISO(new Date());
-    const c = await this.loadDay(date, await branchScope(this.prisma, req?.user));
+    const c = await this.loadDay(date, await salesScope(this.prisma, req?.user));
     const queue = c.jobLikes.filter((j) => !j.techIds.length);
     if (!queue.length) return { placed: [], skipped: [] };
 
@@ -475,7 +475,7 @@ export class DispatchController {
     @Body() body: { date?: string },
   ) {
     const date = String(body.date || '') || toISO(new Date());
-    const c = await this.loadDay(date, await branchScope(this.prisma, req?.user));
+    const c = await this.loadDay(date, await salesScope(this.prisma, req?.user));
     const plan = balancePlan(c.users as TechLike[], c.co, date, c.jobLikes);
 
     const moved: Array<{ jobId: string; techIds: string[]; startMin: number; before: BeforeState }> = [];

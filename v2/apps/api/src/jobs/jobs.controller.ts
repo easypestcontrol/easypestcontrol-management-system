@@ -15,7 +15,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard, Roles } from '../auth/auth.guard';
-import { branchScope, branchWhere, clampScope, clientBranch, inScope } from '../branch.util';
+import { branchWhere, clampScope, clientBranch, inScope, salesScope } from '../branch.util';
 import {
   addDays, canRecordService, collectionNote, daysBetween, docTotals,
   isFieldTech, isOffice, isOnCrew, toHHMM, toMin,
@@ -180,7 +180,8 @@ export class JobsController {
     // toggle in the browser. Hiding other people's services in the UI while
     // the endpoint still returns them is not a boundary, it is a curtain.
     const mine = isFieldTech(req?.user?.role) ? (req?.user?.sub || '') : '';
-    const scope = clampScope(await branchScope(this.prisma, req?.user), branch);
+    // The sales book: a salesperson sees the visits of every contract they can open.
+    const scope = clampScope(await salesScope(this.prisma, req?.user), branch);
 
     const [all, clients, services] = await Promise.all([
       this.prisma.job.findMany({
@@ -249,7 +250,7 @@ export class JobsController {
   async one(@Param('id') id: string, @Req() req?: AuthedRequest) {
     const j = await this.prisma.job.findUnique({ where: { id } });
     if (!j) throw new NotFoundException('No such service');
-    if (req && !inScope(await branchScope(this.prisma, req.user), j.branch)) {
+    if (req && !inScope(await salesScope(this.prisma, req.user), j.branch)) {
       throw new NotFoundException('No such service');
     }
 

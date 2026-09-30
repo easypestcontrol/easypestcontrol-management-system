@@ -12,7 +12,7 @@ import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { addDays, dayOfWeek } from 'shared';
-import { branchScope, branchWhere, clampScope } from '../branch.util';
+import { branchWhere, clampScope, salesScope } from '../branch.util';
 
 interface ScopedReq { user?: { sub?: string; role?: string } }
 
@@ -82,7 +82,7 @@ export class ScheduleController {
     const first = month + '-01';
     const start = addDays(first, -dayOfWeek(first)); // Sunday of the week with the 1st
     const end = addDays(start, 41);
-    const scope = clampScope(await branchScope(this.prisma, req.user), branch);
+    const scope = clampScope(await salesScope(this.prisma, req.user), branch);
 
     const [{ cname, sname }, jobs] = await Promise.all([
       this.nameMaps(),
@@ -108,7 +108,7 @@ export class ScheduleController {
     const date = /^\d{4}-\d{2}-\d{2}$/.test(dateQ || '') ? String(dateQ) : todayISO();
     const stripStart = addDays(date, -3);
     const stripEnd = addDays(date, 10);
-    const scope = clampScope(await branchScope(this.prisma, req.user), branch);
+    const scope = clampScope(await salesScope(this.prisma, req.user), branch);
 
     const [{ cname, sname }, techUsers, windowJobs] = await Promise.all([
       this.nameMaps(),

@@ -1189,7 +1189,9 @@ export class ContractsController {
    * under-way and hand-placed visits are left exactly where they are.
    */
   @Post(':id/assign')
-  @Roles('admin', 'ops')
+  // The salesperson too: they sold it, they can open it, and "who is going"
+  // is the first thing the customer asks them.
+  @Roles('admin', 'ops', 'sales')
   async assign(
     @Param('id') id: string,
     @Body() body: {
