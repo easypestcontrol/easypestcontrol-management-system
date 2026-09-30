@@ -170,7 +170,8 @@ function ContractCard({ r, branch }: { r: ContractRow; branch: string }) {
     : fmtShort(r.start) + ' → ' + fmtDate(r.end);
   return (
     <Link href={r.standalone ? '/jobs/' + r.key : '/contracts/' + r.key} data-contract-card
-      className="block rounded-2xl bg-white border border-line shadow-[0_1px_2px_rgba(20,20,20,0.04)] active:bg-wash overflow-hidden">
+      className="block rounded-2xl bg-white border border-[#cfd4de] overflow-hidden active:bg-wash
+        shadow-[0_2px_4px_rgba(20,20,20,0.10),0_6px_16px_rgba(20,20,20,0.12)]">
       <div className="px-4 pt-3.5 pb-3">
         {/* who, and what it is worth */}
         <div className="flex items-start gap-3">
@@ -194,13 +195,13 @@ function ContractCard({ r, branch }: { r: ContractRow; branch: string }) {
 
         {/* where and when */}
         <div className="grid grid-cols-2 gap-2 mt-3">
-          <div className="rounded-xl bg-ground px-3 py-2 min-w-0">
+          <div className="rounded-xl bg-ground border border-[#dfe3ea] px-3 py-2 min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-[0.05em] text-muted-2 flex items-center gap-1">
               <Icon name="branch" size={12} /> Branch
             </p>
             <p className="text-[13.5px] font-semibold truncate mt-0.5">{branch || '—'}</p>
           </div>
-          <div className="rounded-xl bg-ground px-3 py-2 min-w-0">
+          <div className="rounded-xl bg-ground border border-[#dfe3ea] px-3 py-2 min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-[0.05em] text-muted-2 flex items-center gap-1">
               <Icon name="calendar" size={12} /> {r.one ? 'Date' : 'Period'}
             </p>
