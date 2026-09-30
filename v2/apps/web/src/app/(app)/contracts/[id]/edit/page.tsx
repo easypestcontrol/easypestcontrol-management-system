@@ -17,6 +17,7 @@ import { STATES, fmtDate, type Boot, type ContractDetail } from '../../lib';
 import TimePicker from '@/components/time-picker';
 import TimeRangePicker from '@/components/time-range';
 import SignatureField from '@/components/signature-field';
+import PlanDialog from '../plan-dialog';
 
 const CYCLES = ['Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'];
 
@@ -53,6 +54,8 @@ export default function EditContract() {
   const [terms, setTerms] = useState('');
   // per-service schedule edits, keyed by job id
   const [sched, setSched] = useState<Record<string, { date: string; slot: string; slotEnd: string }>>({});
+  const [planOpen, setPlanOpen] = useState(false);
+  const [flash, setFlash] = useState('');
 
   useEffect(() => {
     api.get<Boot>('/org/bootstrap').then(setBoot).catch(() => {});
@@ -121,6 +124,18 @@ export default function EditContract() {
     }
   }
 
+  /* After the plan is edited (services / rates / counts), the server regenerates
+     the schedule — pull the fresh jobs and value back in, without disturbing the
+     other fields the person may be mid-edit on. */
+  function reloadPlan() {
+    api.get<ContractDetail>('/contracts/' + id).then((d) => {
+      setC(d);
+      const init: Record<string, { date: string; slot: string; slotEnd: string }> = {};
+      for (const jx of d.jobs) init[jx.id] = { date: jx.date, slot: jx.slot, slotEnd: jx.slotEnd || '' };
+      setSched(init);
+    }).catch(() => {});
+  }
+
   if (!c || !boot) return <p className="p-4 lg:p-6 text-muted text-[13px]">{err || 'Loading…'}</p>;
 
   const label = 'block text-[12px] font-semibold text-ink-2 mb-1.5';
@@ -156,6 +171,7 @@ export default function EditContract() {
         </div>
       </div>
       {err && <p className="max-lg:hidden mb-4 text-[13px] font-medium text-accent">{err}</p>}
+      {flash && <p className="mb-4 text-[13px] font-medium text-navy">{flash}</p>}
 
       <section className="card p-5 mb-5">
         <h2 className="text-[13.5px] font-semibold mb-4">The agreement</h2>
@@ -313,6 +329,29 @@ export default function EditContract() {
         </div>
       </section>
 
+      {/* Services, their rate and how many visits — the plan the schedule and
+          the value are built from. Editing regenerates the schedule without
+          touching completed work; office-only, which the API also enforces. */}
+      <section className="card p-5 mb-5">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <h2 className="text-[13.5px] font-semibold">Services &amp; pricing</h2>
+            <p className="text-muted text-[12.5px] mt-0.5">
+              The services on this contract, their rate, and how many visits each has.
+              Editing regenerates the schedule without touching completed work.
+            </p>
+          </div>
+          {myRole === 'admin' || myRole === 'ops' ? (
+            <button type="button" onClick={() => setPlanOpen(true)}
+              className="h-9 px-4 rounded bg-accent text-white text-[13px] font-semibold hover:brightness-90 shrink-0">
+              Edit services, rates &amp; counts
+            </button>
+          ) : (
+            <span className="text-[12px] text-muted-2 shrink-0 mt-0.5">Handled by the office.</span>
+          )}
+        </div>
+      </section>
+
       <section className="card mb-5 overflow-hidden">
         <div className="px-5 py-4 border-b border-line-soft">
           <h2 className="text-[13.5px] font-semibold">Service schedule</h2>
@@ -415,9 +454,7 @@ export default function EditContract() {
       </section>
 
       <p className="text-[12px] text-muted">
-        Adding or removing services, quantities, rates and crew: contract page →{' '}
-        <b>Service plan → Edit plan</b> — that flow regenerates the schedule without touching completed work.
-        Cancelling one service: the × in the schedule on the contract page.
+        Cancelling one service outright: the × in the schedule on the contract page.
       </p>
 
       <div className="lg:hidden fixed left-0 right-0 z-30 bottom-[calc(max(12px,env(safe-area-inset-bottom))+70px)]
@@ -436,6 +473,12 @@ export default function EditContract() {
           </button>
         </div>
       </div>
+
+      {planOpen && (
+        <PlanDialog c={c} boot={boot}
+          onClose={() => setPlanOpen(false)}
+          onSaved={(msg) => { setPlanOpen(false); setFlash(msg); reloadPlan(); }} />
+      )}
     </div>
   );
 }

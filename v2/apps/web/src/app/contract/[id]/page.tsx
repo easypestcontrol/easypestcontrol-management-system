@@ -14,6 +14,7 @@
 import { SignArea } from '@/components/sign-area';
 import DocBack from '@/components/doc-back';
 import SignFull from '@/components/sign-full';
+import { DownloadPdfCard } from '@/components/download-pdf-card';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { money } from 'shared';
@@ -108,6 +109,9 @@ export default function PublicContract() {
   return (
     <div className={'min-h-screen bg-[#f4f5f8] px-3 ' + (unsigned ? 'pb-28 print:pb-4' : 'pb-4 sm:pb-8')}>
       <DocBack className="-mx-3 mb-4 sm:mb-8" title="Contract" sub={doc.id} fallback={'/contracts/' + doc.id} />
+      <div className="max-w-[820px] mx-auto">
+        <DownloadPdfCard label="The full contract, as a PDF" />
+      </div>
       <div className="bg-white border border-[#e3e6ee] rounded-lg max-w-[820px] mx-auto shadow-sm">
         <div className="p-5 sm:p-10">
           {/* head */}
