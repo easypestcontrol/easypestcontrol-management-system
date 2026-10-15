@@ -24,7 +24,6 @@ import { Hero, HeroStats } from '@/components/mobile';
 import { StatusPill, Stars } from '../jobs/ui';
 import { fmtTime, relDay } from '../jobs/format';
 import NotificationBell from '@/components/notification-bell';
-
 const money = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
 /** "1 service" / "3 services" — never "1 service(s)" on a screen a person reads. */

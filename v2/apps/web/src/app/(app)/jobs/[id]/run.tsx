@@ -3,7 +3,7 @@
 /* ============================================================================
    The service, one step at a time.
 
-   On a phone the eleven steps of a service used to be eleven cards stacked
+   On a phone the steps of a service used to be eleven cards stacked
    down a page: everything open at once, everything scrollable, and the one
    thing you were supposed to do next somewhere in the middle of it. Standing
    at a customer's gate with one hand free, that is a page to search rather
@@ -23,7 +23,7 @@
    fact wants it all on one screen; the person doing it does not.
    ========================================================================== */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, type SessionUser } from '@/lib/api';
 import { getPosition } from '@/lib/geo';
 import { Icon } from '@/components/icons';
@@ -37,6 +37,7 @@ import {
   AreaFindingsBlock, ChemBlock, LiveTimer, PhotoBlock, SigPad,
   blankExec, geoStamp, shrinkImage,
 } from './exec-parts';
+import { CollectStep } from './money';
 
 /* --------------------------------------------------------------- the step */
 
@@ -90,8 +91,28 @@ export default function TechRun({ j, me, reload }: {
   const [rating, setRating] = useState(x.rating || 0);
   const [workDone, setWorkDone] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
-  const [bill, setBill] = useState<{ amount: number; note: string; mode: string } | null>(null);
+  const [bill, setBill] = useState<{ amount: number; note: string; mode: string;
+    invoice?: { total: number; balance: number } | null } | null>(null);
   const sigRef = useRef<{ isInked: () => boolean; clear: () => void; data: () => string } | null>(null);
+  // A chemical filled in but not added yet - Next adds it.
+  const chemPending = useRef<{ itemId: string; qty: number } | null>(null);
+  // Before the signature: the money, then the report checked.
+  const [paid, setPaid] = useState(false);
+  const onPaid = useCallback((ok: boolean) => setPaid(ok), []);
+  const [reviewed, setReviewed] = useState(false);
+  // The report itself, full screen - opened at least once before it is "right".
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewSeen, setPreviewSeen] = useState(false);
+  const [previewKey, setPreviewKey] = useState(0);
+  function openPreview() {
+    void saveNotes();               // the preview shows the notes as typed
+    setPreviewKey(Date.now());      // fresh every time: payment, chemicals, photos
+    setPreviewOpen(true); setPreviewSeen(true); setErr('');
+  }
+  function reportRight() {
+    setPreviewOpen(false); setReviewed(true); setErr('');
+    setAt((v) => v + 1);
+  }
 
   const myUniform = (x.uniformPhotos || {})[me.id] || '';
   const siteKnown = cl?.siteLat != null && cl?.siteLng != null;
@@ -106,11 +127,11 @@ export default function TechRun({ j, me, reload }: {
      and nothing else — whether it has been paid is the office's business. */
   useEffect(() => {
     let dead = false;
-    api.get<{ amount: number; note: string; mode: string }>(path + '/billing')
+    api.get<{ amount: number; note: string; mode: string; invoice?: { total: number; balance: number } | null }>(path + '/billing')
       .then((b) => { if (!dead) setBill(b); })
       .catch(() => {});
     return () => { dead = true; };
-  }, [path]);
+  }, [path, paid]);
 
   /** A word that appears, then goes. Confirmation without a dialog to dismiss. */
   function say(msg: string) {
@@ -287,7 +308,7 @@ export default function TechRun({ j, me, reload }: {
     });
   }
 
-  /* --------------------------------------------------------- the eleven */
+  /* ------------------------------------------------------------ the steps */
 
   const steps: Step[] = [
     {
@@ -418,11 +439,18 @@ export default function TechRun({ j, me, reload }: {
       hint: x.chemicals.length ? x.chemicals.length + ' recorded' : undefined,
       done: x.chemicals.length > 0,
       body: (
-        <ChemBlock j={j} busy={busy}
+        <ChemBlock j={j} busy={busy} pendingRef={chemPending}
           onAdd={(itemId, qty) => act(() => api.post(path + '/exec/chemicals', { itemId, qty }))}
           onRemove={(i) => act(() => api.del(path + '/exec/chemicals/' + i))}
           onErr={setErr} />
       ),
+      onNext: () => {
+        const p = chemPending.current;
+        if (!p) { setErr(''); setAt((v) => v + 1); return; }
+        chemPending.current = null;
+        void act(() => api.post(path + '/exec/chemicals', { itemId: p.itemId, qty: p.qty }), 'Chemical added')
+          .then((ok) => { if (ok) setAt((v) => v + 1); });
+      },
     },
     {
       key: 'areas',
@@ -458,6 +486,45 @@ export default function TechRun({ j, me, reload }: {
           className="w-full min-h-[110px] px-3.5 py-3 rounded-xl border border-line text-[15px]
             outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
       ),
+    },
+    {
+      key: 'pay',
+      title: 'Collect payment',
+      hint: paid ? 'Settled' : undefined,
+      done: paid,
+      waiting: 'Collect the payment first',
+      body: <CollectStep j={j} onSettled={onPaid} />,
+    },
+    {
+      key: 'preview',
+      title: 'Check the report',
+      hint: reviewed ? 'Checked' : 'What the customer will receive',
+      done: reviewed,
+      body: (
+        <div className="flex flex-col gap-3">
+          <div className="rounded-lg border border-line bg-wash px-3.5 py-3 flex items-start gap-3">
+            <span className="w-9 h-9 rounded-lg bg-white border border-line text-accent flex items-center justify-center shrink-0">
+              <Icon name="file" size={17} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[13.5px] font-semibold">Service report {j.id}</span>
+              <span className="block text-[12px] text-muted mt-0.5">
+                The report as the customer receives it: the work, chemicals, photos, the payment
+                and how it was made. Go through it together before they sign.
+              </span>
+            </span>
+          </div>
+          <button type="button" onClick={openPreview} data-run="preview"
+            className={'h-11 rounded-xl text-[14px] font-bold flex items-center justify-center gap-2 active:brightness-95 '
+              + (previewSeen ? 'border border-line bg-white text-ink' : 'bg-accent text-white')}>
+            <Icon name="file" size={15} /> {previewSeen ? 'Open the preview again' : 'Open report preview'}
+          </button>
+          {previewSeen && !reviewed && (
+            <p className="text-[12px] text-muted text-center">Everything right? Tap “Report looks right”.</p>
+          )}
+        </div>
+      ),
+      onNext: () => { if (!previewSeen && !reviewed) { openPreview(); return; } reportRight(); },
     },
     {
       key: 'sign',
@@ -497,6 +564,8 @@ export default function TechRun({ j, me, reload }: {
           </div>
           <button type="button" disabled={busy}
             onClick={() => {
+              if (!paid) { setErr('Collect the payment first'); return; }
+              if (!reviewed) { setErr('Check the report with the customer first'); return; }
               if (!signName.trim()) { setErr('Enter the name of the person signing'); return; }
               setErr(''); setSigOpen(true);
             }}
@@ -533,7 +602,7 @@ export default function TechRun({ j, me, reload }: {
     const k = mine.findIndex((s) => !s.done);
     return k < 0 ? total - 1 : k;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [j.status, x.checkinAt, x.startedAt, x.signature, x.photosBefore.length, x.photosAfter.length, myUniform, workDone]);
+  }, [j.status, x.checkinAt, x.startedAt, x.signature, x.photosBefore.length, x.photosAfter.length, myUniform, workDone, paid, reviewed]);
 
   useEffect(() => { setAt((v) => (v < 0 ? firstOpen : v)); }, [firstOpen]);
 
@@ -567,7 +636,7 @@ export default function TechRun({ j, me, reload }: {
             <span className="h-6 px-2.5 rounded-full bg-wash text-[11.5px] font-bold text-ink-2 flex items-center">
               {j.type}
             </span>
-            <span className="h-6 px-2.5 rounded-full bg-navy text-white text-[11.5px] font-bold flex items-center">
+            <span className="h-6 px-2.5 rounded-full bg-red-wash text-accent text-[11.5px] font-bold flex items-center">
               {STATUS[j.status]?.label || j.status}
             </span>
           </span>
@@ -581,16 +650,16 @@ export default function TechRun({ j, me, reload }: {
             and what is worth collecting is a chip, not a banner. */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[18px] font-bold tracking-[-0.01em] truncate">{cl?.name || '—'}</p>
+            <p className="text-[16px] font-bold tracking-[-0.01em] truncate">{cl?.name || '—'}</p>
             <p className="text-[13px] text-muted mt-0.5 truncate">
               {j.title}{j.visitNo ? ' · ' + j.visitNo + ' of ' + j.ofVisits : ''}
             </p>
           </div>
           {cl?.phone && (
             <a href={'tel:' + cl.phone} aria-label={'Call ' + firstName(cl.contact)}
-              className="w-11 h-11 rounded-full bg-rose text-accent flex items-center
+              className="w-10 h-10 rounded-full bg-rose text-accent flex items-center
                 justify-center shrink-0 active:brightness-95">
-              <Icon name="phone" size={18} />
+              <Icon name="phone" size={16} />
             </a>
           )}
         </div>
@@ -602,12 +671,14 @@ export default function TechRun({ j, me, reload }: {
           <div className="flex flex-wrap gap-2 mt-2.5">
             {bill && bill.amount > 0 && (
               <span className="h-7 px-3 rounded-full bg-wash text-[12.5px] font-bold flex items-center">
-                Collect {money(bill.amount)}
+                {bill.invoice && bill.invoice.balance <= 0
+                  ? 'Paid ' + money(bill.invoice.total) + ' ✓'
+                  : 'Collect ' + money(bill.invoice ? bill.invoice.balance : bill.amount)}
               </span>
             )}
             {j.notes && (
               <button type="button" onClick={() => setNoteOpen((v) => !v)}
-                className="h-7 px-3 rounded-full bg-rose text-rose-ink text-[12.5px] font-bold
+                className="h-7 px-3 rounded-full bg-rose text-rose-ink text-[12px] font-semibold
                   flex items-center gap-1.5 max-w-full">
                 <Icon name="alert" size={13} className="shrink-0" />
                 <span className="truncate">{noteOpen ? 'Site instructions' : j.notes}</span>
@@ -628,7 +699,7 @@ export default function TechRun({ j, me, reload }: {
           </p>
           <p className="text-[12px] font-bold" style={{ color: barColor }}>{pct}% done</p>
         </div>
-        <div className="mt-2 h-2.5 rounded-full bg-line-soft overflow-hidden">
+        <div className="mt-2 h-2 rounded-full bg-line-soft overflow-hidden">
           <div className="h-full rounded-full transition-all duration-500"
             style={{ width: Math.max(4, pct) + '%', background: barColor }} />
         </div>
@@ -648,12 +719,12 @@ export default function TechRun({ j, me, reload }: {
       {/* One step, filling the frame. */}
       <div className="mx-4 mt-4 card p-4">
         <div className="flex items-center gap-3">
-          <span className={'w-9 h-9 rounded-full flex items-center justify-center text-[14px] font-bold shrink-0 '
+          <span className={'w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold shrink-0 '
             + (step.done ? 'bg-mint text-mint-ink' : 'bg-accent text-white')}>
-            {step.done ? <Icon name="check" size={17} /> : i + 1}
+            {step.done ? <Icon name="check" size={15} /> : i + 1}
           </span>
           <span className="min-w-0 flex-1">
-            <span data-run="step" className="block text-[16px] font-bold leading-tight">{step.title}</span>
+            <span data-run="step" className="block text-[14.5px] font-bold leading-tight">{step.title}</span>
             {step.hint && <span className="block text-[12.5px] text-muted mt-0.5">{step.hint}</span>}
           </span>
         </div>
@@ -679,7 +750,7 @@ export default function TechRun({ j, me, reload }: {
       <div className="mx-4 mt-4 flex gap-3">
         <button type="button" data-run="back" onClick={() => { setErr(''); setAt(Math.max(0, i - 1)); }}
           disabled={i === 0}
-          className="h-12 px-5 rounded-xl border border-line text-[14.5px] font-semibold
+          className="h-11 px-5 rounded-xl border border-line bg-white text-[13.5px] font-semibold
             active:bg-wash disabled:opacity-40">
           Back
         </button>
@@ -690,9 +761,10 @@ export default function TechRun({ j, me, reload }: {
             taps it, and only until he acts on it. */}
         {i < total - 1 && (
           <button type="button" data-run="next" onClick={next} disabled={busy}
-            className={'flex-1 h-12 rounded-xl text-[15px] font-bold active:brightness-90 '
-              + (step.done || step.onNext ? 'bg-navy text-white' : 'bg-wash-2 text-muted')}>
-            {step.key === 'work' && !step.done && step.onNext ? 'Work complete' : 'Next'}
+            className={'flex-1 h-11 rounded-xl text-[14px] font-bold active:brightness-90 '
+              + (step.done || step.onNext ? 'bg-accent text-white' : 'bg-white border border-line text-muted')}>
+            {step.key === 'work' && !step.done && step.onNext ? 'Work complete'
+              : step.key === 'preview' && !reviewed ? (previewSeen ? 'Report looks right' : 'Open preview') : 'Next'}
           </button>
         )}
       </div>
@@ -700,6 +772,35 @@ export default function TechRun({ j, me, reload }: {
       {mapOpen && (
         <NavigateSheet destText={destText} title={cl?.name || 'the site'}
           onClose={() => setMapOpen(false)} />
+      )}
+
+      {previewOpen && (
+        <div data-report-overlay className="fixed inset-0 z-[70] bg-white flex flex-col">
+          <div className="px-4 py-3 border-b border-line flex items-center justify-between gap-3 shrink-0">
+            <div className="min-w-0">
+              <p className="text-[15px] font-bold">Report preview</p>
+              <p className="text-[12px] text-muted truncate">{j.id} · {cl?.name || ''}</p>
+            </div>
+            <button type="button" onClick={() => setPreviewOpen(false)}
+              className="h-10 px-4 rounded-xl border border-line text-[13.5px] font-semibold shrink-0">
+              Close
+            </button>
+          </div>
+          <iframe key={previewKey} title="Service report preview"
+            src={'/report/' + j.id + '?embed=1&v=' + previewKey}
+            className="flex-1 w-full border-0 bg-wash" />
+          <div className="px-4 py-3 border-t border-line grid grid-cols-[auto_1fr] gap-3 shrink-0
+            pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <button type="button" onClick={() => setPreviewOpen(false)}
+              className="h-11 px-4 rounded-xl border border-line text-[13.5px] font-semibold">
+              Something to fix
+            </button>
+            <button type="button" onClick={reportRight}
+              className="h-11 rounded-xl bg-accent text-white text-[14px] font-bold">
+              Report looks right
+            </button>
+          </div>
+        </div>
       )}
 
       {sigOpen && (

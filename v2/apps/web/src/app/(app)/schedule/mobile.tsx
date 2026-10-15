@@ -12,7 +12,9 @@
    The full month, and dragging work between technicians, stay on the desktop.
    ========================================================================== */
 
-import { BackBar, Card, Chip, Row, Screen, niceDate, type Tone } from '@/components/mobile';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { BackBar, Card, Chip, Row, Screen, niceDate, type Tone, ampm } from '@/components/mobile';
 import type { DayBoard, DayJob } from '../jobs/format';
 
 function stateOf(j: DayJob): { tone: Tone; label: string } {
@@ -46,6 +48,12 @@ export default function ScheduleMobile({ day, selDate, onPick, counts, today }: 
   counts: Record<string, number>;
   today: string;
 }) {
+  /* The Schedule is not offered on a phone (Services is the list there).
+     Anyone who still lands here on one - an old link - goes to Services. */
+  const router = useRouter();
+  useEffect(() => {
+    if (window.matchMedia('(max-width: 1023px)').matches) router.replace('/jobs');
+  }, [router]);
   const week = weekAround(selDate);
 
   // Everything on the chosen day, in the order it happens, whoever it is for.
@@ -103,18 +111,18 @@ export default function ScheduleMobile({ day, selDate, onPick, counts, today }: 
                   : `${day.unassigned.length} services here have no technician`}
               </div>
             )}
-            <Card flush className="mb-4">
+            <div className="flex flex-col gap-2.5 mb-4">
               {jobs.map((j) => {
                 const st = stateOf(j);
                 return (
                   <Row key={j.id} href={'/jobs/' + j.id}
                     title={j.clientName || j.clientId}
-                    right={j.slot || ''}
+                    right={ampm(j.slot)}
                     meta={j.title || j.type}
                     chip={<Chip tone={st.tone}>{st.label}</Chip>} />
                 );
               })}
-            </Card>
+            </div>
           </>
         )}
       </div>

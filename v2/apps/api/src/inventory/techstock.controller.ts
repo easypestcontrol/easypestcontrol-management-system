@@ -37,10 +37,13 @@ const nowStamp = () => {
 export class TechStockController {
   constructor(private prisma: PrismaService) {}
 
-  /** Next issue id — ISS-1, ISS-2, … */
+  /** Next issue id — ISS-1, ISS-2, … — one past the HIGHEST number in use.
+      "The latest by time" is not the highest: a finished service writes one
+      row per chemical in the same instant, and picking a lower one of those
+      handed out a number already taken. */
   private async nextIssueId() {
-    const last = await this.prisma.stockIssue.findFirst({ orderBy: { at: 'desc' } });
-    const n = last ? Number(String(last.id).replace('ISS-', '')) || 0 : 0;
+    const rows = await this.prisma.stockIssue.findMany({ select: { id: true } });
+    const n = rows.reduce((m, r) => Math.max(m, Number(String(r.id).replace('ISS-', '')) || 0), 0);
     return 'ISS-' + (n + 1);
   }
 

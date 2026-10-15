@@ -47,7 +47,6 @@ interface Hook {
     payment_link?: { entity?: Entity };
     qr_code?: { entity?: Entity };
     refund?: { entity?: Entity };
-    subscription?: { entity?: Entity };
   };
 }
 
@@ -95,84 +94,18 @@ export class PayWebhookController {
 
     const event = String(body.event || '');
     const p = body.payload || {};
-    const entity = p.payment?.entity || p.payment_link?.entity || p.qr_code?.entity
-      || p.subscription?.entity;
+    const entity = p.payment?.entity || p.payment_link?.entity || p.qr_code?.entity;
     if (!entity) return { ok: true, ignored: event };
 
-    /*
-     * An auto-debit went through.
-     *
-     * Handled before the generic capture, because a mandate's intent names the
-     * CONTRACT, not an invoice — allocating to it directly would look for an
-     * invoice with a contract's id and find nothing. The charge belongs to
-     * whichever instalment is oldest and still open.
-     */
-    if (event === 'subscription.charged') {
-      const charge = p.payment?.entity;
-      const sub = p.subscription?.entity;
-      if (!charge || !sub) return { ok: true, ignored: event };
-      const target = await this.instalmentFor(String(sub.id || ''));
-      if (!target) {
-        // Money arrived with nothing open to put it against: hold it as
-        // credit rather than inventing somewhere for it to go.
-        const m = await this.prisma.paymentIntent.findFirst({
-          where: { kind: 'mandate', gatewayRef: String(sub.id || '') },
-        });
-        if (m?.clientId) await this.credit(m.clientId, charge, '');
-        return { ok: true, credited: true };
-      }
-      return this.captured({ ...charge, notes: { invoiceId: target } }, body, eventId);
-    }
     if (event === 'payment.captured' || event === 'payment_link.paid'
         || event === 'qr_code.credited') {
       return this.captured(entity, body, eventId);
-    }
-    // The customer signed the mandate. It collects from here on.
-    if (event === 'subscription.activated' || event === 'subscription.authenticated') {
-      await this.prisma.paymentIntent.updateMany({
-        where: { kind: 'mandate', gatewayRef: String(entity.id || '') },
-        data: { status: 'paid', paidAt: todayISO(), raw: body as never },
-      });
-      return { ok: true, mandate: 'active' };
-    }
-    /*
-     * A debit that did not go through has to reach a person.
-     *
-     * This is the failure mode that makes standing instructions dangerous: the
-     * business believes it is being paid, the bank quietly declined, and
-     * nobody notices for a quarter. A task with a name on it is the only
-     * honest response.
-     */
-    if (event === 'subscription.halted' || event === 'subscription.pending') {
-      await this.prisma.paymentIntent.updateMany({
-        where: { kind: 'mandate', gatewayRef: String(entity.id || '') },
-        data: { status: 'failed', raw: body as never },
-      });
-      await this.flagMandate(String(entity.id || ''), event);
-      return { ok: true, mandate: 'needs attention' };
     }
     if (event === 'payment.failed') return this.mark(entity, 'failed', body);
     if (event === 'refund.processed' || event === 'refund.created') {
       return this.mark(p.refund?.entity || entity, 'refunded', body);
     }
     return { ok: true, ignored: event };
-  }
-
-  /** The oldest instalment on a mandate's contract that is still owed. */
-  private async instalmentFor(subId: string): Promise<string> {
-    const m = await this.prisma.paymentIntent.findFirst({
-      where: { kind: 'mandate', gatewayRef: subId },
-    });
-    if (!m?.invoiceId) return '';
-    const open = await this.prisma.invoice.findFirst({
-      where: {
-        contractId: m.invoiceId,
-        status: { in: ['sent', 'partial', 'overdue'] },
-      },
-      orderBy: { createdAt: 'asc' },
-      select: { id: true },
-    });
-    return open?.id || '';
   }
 
   /* ------------------------------------------------------------- captured */
@@ -312,40 +245,6 @@ export class PayWebhookController {
       data: { receiptId: res.allocations[0]?.receiptId || '' },
     }).catch(() => {});
     return { ok: true, allocations: res.allocations.length, credited: res.credited };
-  }
-
-  /**
-   * Put a failed standing instruction in front of somebody.
-   *
-   * Deliberately a Task rather than a notification: a notification is read
-   * once and gone, and this needs to stay on a list until a human has dealt
-   * with the customer's bank.
-   */
-  private async flagMandate(subId: string, event: string) {
-    const intent = await this.prisma.paymentIntent.findFirst({
-      where: { kind: 'mandate', gatewayRef: subId },
-    });
-    if (!intent) return;
-    const client = intent.clientId
-      ? await this.prisma.client.findUnique({ where: { id: intent.clientId } })
-      : null;
-    const seq = await this.prisma.seq.upsert({
-      where: { key: 'task' }, create: { key: 'task', value: 1 },
-      update: { value: { increment: 1 } },
-    });
-    await this.prisma.task.create({
-      data: {
-        id: 'TSK-' + seq.value,
-        title: 'Auto-debit failed — ' + (client?.name || intent.clientId),
-        notes: 'The standing instruction on contract ' + intent.invoiceId
-          + ' reported "' + event + '". The instalment has NOT been collected. '
-          + 'Ring the customer, then either take the payment another way or ask '
-          + 'them to re-authorise.',
-        priority: 'high',
-        due: todayISO(),
-        branch: '',
-      },
-    }).catch(() => { /* a task failing must not lose the webhook */ });
   }
 
   /** Money with no invoice becomes an explicit credit on the customer. */

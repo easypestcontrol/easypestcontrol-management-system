@@ -246,7 +246,19 @@ export class ExpensesController {
   async listCategories() {
     await this.seedCategories();
     const rows = await this.prisma.expenseCategory.findMany({ orderBy: { name: 'asc' } });
-    return { rows: rows.map((c) => ({ id: c.id, name: c.name, active: c.active })) };
+    // How much is filed under each - what the master-data screen shows per card.
+    const used = await this.prisma.expense.groupBy({
+      by: ['category'], _count: { _all: true }, _sum: { amount: true }, _max: { date: true },
+    });
+    const of = new Map(used.map((u) => [u.category, u]));
+    return {
+      rows: rows.map((c) => ({
+        id: c.id, name: c.name, active: c.active,
+        count: of.get(c.name)?._count._all || 0,
+        total: of.get(c.name)?._sum.amount || 0,
+        last: of.get(c.name)?._max.date || '',
+      })),
+    };
   }
 
   @Post('categories')

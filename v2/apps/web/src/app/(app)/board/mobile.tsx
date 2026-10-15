@@ -225,9 +225,9 @@ export default function DispatchMobile() {
                     Auto-assign
                   </button>
                 </div>
-                <Card flush>
+                <div className="flex flex-col gap-2.5">
                   {queue.map((j) => (
-                    <div key={j.id} className="px-4 py-3.5 border-b border-line-soft last:border-b-0">
+                    <div key={j.id} data-row-card className="row-card block">
                       <button type="button" onClick={() => router.push('/jobs/' + j.id)}
                         className="w-full text-left">
                         <span className="flex items-baseline justify-between gap-3">
@@ -245,13 +245,13 @@ export default function DispatchMobile() {
                         </span>
                       </button>
                       <button type="button" onClick={() => openAssign(j)} disabled={busy}
-                        className="mt-2.5 h-11 w-full rounded-xl bg-accent text-white text-[14.5px]
+                        className="mt-2.5 h-[36px] w-full rounded-lg bg-accent text-white text-sm
                           font-bold active:brightness-90 disabled:opacity-60">
                         Assign
                       </button>
                     </div>
                   ))}
-                </Card>
+                </div>
               </>
             )}
 
@@ -261,12 +261,12 @@ export default function DispatchMobile() {
                 <p className="px-1 pt-1 pb-1.5 text-[12px] font-bold uppercase tracking-[0.06em] text-muted">
                   {g.branchName}
                 </p>
-                <Card flush>
+                <div className="flex flex-col gap-2.5">
                   {g.techs.map((t) => {
                     const mine = (d.jobs || []).filter((j) => j.techIds.includes(t.id)).filter(match)
                       .sort((a, b) => a.slot.localeCompare(b.slot));
                     return (
-                      <div key={t.id} className="px-4 py-3.5 border-b border-line-soft last:border-b-0">
+                      <div key={t.id} data-row-card className="row-card block">
                         <div className="flex items-center gap-3">
                           <span className="w-9 h-9 rounded-full text-white text-[12px] font-bold
                             flex items-center justify-center shrink-0"
@@ -313,7 +313,7 @@ export default function DispatchMobile() {
                       </div>
                     );
                   })}
-                </Card>
+                </div>
               </div>
             ))}
 
@@ -344,7 +344,7 @@ export default function DispatchMobile() {
             </div>
             <div className="overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+96px)]">
               {rows === null ? (
-                <p className="px-5 py-6 text-[14px] text-muted">Working out who is free…</p>
+                <p className="px-5 py-6 text-[14px] text-muted">Finding who in this branch is free…</p>
               ) : (
                 <>
                   {rows.map((r) => (
@@ -379,30 +379,17 @@ export default function DispatchMobile() {
                     </button>
                   ))}
 
-                  {/* Everybody else, for when the office knows better. */}
-                  <p className="px-5 pt-4 pb-1 text-[12px] font-bold uppercase tracking-[0.06em] text-muted">
-                    Anybody else
-                  </p>
-                  {techs
-                    .filter((t) => !rows.some((r) => r.tech.id === t.id))
-                    .map((t) => (
-                      <button key={t.id} type="button"
-                        onClick={() => give(assigning, t.id, null)}
-                        className="w-full text-left px-5 py-3.5 flex items-center gap-3
-                          border-b border-line-soft active:bg-wash">
-                        <span className="w-9 h-9 rounded-full text-white text-[12px] font-bold
-                          flex items-center justify-center shrink-0"
-                          style={{ background: t.color || '#141414' }}>
-                          {initials(t.name)}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-[15px] font-semibold truncate">{t.name}</span>
-                          <span className="block text-[12.5px] text-muted">
-                            {t.off ? 'Off today' : hrs(t.booked) + ' booked'}
-                          </span>
-                        </span>
-                      </button>
-                    ))}
+                  {/* Only the people who can take it: this branch, free at this
+                      time. Nobody else is offered. */}
+                  {rows.length === 0 && (
+                    <div className="px-5 py-6 text-center">
+                      <p className="text-[15px] font-bold">Nobody free</p>
+                      <p className="text-[13.5px] text-muted mt-1 leading-relaxed">
+                        No technician in this branch is free at {clock(assigning.slot)} on this day.
+                        Move the visit to another time, or free somebody up first.
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
             </div>

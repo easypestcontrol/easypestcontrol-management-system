@@ -14,8 +14,7 @@
 
 import Link from 'next/link';
 import { Icon } from '@/components/icons';
-import { BackBar, Card, Chip, Row, Screen, money, niceDate, type Tone } from '@/components/mobile';
-import Mandate, { mandatePossible } from '@/components/mandate';
+import { BackBar, Card, Chip, Row, Screen, money, niceDate, type Tone, whenShort } from '@/components/mobile';
 import Collect from '@/components/collect';
 import CustomerSign from './customer-sign';
 
@@ -194,7 +193,7 @@ export default function ContractMobile({ c, role, onChanged, onSignLink, onAssig
               return (
                 <Row key={j.id} href={'/jobs/' + j.id}
                   title={j.type || 'Service'}
-                  right={j.slot || ''}
+                  right={whenShort(j.date, j.slot)}
                   meta={niceDate(j.date) + (j.techIds.length ? '' : ' · nobody assigned')}
                   chip={<Chip tone={j.techIds.length ? st.tone : 'bad'}>
                     {j.techIds.length ? st.label : 'Needs a technician'}
@@ -227,9 +226,6 @@ export default function ContractMobile({ c, role, onChanged, onSignLink, onAssig
 
         {/* An instalment that collects itself is one phone call a quarter
             that nobody has to make. */}
-        {mandatePossible(c.billingMode) && (
-          <Mandate contractId={c.id} role={role} variant="phone" />
-        )}
 
         <p className="text-[13px] text-muted text-center px-4 pb-4 leading-relaxed">
           Edit changes the agreement itself. Reshaping the service plan and

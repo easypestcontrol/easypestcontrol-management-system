@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 import { initials } from '../../contracts/lib';
 import { useBranchFilter } from '@/components/branch-filter';
+import { BackBar } from '@/components/mobile';
 
 interface Person {
   userId: string; name: string; color: string;
@@ -73,8 +74,77 @@ export default function TripReport() {
   const niceDate = D[dObj.getDay()] + ', ' + dObj.getDate() + ' '
     + M[dObj.getMonth()] + ' ' + dObj.getFullYear();
 
+  const statusOf = (p: Person) => (p.claimed === p.trips && p.trips > 0
+    ? { label: 'Claimed', cls: 'bg-wash text-navy border border-navy' }
+    : p.toReview > 0 ? { label: p.toReview + ' to review', cls: 'bg-amber text-amber-ink' }
+      : { label: 'All clear', cls: 'bg-mint text-mint-ink' });
+
   return (
-    <div className="p-4 lg:p-6 max-w-[900px]">
+    <>
+    {/* ------------------------------------------------------------ phone */}
+    <div className="lg:hidden bg-ground min-h-full pb-[calc(env(safe-area-inset-bottom)+96px)]">
+      <BackBar title="Daily trip report" sub={niceDate} fallback="/trips" />
+      <div className="bg-white px-4 py-2.5 border-b border-line flex flex-col gap-2">
+        <div className="flex gap-2 [&_select]:flex-1 [&_select]:min-w-0">
+          {bf.el}
+          <input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)}
+            className="h-[36px] px-2.5 rounded-lg border border-line text-sm bg-wash outline-none flex-1 min-w-0" />
+        </div>
+        <button disabled={busy || !r || r.total.trips === 0} onClick={push}
+          className="h-[38px] rounded-lg bg-accent text-white text-sm font-bold disabled:opacity-50">
+          {busy ? 'Pushing…' : 'Push to expense claim'}
+        </button>
+      </div>
+      <div className="px-4 pt-3 flex flex-col gap-2.5">
+        {msg && <p className="text-sm font-medium text-navy">{msg}</p>}
+        {r && (
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { l: 'Trips', v: String(r.total.trips) },
+              { l: 'Distance', v: r.total.distanceKm + ' km' },
+              { l: 'To claim', v: money(r.total.cost), red: true },
+            ].map((t) => (
+              <div key={t.l} className="rounded-xl border border-[#cfd4de] bg-white px-3 py-2.5">
+                <p className="text-xs font-semibold text-muted">{t.l}</p>
+                <p className={'text-lg font-bold leading-tight mt-0.5 truncate ' + (t.red ? 'text-accent' : '')}>{t.v}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        {!r ? (
+          [0, 1].map((i) => <div key={i} className="h-[92px] rounded-xl bg-white animate-pulse" />)
+        ) : r.people.length === 0 ? (
+          <div className="row-card text-center py-8">
+            <p className="text-base font-bold">No trips on this day</p>
+            <p className="text-sm text-muted mt-1">Pick another date above.</p>
+          </div>
+        ) : r.people.map((p) => {
+          const st = statusOf(p);
+          return (
+            <div key={p.userId} data-row-card className="row-card block">
+              <div className="flex items-center gap-2.5">
+                <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                  style={{ background: p.color || '#141414' }}>{initials(p.name)}</span>
+                <p className="flex-1 min-w-0 text-base font-bold truncate">{p.name}</p>
+                <span className={'shrink-0 inline-flex items-center h-[22px] px-2 rounded-full text-xs font-semibold ' + st.cls}>{st.label}</span>
+              </div>
+              <div className="mt-2 rounded-lg bg-ground px-2.5 py-1.5 flex items-center gap-3 text-sm">
+                <span><span className="font-bold">{p.trips}</span> <span className="text-muted">{p.trips === 1 ? 'trip' : 'trips'}</span></span>
+                <span className="font-bold">{p.distanceKm} km</span>
+                <span className="ml-auto font-bold">{money(p.cost)}</span>
+              </div>
+            </div>
+          );
+        })}
+        <p className="text-xs text-muted px-1 pb-2">
+          Totals rebuild live from the day&rsquo;s trips; only rejected trips are left out. Pushed trips land in each
+          person&rsquo;s <Link href="/expenses" className="text-accent font-semibold">Expenses</Link> at GPS distance × the ₹/km rate.
+        </p>
+      </div>
+    </div>
+
+    {/* ------------------------------------------------------------- desk */}
+    <div className="max-lg:hidden p-4 lg:p-6 max-w-[900px]">
       <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-[20px] font-semibold">Daily trip report</h1>
@@ -159,5 +229,6 @@ export default function TripReport() {
         folder, locked to the GPS distance × the ₹/km rate — approve there and RazorpayX pays it out.
       </p>
     </div>
+    </>
   );
 }

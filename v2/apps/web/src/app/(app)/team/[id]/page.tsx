@@ -768,7 +768,7 @@ export default function TeamMember() {
             scroll away; this bar does not, and it carries the error to where it
             will actually be read. Pinned clear of the shell's tab bar. */}
         <div className="lg:hidden fixed left-0 right-0 z-30
-          bottom-[calc(max(12px,env(safe-area-inset-bottom))+70px)]
+          bottom-[calc(env(safe-area-inset-bottom)+60px+var(--trip-gap,0px))]
           bg-white border-t border-line px-4 pt-2.5 pb-2.5">
           {err && <p className="text-accent text-[13px] mb-2 leading-snug">{err}</p>}
           <div className="flex gap-2.5">

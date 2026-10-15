@@ -71,6 +71,36 @@ async function fcmToken(): Promise<string | null> {
 // The document id inside the text becomes the deep link on tap.
 const REF = /\b(?:JOB|SER|TSK|EXR|INV|QUO|AMC|CON|SVC|TR|LD|RCT|RCPT)-[A-Za-z0-9-]+/;
 
+/* A new lead for a salesperson RINGS (the app plays the call ringtone for
+   about ten seconds - mobile LeadRingService/Ringer). It goes data-only, so
+   it reaches the app's own handler even when the app is closed; a
+   notification message would be shown silently by Android instead. */
+const RINGS = /^(New lead LD-|Lead LD-\S+ assigned to you)/;
+
+/** Who a row is about, and how it should arrive: a ring, or a notification. */
+function messageFor(row: { text: string }, token: string) {
+  const ref = (REF.exec(row.text) || [''])[0];
+  if (RINGS.test(row.text) && /^LD-/.test(ref)) {
+    return {
+      token,
+      android: { priority: 'high', ttl: '120s' },
+      data: {
+        kind: 'ring', title: 'New lead - call now', body: row.text,
+        ref, path: '/leads?open=' + ref,
+      },
+    };
+  }
+  return {
+    token,
+    notification: { title: 'PestOps', body: row.text },
+    android: {
+      priority: 'high',
+      notification: { channel_id: 'pestops-alerts-3', default_sound: true },
+    },
+    data: { ref },
+  };
+}
+
 async function pushRow(prisma: PrismaClient, row: { userId: string; text: string }) {
   const s = serviceAccount();
   if (!s) return;
@@ -86,17 +116,7 @@ async function pushRow(prisma: PrismaClient, row: { userId: string; text: string
         {
           method: 'POST',
           headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: {
-              token: d.token,
-              notification: { title: 'PestOps', body: row.text },
-              android: {
-                priority: 'high',
-                notification: { channel_id: 'pestops-alerts-3', default_sound: true },
-              },
-              data: { ref: (REF.exec(row.text) || [''])[0] },
-            },
-          }),
+          body: JSON.stringify({ message: messageFor(row, d.token) }),
         },
       );
       // Google says the phone is gone — stop addressing it.
@@ -175,6 +195,48 @@ async function eveningUnassigned(prisma: PrismaClient) {
   });
 }
 
+/**
+ * About half an hour before each visit, its crew hears about it.
+ *
+ * A technician with a day of visits can lose track of the next one; the
+ * morning digest is hours old by the afternoon. Each visit today that has
+ * people on it and is still to happen gets one reminder, 25-35 minutes
+ * ahead (the loop runs every few seconds, so the window is never missed).
+ * A Seq row per visit and day makes it once only, across restarts.
+ */
+async function visitReminders(prisma: PrismaClient) {
+  const now = new Date();
+  const mins = now.getHours() * 60 + now.getMinutes();
+  const jobs = await prisma.job.findMany({
+    where: { date: isoDay(0), status: { in: ['scheduled', 'enroute'] }, NOT: { techIds: { isEmpty: true } } },
+  });
+  const due = jobs.filter((j) => {
+    const m = /^(\d{1,2}):(\d{2})/.exec(j.slot || '');
+    if (!m) return false;
+    const ahead = Number(m[1]) * 60 + Number(m[2]) - mins;
+    return ahead >= 25 && ahead <= 35;
+  });
+  if (!due.length) return;
+  const clients = await prisma.client.findMany({
+    where: { id: { in: due.map((j) => j.clientId) } }, select: { id: true, name: true },
+  });
+  const nameOf = new Map(clients.map((c) => [c.id, c.name]));
+  const at = stampNow();
+  for (const j of due) {
+    const key = 'remind:' + j.id + ':' + j.date;
+    if (await prisma.seq.findUnique({ where: { key } })) continue;
+    await prisma.seq.create({ data: { key, value: 1 } });
+    const [h, m] = j.slot.split(':').map(Number);
+    const clock = (h % 12 || 12) + ':' + String(m).padStart(2, '0') + (h >= 12 ? ' PM' : ' AM');
+    await prisma.notification.createMany({
+      data: j.techIds.map((t) => ({
+        userId: t, at,
+        text: `Reminder: service ${j.id} at ${clock} today - ${nameOf.get(j.clientId) || j.clientId}. Starts in about 30 minutes.`,
+      })),
+    });
+  }
+}
+
 /* ------------------------------------------------------------- the loop */
 
 export function startPushWatcher(prisma: PrismaClient) {
@@ -207,6 +269,7 @@ export function startPushWatcher(prisma: PrismaClient) {
         await prisma.seq.update({ where: { key: 'push-cursor' }, data: { value: cursor } });
       }
 
+      await visitReminders(prisma);
       const hour = new Date().getHours();
       if (hour >= 7 && (await onceToday(prisma, 'digest-am'))) await morningDigest(prisma);
       if (hour >= 18 && (await onceToday(prisma, 'digest-pm'))) await eveningUnassigned(prisma);
@@ -214,6 +277,7 @@ export function startPushWatcher(prisma: PrismaClient) {
     busy = false;
   };
 
-  setInterval(tick, 15000);
+  // Every 3 seconds: a new lead should ring while it is still new.
+  setInterval(tick, 3000);
   void tick();
 }

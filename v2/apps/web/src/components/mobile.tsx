@@ -51,6 +51,36 @@ export function niceDate(iso: string): string {
   return d.getDate() + ' ' + MON[d.getMonth()];
 }
 
+/** '14:30' → "2:30 PM". Times are never shown in 24-hour form. */
+export function ampm(hhmm?: string | null): string {
+  const m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm || ''));
+  if (!m) return '';
+  const h = Number(m[1]);
+  return (h % 12 || 12) + ':' + m[2] + ' ' + (h >= 12 ? 'PM' : 'AM');
+}
+
+/** 2026-08-20 -> "Thu, 20 Aug 2026": a date with its year, for a card. */
+export function fullDate(iso?: string | null): string {
+  const p = String(iso || '').split('-').map(Number);
+  if (p.length !== 3 || !p[0]) return '';
+  const d = new Date(p[0], p[1] - 1, p[2]);
+  const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return WD[d.getDay()] + ', ' + d.getDate() + ' ' + MON[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+/** A visit's when, short: "16 Oct · 9:00 AM" (with the year when it is not this year). */
+export function whenShort(iso?: string | null, hhmm?: string | null): string {
+  const p = String(iso || '').split('-');
+  let day = '';
+  if (p.length === 3) {
+    const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const y = Number(p[0]);
+    day = Number(p[2]) + ' ' + MON[Number(p[1]) - 1] + (y !== new Date().getFullYear() ? ' ' + y : '');
+  }
+  return [day, ampm(hhmm)].filter(Boolean).join(' · ');
+}
+
 /* ------------------------------------------------------------------- chip */
 
 export type Tone = 'plain' | 'good' | 'bad' | 'warn' | 'info';
@@ -194,7 +224,7 @@ export function Chip({ tone = 'plain', children }: { tone?: Tone; children: Reac
      printed straight over the vendor's phone number. A chip is two words; it
      keeps its width and the text beside it gives way instead. */
   return (
-    <span className={'inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[12px] '
+    <span className={'inline-flex items-center gap-1 h-[22px] px-2 rounded-full text-xs '
       + 'font-semibold shrink-0 whitespace-nowrap ' + TONE[tone]}>
       <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
       {children}
@@ -232,7 +262,18 @@ function avatarTone(name: string) {
   return AVATAR[n % AVATAR.length];
 }
 
-export function Row({ href, onClick, title, amount, meta, chip, right, onMore, avatar, stats, pill }: {
+export function Row({
+  href, onClick, title, amount, meta, chip, right, onMore, avatar, stats, pill,
+  rightIcon = 'calendar', detail, detailLabel, foot, footId,
+}: {
+  /** The icon in the shaded strip that carries `right`. */
+  rightIcon?: IconName;
+  /** A highlighted one-line detail - what is being sold, what is ordered. */
+  detail?: string;
+  detailLabel?: string;
+  /** A bottom strip: a quiet summary on the left, a reference on the right. */
+  foot?: string;
+  footId?: string;
   href?: string;
   /** For a record that opens where it stands, in a sheet, rather than at a
       route of its own. */
@@ -250,75 +291,83 @@ export function Row({ href, onClick, title, amount, meta, chip, right, onMore, a
   /** A state word on the right, under the place. */
   pill?: React.ReactNode;
 }) {
+  /* One record, one card - the look the Services list set: the name and
+     its figure (or state) on top, the detail under it, the quiet figures
+     last, and a "when" in a shaded strip. Medium, rem-based type throughout
+     (text-base / sm / xs) so the phone's type scale leaves it as drawn, and
+     every line stays one line. */
   const tone = avatar ? avatarTone(avatar) : null;
   const inner = (
     <>
-      <span className="flex items-baseline justify-between gap-3">
-        <span className="text-[15.5px] font-bold tracking-[-0.01em] truncate">{title}</span>
-        {amount && <span className="text-[15.5px] font-bold tabular-nums shrink-0">{amount}</span>}
-        {!amount && (right || pill) && (
-          /* A place and a state, not a number: they read as labels rather
-             than competing with the name for the same weight of black. */
-          <span className="shrink-0 text-right">
-            {pill}
-            {right && (
-              <span className="block text-[12.5px] font-semibold text-sky-ink whitespace-nowrap">
-                {right}
-              </span>
-            )}
-          </span>
-        )}
+      <span className="flex items-center gap-2 min-w-0">
+        <span className="flex-1 min-w-0 text-base font-bold truncate">{title}</span>
+        {amount && <span className="text-base font-bold tabular-nums shrink-0">{amount}</span>}
+        {!amount && pill && <span className="shrink-0">{pill}</span>}
+        {!amount && !pill && chip && <span className="shrink-0">{chip}</span>}
       </span>
-      {/* The chip rides on the meta line instead of taking a third row of
-          its own. Three stacked lines per record turned a list of eight
-          customers into a wall — the tag is one word and belongs beside the
-          detail it qualifies, not underneath it. */}
-      {(meta || chip) && (
-        <span className={'flex items-center gap-2 min-w-0 ' + (stats ? 'mt-1' : 'mt-2')}>
-          {chip}
-          {meta && <span className="text-[13.5px] text-muted truncate min-w-0">{meta}</span>}
-          {onMore && (
-            <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMore(); }}
-              aria-label="More"
-              className="w-9 h-9 -mr-2 flex items-center justify-center text-muted-2">
-              <Icon name="more" size={17} />
-            </button>
-          )}
+      {(meta || (amount && chip) || (pill && chip)) && (
+        <span className="flex items-center gap-2 min-w-0 mt-1">
+          {(amount || pill) && chip}
+          {meta && <span className="text-sm text-ink-2 truncate min-w-0">{meta}</span>}
         </span>
       )}
-      {/* The figures last, quietest of the three lines. They are what you
-          check after you have found the name, not what you scan for. */}
-      {stats && (
-        <span className="block text-[12.5px] text-muted-2 mt-1 truncate">{stats}</span>
+      {stats && <span className="block text-xs text-muted truncate mt-0.5">{stats}</span>}
+      {right && (
+        <span className="mt-2 rounded-lg bg-ground px-2.5 py-1.5 flex items-center gap-2 min-w-0">
+          <Icon name={rightIcon} size={13} className="text-muted shrink-0" />
+          <span className="text-sm font-semibold truncate">{right}</span>
+        </span>
+      )}
+      {detail && (
+        <span className="mt-2 block text-sm text-sky-ink font-semibold truncate">
+          {detailLabel && (
+            <span className="text-xs font-bold uppercase tracking-[0.05em] text-muted-2 mr-1.5">{detailLabel}</span>
+          )}
+          {detail}
+        </span>
       )}
     </>
   );
 
-  const body = tone ? (
+  const body = (
     <span className="flex items-start gap-3">
-      <span className={'w-10 h-10 rounded-full shrink-0 flex items-center justify-center '
-        + 'text-[13px] font-bold ' + tone.bg + ' ' + tone.fg}>
-        {initialsOf(avatar || '')}
-      </span>
-      <span className="flex-1 min-w-0">{inner}</span>
+      {tone && (
+        <span className={'w-9 h-9 rounded-full shrink-0 flex items-center justify-center '
+          + 'text-xs font-bold ' + tone.bg + ' ' + tone.fg}>
+          {initialsOf(avatar || '')}
+        </span>
+      )}
+      <span className="flex-1 min-w-0 block">{inner}</span>
+      {onMore && (
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMore(); }}
+          aria-label="More"
+          className="w-8 h-8 -mr-1.5 flex items-center justify-center text-muted-2 shrink-0">
+          <Icon name="more" size={16} />
+        </button>
+      )}
     </span>
-  ) : inner;
+  );
 
-  /* Roomier and shorter at the same time: the third line is gone, so the
-     space it used to take becomes breathing room around two. */
-  /* A one-line row needs air around it more than a three-line one did: the
-     space that used to be filled with a contact and a phone number becomes
-     the gap between one customer and the next. */
-  const cls = 'block px-4 border-b border-line-soft last:border-b-0 active:bg-wash '
-    + (stats ? 'py-4' : 'py-5');
-  if (href) return <Link href={href} className={cls}>{body}</Link>;
+  const footStrip = (foot || footId) ? (
+    <span className="-mx-3.5 -mb-3 mt-2.5 px-3.5 py-2 border-t border-line-soft bg-[#fafbfc] flex items-center gap-2.5 rounded-b-xl">
+      <span className="flex-1 min-w-0 text-sm text-ink-2 truncate">{foot}</span>
+      {footId && <span className="text-xs font-mono text-muted-2 shrink-0">{footId}</span>}
+    </span>
+  ) : null;
+  const all = <>{body}{footStrip}</>;
+  const cls = 'block w-full text-left rounded-xl bg-white border border-[#cfd4de] px-3.5 py-3 '
+    + 'shadow-[0_1px_3px_rgba(20,20,20,0.08),0_4px_12px_rgba(20,20,20,0.08)] active:bg-wash';
+  if (href) return <Link href={href} className={cls} data-row-card>{all}</Link>;
   if (onClick) {
-    return (
-      <button type="button" onClick={onClick} className={cls + ' w-full text-left'}>{body}</button>
-    );
+    return <button type="button" onClick={onClick} className={cls} data-row-card>{all}</button>;
   }
-  return <div className={cls}>{body}</div>;
+  return <div className={cls} data-row-card>{all}</div>;
+}
+
+/** A stack of row cards - what a list of records sits in. */
+export function RowCards({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <div className={'flex flex-col gap-2.5 ' + className}>{children}</div>;
 }
 
 /* ------------------------------------------------------------------- card */
@@ -356,7 +405,7 @@ export function Card({ title, action, actionHref, icon, flush, children, classNa
           )}
         </header>
       )}
-      <div className={flush ? '' : 'px-4 py-4'}>{children}</div>
+      <div data-card-body className={flush ? '' : 'px-4 py-4'}>{children}</div>
     </section>
   );
 }
@@ -388,7 +437,7 @@ export function Fold({ title, count, icon, children, open: initial }: {
         <Icon name="chevRight" size={16}
           className={'text-muted-2 shrink-0 transition-transform ' + (open ? 'rotate-90' : '')} />
       </button>
-      {open && <div className="border-t border-line">{children}</div>}
+      {open && <div data-card-body className="border-t border-line">{children}</div>}
     </section>
   );
 }
@@ -510,10 +559,10 @@ export function Filters({ value, onChange, options }: {
   options: Array<{ key: string; label: string }>;
 }) {
   return (
-    <div className="flex gap-2 px-4 py-3 overflow-x-auto no-scrollbar bg-white">
+    <div className="flex gap-2 px-4 py-2.5 overflow-x-auto no-scrollbar bg-white">
       {options.map((o) => (
         <button key={o.key} onClick={() => onChange(o.key)}
-          className={'h-[34px] px-4 rounded-full text-[14px] font-semibold whitespace-nowrap shrink-0 '
+          className={'h-[30px] px-3.5 rounded-full text-sm font-semibold whitespace-nowrap shrink-0 '
             + (value === o.key
               ? 'bg-accent text-white'
               : 'bg-white border border-line text-ink')}>
@@ -551,7 +600,7 @@ export function PickChip({ label, value, options, onPick }: {
   return (
     <>
       <button type="button" onClick={() => { setQ(''); setOpen(true); }}
-        className={'h-[34px] pl-3.5 pr-2.5 rounded-full text-[13.5px] font-semibold '
+        className={'h-[30px] pl-3 pr-2 rounded-full text-sm font-semibold '
           + 'inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 '
           + (on ? 'bg-accent text-white' : 'bg-white border border-line text-ink')}>
         <span className="truncate max-w-[130px]">{on ? picked?.label || value : label}</span>
@@ -606,9 +655,9 @@ export function ScreenTitle({ title, children }: { title: string; children?: Rea
      app bar — it ate the top of every list and made the page title shout
      louder than anything on the page. */
   return (
-    <div className="relative bg-white px-4 h-[56px] border-b border-line
+    <div className="relative bg-white px-4 h-[52px] border-b border-line
       flex items-center justify-between gap-2">
-      <h1 className="text-[16px] font-semibold truncate min-w-0">{title}</h1>
+      <h1 className="text-[1.1rem] font-semibold truncate min-w-0">{title}</h1>
       <span className="flex items-center gap-2 shrink-0">{children}</span>
     </div>
   );
@@ -618,8 +667,8 @@ export function ScreenTitle({ title, children }: { title: string; children?: Rea
 export function IconButton({ name, onClick, href, label }: {
   name: IconName; onClick?: () => void; href?: string; label: string;
 }) {
-  const cls = 'w-[38px] h-[38px] rounded-full bg-wash flex items-center justify-center active:brightness-95';
-  const inner = <Icon name={name} size={19} />;
+  const cls = 'w-[34px] h-[34px] rounded-full bg-wash flex items-center justify-center active:brightness-95';
+  const inner = <Icon name={name} size={17} />;
   return href
     ? <Link href={href} aria-label={label} className={cls}>{inner}</Link>
     : <button onClick={onClick} aria-label={label} className={cls}>{inner}</button>;
@@ -631,7 +680,7 @@ export function Fab({ href, onClick, label = 'New' }: {
 }) {
   /* Clear of the tab bar. At +76px the button's lower half sat behind the
      floating bar and read as half-hidden. */
-  const cls = 'lg:hidden fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+104px)] z-30 '
+  const cls = 'lg:hidden fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+76px+var(--trip-gap,0px))] z-30 '
     + 'w-14 h-14 rounded-full bg-accent text-white flex items-center justify-center '
     + 'shadow-[0_6px_18px_rgba(255,0,0,0.35)] active:brightness-90';
   const inner = <Icon name="plus" size={25} />;
@@ -780,9 +829,9 @@ export const btnQuiet = 'flex-1 h-12 rounded-xl bg-wash text-ink font-bold text-
 export function Alert({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Link href={href}
-      className="flex items-center gap-2.5 bg-rose rounded-2xl px-3.5 py-3 active:brightness-95">
-      <Icon name="alert" size={19} className="text-rose-ink shrink-0" />
-      <span className="flex-1 text-[14px] font-semibold text-rose-ink">{children}</span>
+      className="flex items-center gap-2.5 bg-rose rounded-xl px-3.5 py-2.5 active:brightness-95">
+      <Icon name="alert" size={16} className="text-rose-ink shrink-0" />
+      <span className="flex-1 text-sm font-semibold text-rose-ink">{children}</span>
       <Icon name="chevRight" size={16} className="text-rose-ink shrink-0" />
     </Link>
   );
@@ -807,6 +856,11 @@ export interface ListRow {
   stats?: string;
   /** A state word on the right. */
   pill?: React.ReactNode;
+  rightIcon?: IconName;
+  detail?: string;
+  detailLabel?: string;
+  foot?: string;
+  footId?: string;
 }
 
 /**
@@ -903,14 +957,15 @@ export function ListScreen({
             )}
           </Card>
         ) : (
-          <Card flush className="mb-4">
+          <RowCards className="mb-4">
             {rows.map((r) => (
               <Row key={r.id} href={r.href} onClick={r.onClick} avatar={r.avatar}
-                stats={r.stats} pill={r.pill}
+                stats={r.stats} pill={r.pill} rightIcon={r.rightIcon}
+                detail={r.detail} detailLabel={r.detailLabel} foot={r.foot} footId={r.footId}
                 title={r.title} amount={r.amount} right={r.right} meta={r.meta}
                 chip={r.state ? <Chip tone={r.tone || 'plain'}>{r.state}</Chip> : undefined} />
             ))}
-          </Card>
+          </RowCards>
         )}
       </div>
 
@@ -941,13 +996,13 @@ export function SearchBox({ value, onChange, placeholder, focus }: {
   value: string; onChange: (v: string) => void; placeholder?: string; focus?: boolean;
 }) {
   return (
-    <div className={'bg-white px-4 pt-3 pb-3 ' + (focus ? 'border-b border-line' : '')}>
-      <label className="flex items-center gap-2.5 h-11 px-3.5 rounded-xl bg-ground
+    <div className={'bg-white px-4 pt-2.5 pb-1 ' + (focus ? 'border-b border-line' : '')}>
+      <label className="flex items-center gap-2 h-[38px] px-3 rounded-xl bg-ground
         focus-within:ring-2 focus-within:ring-accent/30">
-        <Icon name="search" size={16} className="text-muted-2 shrink-0" />
+        <Icon name="search" size={15} className="text-muted-2 shrink-0" />
         <input value={value} onChange={(e) => onChange(e.target.value)} autoFocus={focus}
           placeholder={placeholder || 'Search…'}
-          className="flex-1 min-w-0 bg-transparent text-[15px] outline-none" />
+          className="flex-1 min-w-0 bg-transparent text-sm outline-none" />
         {value && (
           <button type="button" onClick={() => onChange('')} aria-label="Clear search"
             className="shrink-0 w-6 h-6 rounded-full bg-line-soft flex items-center justify-center">
@@ -1017,7 +1072,7 @@ export function BackBar({ title, sub, fallback = '/dashboard', right, onBack }: 
   const router = useRouter();
   return (
     <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-line-soft
-      relative flex items-center gap-2 h-[60px] px-2">
+      relative flex items-center gap-2 h-[54px] px-2">
       <button
         onClick={() => {
           if (onBack) { onBack(); return; }
@@ -1029,8 +1084,8 @@ export function BackBar({ title, sub, fallback = '/dashboard', right, onBack }: 
         <Icon name="chevRight" size={22} className="rotate-180" />
       </button>
       <span className="min-w-0 flex-1">
-        <span className="block text-[16px] font-semibold truncate leading-tight">{title}</span>
-        {sub && <span className="block text-[12.5px] text-muted truncate">{sub}</span>}
+        <span className="block text-[1.1rem] font-semibold truncate leading-tight">{title}</span>
+        {sub && <span className="block text-xs text-muted truncate">{sub}</span>}
       </span>
       {right}
     </div>

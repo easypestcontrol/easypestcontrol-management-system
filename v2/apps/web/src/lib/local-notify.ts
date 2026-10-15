@@ -55,10 +55,15 @@ export async function ensureNotifyReady(): Promise<void> {
   } catch { ready = false; }
 }
 
+/* A new lead already rings like a call from the push (apps/mobile Ringer);
+   a second "PestOps" banner for it would only be noise. Same rule as RINGS
+   in apps/api/src/notifications/push.ts. */
+const RINGS = /^(New lead LD-|Lead LD-\S+ assigned to you)/;
+
 /** One banner on the OS's own channel, which carries the system tone. */
 export function localNotify(id: number, title: string, body: string): void {
   const p = plugin();
-  if (!p) return;
+  if (!p || RINGS.test(body)) return;
   void ensureNotifyReady().then(() =>
     p.schedule({
       notifications: [{ id: id % 2147483647, title, body, channelId: CHANNEL }],

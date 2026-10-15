@@ -13,6 +13,14 @@
    makes it bigger - what has been drawn is kept, the same shape, in the new
    space. Clear starts over; Use this signature hands back a PNG cropped to
    the ink, so the image is the signature and not a screenful of white.
+
+   Always landscape on a phone. A signature is wide, and a portrait phone
+   gives it the narrow way. So the pad first asks the phone to turn the
+   screen (full screen + orientation lock, which Android Chrome allows); if
+   the phone will not - the Android app's WebView, iPhones - the pad turns
+   itself: it is laid out sideways across the portrait screen, and the
+   finger's position is turned with it. Either way the person holds the
+   phone sideways and signs along its length.
    ========================================================================== */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -45,6 +53,36 @@ export default function SignFull({ title, who, onCancel, onDone }: {
      scrolling <main> around it would otherwise clip "the whole screen". */
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  /* Landscape. `turned` = the pad is drawn sideways on a portrait screen. */
+  const [turned, setTurned] = useState(false);
+  useEffect(() => {
+    if (!mounted) return;
+    const phone = () => window.matchMedia('(max-width: 1023px), (pointer: coarse)').matches
+      && Math.min(window.innerWidth, window.innerHeight) < 900;
+    const check = () => setTurned(phone() && window.innerHeight > window.innerWidth);
+    let wentFull = false;
+    // Ask the phone to turn the screen itself; where it says no, `turned` does it.
+    (async () => {
+      if (!phone()) return;
+      try {
+        const el = document.documentElement as HTMLElement & { requestFullscreen?: () => Promise<void> };
+        if (!document.fullscreenElement && el.requestFullscreen) { await el.requestFullscreen(); wentFull = true; }
+        const o = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
+        if (o?.lock) await o.lock('landscape');
+      } catch { /* not allowed here - the pad turns instead */ }
+      check();
+    })();
+    check();
+    window.addEventListener('resize', check);
+    window.addEventListener('orientationchange', check);
+    return () => {
+      window.removeEventListener('resize', check);
+      window.removeEventListener('orientationchange', check);
+      try { (screen.orientation as ScreenOrientation & { unlock?: () => void })?.unlock?.(); } catch { /* fine */ }
+      if (wentFull && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    };
+  }, [mounted]);
 
   /** How the drawing sits in the pad right now: a scale and an offset. */
   const fit = useCallback(() => {
@@ -95,7 +133,11 @@ export default function SignFull({ title, who, onCancel, onDone }: {
   const at = (e: React.PointerEvent): Pt => {
     const r = box.current!.getBoundingClientRect();
     const f = fit();
-    return { x: (e.clientX - r.left - f.ox) / f.k, y: (e.clientY - r.top - f.oy) / f.k };
+    /* Turned a quarter clockwise: the pad's left-to-right runs down the
+       screen, and its top-to-bottom runs from the screen's right to left. */
+    const lx = turned ? e.clientY - r.top : e.clientX - r.left;
+    const ly = turned ? r.right - e.clientX : e.clientY - r.top;
+    return { x: (lx - f.ox) / f.k, y: (ly - f.oy) / f.k };
   };
 
   function down(e: React.PointerEvent) {
@@ -152,8 +194,14 @@ export default function SignFull({ title, who, onCancel, onDone }: {
 
   if (!mounted) return null;
   return createPortal((
-    <div data-sign-full className="fixed inset-0 z-[9000] bg-white flex flex-col select-none"
-      style={{ touchAction: 'none' }}>
+    <div data-sign-full data-turned={turned ? '' : undefined}
+      className={'fixed z-[9000] bg-white flex flex-col select-none ' + (turned ? '' : 'inset-0')}
+      style={turned
+        // The screen's height becomes the pad's width: laid out sideways and
+        // turned a quarter clockwise into place.
+        ? { touchAction: 'none', top: 0, left: '100vw', width: '100vh', height: '100vw',
+          transform: 'rotate(90deg)', transformOrigin: 'top left' }
+        : { touchAction: 'none' }}>
       <div className="flex items-center gap-2 h-14 px-3 border-b border-line shrink-0
         pt-[env(safe-area-inset-top)] box-content">
         <button type="button" onClick={onCancel}
@@ -192,7 +240,7 @@ export default function SignFull({ title, who, onCancel, onDone }: {
 
       <div className="shrink-0 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)] border-t border-line flex items-center gap-3">
         <p className="flex-1 text-[11.5px] text-muted leading-snug lg:hidden">
-          Turn the phone sideways for more room.
+          {turned ? 'Hold the phone sideways and sign along it.' : 'Sign across the screen.'}
         </p>
         <span className="flex-1 max-lg:hidden" />
         <button type="button" onClick={done} disabled={!hasInk}

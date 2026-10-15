@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, type Bootstrap, type Company, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import { BackBar } from '@/components/mobile';
 
 type SectionId = 'org' | 'terms' | 'roles';
 
@@ -150,9 +151,9 @@ export default function Settings() {
   // cursor falls out after every keystroke.
   const field = (label: string, k: keyof Company, wide?: boolean) => (
     <label key={k} className={'block ' + (wide ? 'sm:col-span-2' : '')}>
-      <span className="block text-[12px] font-semibold text-ink-2 mb-1.5">{label}</span>
+      <span className="block text-xs font-semibold text-ink-2 mb-1">{label}</span>
       <input value={String(co[k] ?? '')} onChange={(e) => set(k, e.target.value as never)}
-        className="w-full h-9 px-3 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
+        className="w-full h-[38px] px-3 rounded-lg border border-line text-sm outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
     </label>
   );
 
@@ -164,12 +165,31 @@ export default function Settings() {
   const setList = (key: string, rows: string[]) =>
     set('docTerms', { ...dt, [key]: rows } as never);
 
+  const sectionCls = 'rounded-xl border border-[#cfd4de] bg-white p-4 lg:p-5 shadow-[0_1px_3px_rgba(20,20,20,0.06)]';
+  const btnSm = 'inline-flex items-center gap-1 h-[30px] px-2.5 rounded-md border border-line bg-white text-xs font-semibold hover:bg-wash';
+  const termsCount = DOCS.reduce((a, d) => a + listOf(d.key).filter((t) => t.trim()).length, 0);
+
   return (
-    <div className="p-4 lg:p-6 max-w-[980px] max-lg:bg-ground max-lg:min-h-full">
-      <div className="mb-5 flex items-center justify-between">
+    <div className="lg:p-6 max-w-[980px] max-lg:bg-ground max-lg:min-h-full max-lg:pb-[calc(env(safe-area-inset-bottom)+168px)]">
+      {/* ---------------------------------------------------- phone header */}
+      <BackBar title="Settings" sub={SECTIONS.find((s) => s.id === section)?.sub} fallback="/dashboard" />
+      <div className="lg:hidden sticky top-[54px] z-10 bg-white border-b border-line px-4 py-2">
+        <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-ground">
+          {SECTIONS.map((s) => (
+            <button key={s.id} onClick={() => setSection(s.id)}
+              className={'h-[32px] rounded-lg text-sm font-semibold truncate px-1 '
+                + (section === s.id ? 'bg-white text-ink shadow-[0_1px_2px_rgba(20,20,20,0.12)]' : 'text-muted')}>
+              {s.id === 'org' ? 'Organisation' : s.id === 'terms' ? 'Terms' : 'User roles'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ----------------------------------------------------- desk header */}
+      <div className="max-lg:hidden mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-[20px] font-semibold">Settings</h1>
-          <p className="max-lg:hidden text-muted text-[13px] mt-0.5">Pick a section, change it, save.</p>
+          <p className="text-muted text-[13px] mt-0.5">Pick a section, change it, save.</p>
         </div>
         <div className="flex items-center gap-3">
           {saved && (
@@ -184,90 +204,55 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
-        {/* ------------------------------------------------ section list */}
-        <nav className="lg:w-[230px] shrink-0 flex lg:flex-col gap-1.5 overflow-x-auto no-scrollbar">
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 max-lg:px-4 max-lg:pt-3">
+        {/* ------------------------------------------------ section list (desk) */}
+        <nav className="max-lg:hidden lg:w-[230px] shrink-0 flex flex-col gap-1.5">
           {SECTIONS.map((s) => (
             <button key={s.id} onClick={() => setSection(s.id)}
               className={'text-left rounded-md px-3.5 py-2.5 shrink-0 border transition-colors '
-                + (section === s.id
-                  ? 'border-navy bg-wash'
-                  : 'border-transparent hover:bg-wash')}>
-              <span className={'block text-[13px] font-semibold ' + (section === s.id ? 'text-navy' : '')}>
-                {s.label}
-              </span>
-              <span className="block text-[11px] text-muted max-lg:hidden">{s.sub}</span>
+                + (section === s.id ? 'border-navy bg-wash' : 'border-transparent hover:bg-wash')}>
+              <span className={'block text-[13px] font-semibold ' + (section === s.id ? 'text-navy' : '')}>{s.label}</span>
+              <span className="block text-[11px] text-muted">{s.sub}</span>
             </button>
           ))}
-          <Link href="/credentials"
-            className="text-left rounded-md px-3.5 py-2.5 shrink-0 border border-transparent hover:bg-wash">
+          <Link href="/credentials" className="text-left rounded-md px-3.5 py-2.5 shrink-0 border border-transparent hover:bg-wash">
             <span className="block text-[13px] font-semibold">API keys &amp; credentials ↗</span>
-            <span className="block text-[11px] text-muted max-lg:hidden">
-              Ola Maps, Razorpay, VPS — stored encrypted
-            </span>
+            <span className="block text-[11px] text-muted">Ola Maps, Razorpay, VPS — stored encrypted</span>
           </Link>
         </nav>
 
         {/* --------------------------------------------------- the section */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex flex-col gap-3 lg:gap-5">
+          <input ref={file} type="file" accept="image/*" className="hidden"
+            onChange={(e) => { if (e.target.files?.[0]) onImage(e.target.files[0]); e.target.value = ''; }} />
+
           {section === 'org' && (
             <>
-              <section className="card p-5 mb-5 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
-                <h2 className="text-[14px] font-semibold mb-1">Company logo</h2>
-                <p className="text-muted text-[12.5px] mb-4">
-                  Shown at the top of the sidebar and on printed documents.
+              {/* Branding: the three images that print on every document */}
+              <section className={sectionCls}>
+                <h2 className="text-base font-bold">Branding</h2>
+                <p className="text-sm text-muted mt-0.5 mb-3">
+                  Printed on every quotation, invoice, contract, purchase order and service report - the only signature and seal on them. A PNG with a transparent background prints cleanest.
                 </p>
-                <div className="flex items-center gap-5 flex-wrap">
-                  <span className="w-[120px] h-[64px] rounded border border-line bg-wash flex items-center justify-center overflow-hidden">
-                    {co.logo
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={co.logo} alt="logo" className="max-w-full max-h-full object-contain" />
-                      : <span className="text-muted-2 text-[11px]">No logo yet</span>}
-                  </span>
-                  <div className="flex gap-2">
-                    <button onClick={() => pickImage('logo')}
-                      className="flex items-center gap-1.5 h-8 px-3 rounded border border-line text-[12.5px] font-medium hover:bg-wash">
-                      <Icon name="upload" size={14} /> Upload
-                    </button>
-                    {co.logo && (
-                      <button onClick={() => set('logo', '')}
-                        className="flex items-center gap-1.5 h-8 px-3 rounded border border-line text-[12.5px] font-medium text-accent hover:bg-red-wash">
-                        <Icon name="x" size={14} /> Remove
-                      </button>
-                    )}
-                  </div>
-                  <input ref={file} type="file" accept="image/*" className="hidden"
-                    onChange={(e) => { if (e.target.files?.[0]) onImage(e.target.files[0]); e.target.value = ''; }} />
-                </div>
-              </section>
-
-              <section className="card p-5 mb-5 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
-                <h2 className="text-[14px] font-semibold mb-1">Signature &amp; seal</h2>
-                <p className="text-muted text-[12.5px] mb-4">
-                  Printed together on the &ldquo;Authorised signatory&rdquo; block of every
-                  quotation, invoice, contract and purchase order. A PNG with a
-                  transparent background prints cleanest.
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {([['sign', 'Signature'], ['seal', 'Seal / stamp']] as const).map(([k, label]) => (
-                    <div key={k} className="rounded border border-line-soft p-4">
-                      <div className="text-[12px] font-semibold text-ink-2 mb-2">{label}</div>
-                      <div className="flex items-center gap-4 flex-wrap">
-                        <span className="w-[130px] h-[72px] rounded border border-line bg-wash flex items-center justify-center overflow-hidden">
-                          {co[k]
-                            // eslint-disable-next-line @next/next/no-img-element
-                            ? <img src={co[k]} alt={label} className="max-w-full max-h-full object-contain" />
-                            : <span className="text-muted-2 text-[11px]">Nothing yet</span>}
-                        </span>
-                        <div className="flex gap-2">
-                          <button onClick={() => pickImage(k)}
-                            className="flex items-center gap-1.5 h-8 px-3 rounded border border-line text-[12.5px] font-medium hover:bg-wash">
-                            <Icon name="upload" size={14} /> Upload
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {([['logo', 'Company logo', 'Top of documents & sidebar'], ['sign', 'Signature', 'Authorised signatory'], ['seal', 'Seal / stamp', 'Beside the signature']] as const).map(([k, label, hint]) => (
+                    <div key={k} className="rounded-lg border border-line-soft bg-[#fafbfc] p-3 flex sm:flex-col items-center sm:items-stretch gap-3">
+                      <span className="w-[96px] sm:w-full h-[64px] rounded-md border border-line bg-white flex items-center justify-center overflow-hidden shrink-0">
+                        {co[k]
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={co[k]} alt={label} className="max-w-full max-h-full object-contain p-1" />
+                          : <span className="text-muted-2 text-xs">Nothing yet</span>}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold">{label}</p>
+                        <p className="text-xs text-muted truncate">{hint}</p>
+                        <div className="flex gap-1.5 mt-2">
+                          <button onClick={() => pickImage(k)} className={btnSm}>
+                            <Icon name="upload" size={12} /> {co[k] ? 'Replace' : 'Upload'}
                           </button>
                           {co[k] && (
-                            <button onClick={() => set(k, '')}
-                              className="flex items-center gap-1.5 h-8 px-3 rounded border border-line text-[12.5px] font-medium text-accent hover:bg-red-wash">
-                              <Icon name="x" size={14} /> Remove
+                            <button onClick={() => set(k, '')} className={btnSm + ' text-accent'}>
+                              <Icon name="x" size={12} /> Remove
                             </button>
                           )}
                         </div>
@@ -277,30 +262,42 @@ export default function Settings() {
                 </div>
               </section>
 
-              <section className="card p-5 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
-                <h2 className="text-[14px] font-semibold mb-4">Profile</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {field('Company name', 'name')}
-                  {field('Phone', 'phone')}
-                  {field('Email', 'email')}
-                  {field('GSTIN', 'gstin')}
-                  {field('Home state (decides CGST/SGST vs IGST)', 'state')}
-                  {field('Address', 'addr', true)}
-                  {field('City', 'city')}
-                  {field('PIN', 'pin')}
-                </div>
+              {/* The company, in three groups */}
+              <section className={sectionCls}>
+                <h2 className="text-base font-bold">Company details</h2>
+                <p className="text-sm text-muted mt-0.5 mb-3">What prints at the top of every document.</p>
+                {([
+                  ['Identity', [['Company name', 'name', true], ['GSTIN', 'gstin'], ['Home state (CGST/SGST vs IGST)', 'state']]],
+                  ['Contact', [['Phone', 'phone'], ['Email', 'email']]],
+                  ['Address', [['Address', 'addr', true], ['City', 'city'], ['PIN', 'pin']]],
+                ] as Array<[string, Array<[string, keyof Company, boolean?]>]>).map(([group, fields], gi) => (
+                  <div key={group} className={gi ? 'mt-4 pt-4 border-t border-line-soft' : ''}>
+                    <p className="text-xs font-bold uppercase tracking-[0.06em] text-muted-2 mb-2">{group}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {fields.map(([label, k, wide]) => field(label, k, wide))}
+                    </div>
+                  </div>
+                ))}
               </section>
+
+              <Link href="/credentials" className={sectionCls + ' lg:hidden flex items-center gap-3 active:bg-wash'}>
+                <span className="w-9 h-9 rounded-lg bg-wash flex items-center justify-center shrink-0"><Icon name="lock" size={16} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">API keys &amp; credentials</span>
+                  <span className="block text-xs text-muted truncate">Ola Maps, Razorpay, VPS — stored encrypted</span>
+                </span>
+                <Icon name="chevRight" size={14} className="text-muted-2" />
+              </Link>
             </>
           )}
 
           {section === 'roles' && (
-            <div className="flex flex-col gap-5">
-              <p className="text-[12.5px] text-muted -mb-1">
-                Tick what each role may open; untick to hide the page from their
-                sidebar AND block the address. The administrator always sees everything.
-                Save changes applies it — people see it on their next page load.
+            <>
+              <p className="text-sm text-muted px-1">
+                Tick what each role may open; untick to hide the page from their menu and block its address.
+                The administrator always sees everything. Save to apply.
               </p>
-              {ROLE_LIST.map((r) => {
+              {ROLE_LIST.map((r, ri) => {
                 const ov = (co.roleAccess || {})[r.id] || {};
                 const isOn = (href: string, def: string[]) => ov[href] ?? def.includes(r.id);
                 const flip = (href: string, def: string[]) => {
@@ -308,64 +305,90 @@ export default function Settings() {
                   next[r.id] = { ...ov, [href]: !isOn(href, def) };
                   set('roleAccess', next as never);
                 };
+                const on = PAGES.filter((p) => isOn(p.href, p.def)).length;
                 return (
-                  <section key={r.id} className="card p-5 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
-                    <h2 className="text-[14px] font-semibold mb-1">{r.label}</h2>
-                    <p className="text-muted text-[12px] mb-3.5">
-                      {PAGES.filter((p) => isOn(p.href, p.def)).length} of {PAGES.length} pages visible
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
-                      {PAGES.map((p) => (
-                        <label key={p.href}
-                          className="flex items-center gap-2 text-[12.5px] cursor-pointer select-none">
-                          <input type="checkbox" checked={isOn(p.href, p.def)}
-                            onChange={() => flip(p.href, p.def)}
-                            className="w-4 h-4 accent-[#FF0000]" />
-                          <span className={isOn(p.href, p.def) ? '' : 'text-muted line-through'}>
-                            {p.label}
-                          </span>
-                        </label>
-                      ))}
+                  <details key={r.id} open={ri === 0} className={sectionCls + ' group'}>
+                    <summary className="flex items-center gap-3 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                      <span className="w-9 h-9 rounded-lg bg-sky text-sky-ink flex items-center justify-center shrink-0"><Icon name="team" size={16} /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-base font-bold">{r.label}</span>
+                        <span className="block text-xs text-muted">{on} of {PAGES.length} pages visible</span>
+                      </span>
+                      <Icon name="chevRight" size={14} className="text-muted-2 transition-transform group-open:rotate-90" />
+                    </summary>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mt-3">
+                      {PAGES.map((p) => {
+                        const v = isOn(p.href, p.def);
+                        return (
+                          <button key={p.href} type="button" onClick={() => flip(p.href, p.def)}
+                            className={'h-[34px] px-2.5 rounded-lg border text-sm text-left flex items-center gap-2 '
+                              + (v ? 'border-mint-ink/30 bg-mint text-mint-ink font-semibold' : 'border-line bg-white text-muted')}>
+                            <span className={'w-4 h-4 rounded flex items-center justify-center shrink-0 '
+                              + (v ? 'bg-mint-ink text-white' : 'border border-line-strong')}>
+                              {v && <Icon name="check" size={11} />}
+                            </span>
+                            <span className="truncate">{p.label}</span>
+                          </button>
+                        );
+                      })}
                     </div>
-                  </section>
+                  </details>
                 );
               })}
-            </div>
+            </>
           )}
 
           {section === 'terms' && (
-            <div className="flex flex-col gap-5">
-              {DOCS.map((d) => {
+            <>
+              <p className="text-sm text-muted px-1">
+                {termsCount} terms across {DOCS.length} documents. Each document prints its own list — one line per term.
+              </p>
+              {DOCS.map((d, di) => {
                 const rows = listOf(d.key);
                 return (
-                  <section key={d.key} className="card p-5 max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
-                    <h2 className="text-[14px] font-semibold mb-1">{d.label} terms</h2>
-                    <p className="text-muted text-[12.5px] mb-4">{d.sub}. One line per term.</p>
-                    {rows.map((t, i) => (
-                      <div key={i} className="flex gap-2 mb-2">
-                        <span className="w-6 h-9 flex items-center justify-center text-[12px] text-muted-2 shrink-0">
-                          {i + 1}.
-                        </span>
-                        <input value={t}
-                          onChange={(e) => setList(d.key, rows.map((x, j) => (j === i ? e.target.value : x)))}
-                          className="flex-1 h-9 px-3 rounded-lg border border-line text-[13px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
-                        <button onClick={() => setList(d.key, rows.filter((_, j) => j !== i))}
-                          title="Remove"
-                          className="w-9 h-9 rounded border border-line text-muted hover:text-accent hover:bg-red-wash flex items-center justify-center shrink-0">
-                          <Icon name="x" size={14} />
-                        </button>
-                      </div>
-                    ))}
-                    <button onClick={() => setList(d.key, [...rows, ''])}
-                      className="mt-1 flex items-center gap-1.5 h-8 px-3 rounded border border-line text-[12.5px] font-medium hover:bg-wash">
-                      <Icon name="plus" size={13} /> Add a term
-                    </button>
-                  </section>
+                  <details key={d.key} open={di === 0} className={sectionCls + ' group'}>
+                    <summary className="flex items-center gap-3 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                      <span className="w-9 h-9 rounded-lg bg-rose text-rose-ink flex items-center justify-center shrink-0"><Icon name="file" size={16} /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-base font-bold">{d.label} terms</span>
+                        <span className="block text-xs text-muted truncate">{rows.length} {rows.length === 1 ? 'term' : 'terms'} · {d.sub}</span>
+                      </span>
+                      <Icon name="chevRight" size={14} className="text-muted-2 transition-transform group-open:rotate-90" />
+                    </summary>
+                    <div className="mt-3 flex flex-col gap-2">
+                      {rows.map((t, i) => (
+                        <div key={i} className="flex gap-2 items-center">
+                          <span className="w-6 text-center text-xs font-semibold text-muted-2 shrink-0">{i + 1}.</span>
+                          <input value={t}
+                            onChange={(e) => setList(d.key, rows.map((x, j) => (j === i ? e.target.value : x)))}
+                            className="flex-1 min-w-0 h-[38px] px-3 rounded-lg border border-line text-sm outline-none bg-wash focus:border-accent focus:bg-white" />
+                          <button onClick={() => setList(d.key, rows.filter((_, j) => j !== i))} title="Remove"
+                            className="w-[34px] h-[34px] rounded-md border border-line text-muted hover:text-accent hover:bg-red-wash flex items-center justify-center shrink-0">
+                            <Icon name="x" size={13} />
+                          </button>
+                        </div>
+                      ))}
+                      <button onClick={() => setList(d.key, [...rows, ''])} className={btnSm + ' self-start mt-1'}>
+                        <Icon name="plus" size={12} /> Add a term
+                      </button>
+                    </div>
+                  </details>
                 );
               })}
-            </div>
+            </>
           )}
         </div>
+      </div>
+
+      {/* ------------------------------------------------ phone save bar */}
+      <div className="lg:hidden fixed left-3 right-3 bottom-[calc(env(safe-area-inset-bottom)+68px+var(--trip-gap,0px))] z-20
+        rounded-xl bg-white border border-[#cfd4de] shadow-[0_6px_20px_rgba(20,20,20,0.12)] px-3 py-2 flex items-center gap-3">
+        <span className={'flex-1 min-w-0 text-sm truncate ' + (saved ? (saved.startsWith('Saved') ? 'text-navy font-semibold' : 'text-accent font-semibold') : 'text-muted')}>
+          {saved || 'Changes are kept until you save'}
+        </span>
+        <button onClick={save} className="h-[36px] px-4 rounded-lg bg-accent text-white text-sm font-bold shrink-0">
+          Save changes
+        </button>
       </div>
     </div>
   );

@@ -20,7 +20,6 @@ import {
   type Boot, type BootUser, type ContractDetail, type PlanLineDto,
 } from '../lib';
 import ContractMobile from './mobile';
-import Mandate, { mandatePossible } from '@/components/mandate';
 import Collect from '@/components/collect';
 import PlanDialog from './plan-dialog';
 import CustomerSign from './customer-sign';
@@ -533,9 +532,6 @@ export default function ContractPage() {
             )}
             <Collect contractId={c.id} clientName={cl?.name || ''}
               phone={cl?.phone} role={me?.role || ''} />
-            {mandatePossible(c.billingMode) && (
-              <Mandate contractId={c.id} role={me?.role || ''} />
-            )}
             </div>
               <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1.5">Invoices raised</p>

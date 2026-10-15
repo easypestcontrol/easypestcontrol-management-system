@@ -185,7 +185,7 @@ export class DispatchController {
       date: job.date, slot: job.slot, techIds: [...job.techIds], pinned: job.pinned,
     };
 
-    const data: { date?: string; slot?: string; techIds?: string[]; pinned: boolean } = {
+    const data: { date?: string; slot?: string; techIds?: string[]; headTechId?: string; pinned: boolean } = {
       pinned: true,
     };
     if (dateISO) data.date = String(dateISO);
@@ -200,9 +200,26 @@ export class DispatchController {
       }
       const crew = linesPool ? jobCrewSize(job, linesPool) : await this.crewOfJob(job);
       data.techIds = seen.slice(0, Math.max(1, crew));
+      // The head has to be on the crew: keep the one there was if still on
+      // it, otherwise the first placed - or nobody could record the work.
+      data.headTechId = data.techIds.includes(job.headTechId) ? job.headTechId : (data.techIds[0] || '');
     }
 
     const updated = await this.prisma.job.update({ where: { id: jobId }, data });
+    // Whoever has just been put on it hears about it (bell + phone).
+    const added = (data.techIds || []).filter((t) => !job.techIds.includes(t));
+    if (added.length && updated.status !== 'completed' && updated.status !== 'cancelled') {
+      const cl = await this.prisma.client.findUnique({ where: { id: updated.clientId }, select: { name: true } });
+      const at = new Date();
+      const p = (n: number) => String(n).padStart(2, '0');
+      await this.prisma.notification.createMany({
+        data: added.map((t) => ({
+          userId: t,
+          at: `${at.getFullYear()}-${p(at.getMonth() + 1)}-${p(at.getDate())} ${p(at.getHours())}:${p(at.getMinutes())}`,
+          text: `New service assigned: ${updated.id} - ${cl?.name || updated.clientId} on ${updated.date} at ${updated.slot}.`,
+        })),
+      }).catch(() => { /* the placement stands even if the bell fails */ });
+    }
     return { job: updated, before };
   }
 
@@ -351,7 +368,26 @@ export class DispatchController {
     for (const k of own) for (const l of k.plan) for (const t of l.techIds) {
       if (preferIds.indexOf(t) < 0) preferIds.push(t);
     }
-    const rows = suggestTechs(jl, c.users as TechLike[], c.co, date, c.jobLikes, c.svcNames, br?.id, preferIds);
+    const ranked = suggestTechs(jl, c.users as TechLike[], c.co, date, c.jobLikes, c.svcNames, br?.id, preferIds);
+
+    /* Only people who can actually take it: in this job's branch, working
+       that day, and free for the job's own time - nobody already on another
+       visit that overlaps it. Somebody from another branch, or booked at that
+       hour, is not a choice to offer. */
+    const from = toMin(job.slot || '10:00');
+    const to = from + Math.max(15, jl.mins || 60);
+    const busy = (techId: string) => c.jobLikes.some((o) => o.id !== job.id
+      && o.date === date && o.status !== 'cancelled' && o.techIds.indexOf(techId) >= 0
+      && toMin(o.slot || '00:00') < to && toMin(o.slot || '00:00') + Math.max(15, o.mins || 60) > from);
+    const rows = ranked.filter((r) =>
+      (!br?.id || (r.tech.branches || []).indexOf(br.id) >= 0)
+      && !r.why.some((w) => w.text === 'Not working today')
+      && !busy(r.tech.id))
+      .map((r) => ({
+        ...r,
+        at: from,
+        why: r.why.filter((w) => !/^Free from |^No gap long enough$/.test(w.text)),
+      }));
     const limit = Math.max(1, Number(limitQ) || 6);
     return rows.slice(0, limit).map((r) => ({
       tech: {

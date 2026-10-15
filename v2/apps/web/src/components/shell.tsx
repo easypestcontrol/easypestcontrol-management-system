@@ -19,6 +19,7 @@ import { ensureNotifyReady, localNotify } from '@/lib/local-notify';
 import { initPush, forgetPush } from '@/lib/push';
 import { notePath, notifTime } from '@/components/notification-bell';
 import SelectUpgrade from '@/components/select-upgrade';
+import { TripFloat } from '@/components/trip-live';
 
 type NavItem = { href: string; label: string; icon: IconName; roles?: string[] };
 
@@ -617,7 +618,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         {/* The content sits on the grey ground; every card on it is white. That
             single swap is what stops the desktop reading as a document with
             hairlines drawn on it. */}
-        <main className="flex-1 overflow-y-auto bg-ground max-lg:pb-20">{children}</main>
+        <main className="flex-1 overflow-y-auto bg-ground max-lg:pb-[calc(5rem+var(--trip-gap,0px))]">{children}</main>
 
         {/* Every <select> in the app becomes our own sheet on a phone — one
             listener rather than eighty-one rewrites. */}
@@ -668,14 +669,12 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           const pool = isFieldTech(me.role)
             ? [...techNav, ...visibleAll.filter((n) => !techNav.some((t) => t.href === n.href))]
             : visibleAll;
-          const rest = pool.filter((n) => !primary.some((x) => x.href === n.href));
+          // Pages a phone does not offer at all: the Schedule is the office
+          // planning the week at a desk - on a phone, Services is the list.
+          const PHONE_HIDDEN = ['/schedule'];
+          const rest = pool.filter((n) => !primary.some((x) => x.href === n.href)
+            && PHONE_HIDDEN.indexOf(n.href) < 0);
           const moreActive = rest.some((n) => path === n.href || path.startsWith(n.href + '/'));
-          /* Which tab the pill sits under, and how many there are to slide
-             across. More is the last one; -1 means the page belongs to no tab
-             at all, and the pill simply is not shown. */
-          const tabCount = primary.length + 1;
-          const onTab = primary.findIndex((n) => path === n.href || path.startsWith(n.href + '/'));
-          const activeTab = onTab >= 0 ? onTab : moreActive ? primary.length : -1;
           return (
             <>
               {/* ------------------------------------------------ the tab bar
@@ -695,46 +694,42 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                   Save row of the New customer sheet was covered by the tab
                   bar and could not be tapped at all. A floating tab bar
                   belongs above the page and below anything modal. */}
-              <nav className="lg:hidden fixed left-3 right-3 z-30 bg-white rounded-[26px]
-                px-1.5 py-1.5 shadow-[0_6px_24px_rgba(20,20,20,0.16)]"
-                style={{ bottom: 'max(12px, env(safe-area-inset-bottom))' }}>
-                {/* One pill, which MOVES.
-
-                    Every tab used to carry its own pink background, so the
-                    highlight vanished from one tab and appeared on another —
-                    correct, and dead. There is a single pill now and it slides
-                    to whichever tab you picked. It is positioned in per cent
-                    because the tabs share the width equally, so nothing has to
-                    be measured and it lands exactly right at any screen size. */}
-                <div className="relative flex items-stretch">
-                  <span aria-hidden="true"
-                    className="tab-pill absolute top-0 bottom-0 rounded-[20px] bg-rose"
-                    style={{
-                      width: (100 / tabCount) + '%',
-                      transform: 'translateX(' + (activeTab * 100) + '%)',
-                      opacity: activeTab < 0 ? 0 : 1,
-                    }} />
-                  {primary.map((n) => {
-                    const active = path === n.href || path.startsWith(n.href + '/');
-                    return (
-                      <Link key={n.href} href={n.href}
-                        className={'relative z-10 flex-1 flex flex-col items-center justify-center '
-                          + 'gap-1 h-[54px] rounded-[20px] transition-colors duration-200 '
-                          + (active ? 'text-accent' : 'text-muted')}>
-                        <Icon name={n.icon} size={20} className={active ? '' : 'opacity-70'} />
-                        <span className={'text-[10px] leading-none ' + (active ? 'font-bold' : 'font-medium')}>
-                          {n.label.replace('My ', '')}
+              {/* Docked to the bottom edge, full width (Oct 2026). The floating
+                  rounded bar crowded its labels - "DashboardCustomers" ran
+                  together - and sat over the last card of every list. Now:
+                  five equal tabs, short labels, the picked one marked by a
+                  tinted pill behind its icon and a bold red label. */}
+              {/* A running trip follows him onto every screen. */}
+              <TripFloat />
+              <nav className="lg:hidden fixed inset-x-0 bottom-0 z-30 bg-white border-t border-[#e3e6ee]
+                shadow-[0_-4px_16px_rgba(20,20,20,0.06)]"
+                style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+                <div className="flex items-stretch h-[60px] px-1">
+                  {[...primary.map((n) => ({
+                    key: n.href, href: n.href, icon: n.icon as IconName,
+                    label: n.href === '/dashboard' ? 'Home' : n.label.replace('My ', ''),
+                    active: path === n.href || path.startsWith(n.href + '/'),
+                  })), { key: 'more', href: '', icon: 'more' as IconName, label: 'More', active: moreActive }].map((t) => {
+                    const inner = (
+                      <>
+                        <span className={'flex items-center justify-center w-[46px] h-[28px] rounded-full transition-colors duration-200 '
+                          + (t.active ? 'bg-rose text-accent' : 'text-muted')}>
+                          <Icon name={t.icon} size={19} />
                         </span>
-                      </Link>
+                        <span className={'text-[10.5px] leading-none whitespace-nowrap '
+                          + (t.active ? 'font-bold text-accent' : 'font-medium text-muted')}>
+                          {t.label}
+                        </span>
+                      </>
+                    );
+                    const cls = 'flex-1 min-w-0 flex flex-col items-center justify-center gap-1 active:opacity-70';
+                    return t.href ? (
+                      <Link key={t.key} href={t.href} className={cls} aria-current={t.active ? 'page' : undefined}>{inner}</Link>
+                    ) : (
+                      <button key={t.key} type="button" className={cls}
+                        onClick={(e) => { e.stopPropagation(); setMoreOpen(true); }}>{inner}</button>
                     );
                   })}
-                  <button onClick={(e) => { e.stopPropagation(); setMoreOpen(true); }}
-                    className={'relative z-10 flex-1 flex flex-col items-center justify-center '
-                      + 'gap-1 h-[54px] rounded-[20px] transition-colors duration-200 '
-                      + (moreActive ? 'text-accent' : 'text-muted')}>
-                    <Icon name="board" size={20} className={moreActive ? '' : 'opacity-70'} />
-                    <span className={'text-[10px] leading-none ' + (moreActive ? 'font-bold' : 'font-medium')}>More</span>
-                  </button>
                 </div>
               </nav>
 

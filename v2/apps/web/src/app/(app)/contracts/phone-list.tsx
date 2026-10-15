@@ -107,7 +107,7 @@ export default function PhoneContracts({ rows, boot, onNew }: {
           const on = stage === s.key;
           return (
             <button key={s.key || 'all'} type="button" onClick={() => setStage(s.key)}
-              className={'h-[34px] pl-3.5 pr-2.5 rounded-full text-[13.5px] font-semibold whitespace-nowrap shrink-0 '
+              className={'h-[30px] pl-3 pr-2 rounded-full text-sm font-semibold whitespace-nowrap shrink-0 '
                 + 'inline-flex items-center gap-1.5 '
                 + (on ? 'bg-accent text-white' : 'bg-white border border-line text-ink')}>
               {s.label}
@@ -131,7 +131,7 @@ export default function PhoneContracts({ rows, boot, onNew }: {
         <PickChip label="Sort" value={sort} onPick={setSort} options={SORTS} />
         {(stage || kind || branch || sort || q) && (
           <button type="button" onClick={() => { setStage(''); setKind(''); setBranch(''); setSort(''); setQ(''); }}
-            className="h-[34px] px-3 rounded-full text-[13.5px] font-semibold text-accent whitespace-nowrap shrink-0">
+            className="h-[30px] px-3 rounded-full text-sm font-semibold text-accent whitespace-nowrap shrink-0">
             Clear
           </button>
         )}

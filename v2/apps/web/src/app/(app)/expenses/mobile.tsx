@@ -112,13 +112,13 @@ export default function MyExpensesMobile({ rows, filter, onFilter }: {
             </p>
           </Card>
         ) : (
-          <Card flush className="mb-4">
+          <div className="flex flex-col gap-2.5 mb-4">
             {shown.map((e) => {
               const st = stateOf(e.status);
               return (
-                <div key={e.id} className="flex items-start gap-3 px-4 py-4 border-b border-line-soft last:border-b-0">
-                  <span className="w-11 h-11 rounded-full bg-rose text-rose-ink flex items-center justify-center shrink-0">
-                    <Icon name={catIcon(e.category)} size={19} />
+                <div key={e.id} data-row-card className="row-card flex items-start gap-3">
+                  <span className="w-9 h-9 rounded-full bg-rose text-rose-ink flex items-center justify-center shrink-0">
+                    <Icon name={catIcon(e.category)} size={16} />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-3">
@@ -146,7 +146,7 @@ export default function MyExpensesMobile({ rows, filter, onFilter }: {
                 </div>
               );
             })}
-          </Card>
+          </div>
         )}
       </div>
 

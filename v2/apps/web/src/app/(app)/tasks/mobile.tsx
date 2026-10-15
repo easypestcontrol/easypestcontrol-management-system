@@ -161,7 +161,7 @@ export default function TasksMobile({ rows, canManage, meId, onOpen, onTick, onN
       <div className="flex gap-2 px-4 pb-3 pt-0.5 overflow-x-auto no-scrollbar bg-white border-b border-line">
         {TABS.map((t) => (
           <button key={t.key} type="button" onClick={() => setTab(t.key)}
-            className={'h-[34px] px-4 rounded-full text-[14px] font-semibold whitespace-nowrap shrink-0 flex items-center gap-1.5 '
+            className={'h-[30px] px-3.5 rounded-full text-sm font-semibold whitespace-nowrap shrink-0 flex items-center gap-1.5 '
               + (tab === t.key ? 'bg-accent text-white' : 'bg-white border border-line text-ink')}>
             {t.label}
             {t.n > 0 && (t.key === 'overdue' || t.key === 'approval') && (
@@ -217,7 +217,7 @@ export default function TasksMobile({ rows, canManage, meId, onOpen, onTick, onN
                 + (g.label === 'Overdue' ? 'text-accent' : g.label === 'To check' ? 'text-sky-ink' : 'text-muted')}>
                 {g.label} · {g.items.length}
               </p>
-              <Card flush>
+              <div className="flex flex-col gap-2.5">
                 {g.items.map((t) => {
                   const done = t.status === 'done';
                   const submitted = t.status === 'submitted';
@@ -225,9 +225,7 @@ export default function TasksMobile({ rows, canManage, meId, onOpen, onTick, onN
                   const tone: Tone = done ? 'good' : t.priority === 'high' ? 'bad' : 'info';
                   const mine = t.assignee === meId;
                   return (
-                    <div key={t.id}
-                      className={'flex items-start gap-3 px-4 border-b border-line-soft last:border-b-0 '
-                        + (done ? 'py-3' : 'py-3.5')}>
+                    <div key={t.id} data-row-card className="row-card flex items-start gap-3">
                       {/* The ring, its shape a status: open to fill, submitted a
                           quiet clock, done a quiet check. */}
                       <button type="button" onClick={() => onTick(t)}
@@ -316,7 +314,7 @@ export default function TasksMobile({ rows, canManage, meId, onOpen, onTick, onN
                     </div>
                   );
                 })}
-              </Card>
+              </div>
             </div>
           ))
         )}

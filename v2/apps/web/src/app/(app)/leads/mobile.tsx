@@ -18,8 +18,8 @@
 import { useState } from 'react';
 import { money, moneyShort } from 'shared';
 import { Icon } from '@/components/icons';
-import { BackBar, Card, Fab, PickChip, Screen, SearchBox } from '@/components/mobile';
-import { STAGES, dueState, isOpen, dayDelta, commitment, relDay, type Lead } from './lib';
+import { BackBar, Card, Fab, PickChip, Screen, SearchBox, fullDate } from '@/components/mobile';
+import { STAGES, dueState, isOpen, dayDelta, commitment, relDay, localDay, type Lead } from './lib';
 
 /* The stage, in the words people use out loud, with the tone it deserves.
    A lead in Contract is nearly money; a lost one is history. */
@@ -86,7 +86,7 @@ export default function LeadsMobile({ rows, owners, onOpen, onNew }: {
               ...owners.map((u) => ({ key: u.id, label: u.name }))]} />
         )}
         <button type="button" onClick={() => setStage('')}
-          className={'h-[34px] px-4 rounded-full text-[14px] font-semibold whitespace-nowrap shrink-0 '
+          className={'h-[30px] px-3.5 rounded-full text-sm font-semibold whitespace-nowrap shrink-0 '
             + (stage === '' ? 'bg-accent text-white' : 'bg-white border border-line text-ink')}>
           All {all.length ? '· ' + all.length : ''}
         </button>
@@ -95,7 +95,7 @@ export default function LeadsMobile({ rows, owners, onOpen, onNew }: {
           if (!items.length && stage !== s.id) return null;
           return (
             <button key={s.id} type="button" onClick={() => setStage(stage === s.id ? '' : s.id)}
-              className={'h-[34px] px-4 rounded-full text-[14px] font-semibold whitespace-nowrap shrink-0 '
+              className={'h-[30px] px-3.5 rounded-full text-sm font-semibold whitespace-nowrap shrink-0 '
                 + (stage === s.id ? 'bg-accent text-white' : 'bg-white border border-line text-ink')}>
               {s.label} · {items.length}
             </button>
@@ -136,48 +136,48 @@ export default function LeadsMobile({ rows, owners, onOpen, onNew }: {
             </p>
           </Card>
         ) : (
-          <Card flush className="mb-4">
+          <div className="flex flex-col gap-2.5 mb-4">
             {shown.map((l) => {
               const due = dueState(l);
               const late = due && dayDelta(due.date) <= 0;
               return (
-                <button key={l.id} type="button" onClick={() => onOpen(l.id)}
-                  className="w-full text-left px-4 py-3.5 border-b border-line-soft last:border-b-0
-                    active:bg-wash">
-                  <span className="flex items-baseline justify-between gap-3">
-                    <span className="text-[15.5px] font-bold tracking-[-0.01em] truncate">{l.name}</span>
+                <button key={l.id} type="button" onClick={() => onOpen(l.id)} data-row-card
+                  className="w-full text-left rounded-xl bg-white border border-[#cfd4de] px-3.5 py-3
+                    shadow-[0_1px_3px_rgba(20,20,20,0.08),0_4px_12px_rgba(20,20,20,0.08)] active:bg-wash">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="flex-1 min-w-0 text-base font-bold truncate">{l.name}</span>
                     {l.value > 0 && (
-                      <span className="text-[15px] font-bold tabular-nums shrink-0">{money(l.value)}</span>
+                      <span className="text-base font-bold tabular-nums shrink-0">{money(l.value)}</span>
                     )}
                   </span>
 
-                  <span className="flex items-center gap-2 mt-1.5 min-w-0">
-                    <span className={'inline-flex items-center h-6 px-2.5 rounded-full text-[12px] '
+                  <span className="flex items-center gap-2 mt-1 min-w-0">
+                    <span className={'inline-flex items-center h-[22px] px-2 rounded-full text-xs '
                       + 'font-bold shrink-0 ' + (TONE[l.stage] || 'bg-wash text-muted')}>
                       {label(l.stage)}
                     </span>
-                    <span className="text-[13px] text-muted truncate">
+                    <span className="text-sm text-ink-2 truncate">
                       {[l.area, l.source].filter(Boolean).join(' · ')}
                     </span>
                   </span>
 
+                  <span className="block text-xs text-muted truncate mt-0.5">
+                    {l.phone || 'No number'} · added {fullDate(localDay(l.createdAt)) || relDay(l.createdAt).toLowerCase()}
+                  </span>
+
                   {/* What was promised, and whether it has already gone past.
                       This is the line that decides who gets rung next. */}
-                  {due ? (
-                    <span className={'flex items-center gap-1.5 text-[13px] mt-1.5 font-semibold '
-                      + (late ? 'text-accent' : 'text-ink-2')}>
-                      {late && <Icon name="alert" size={13} className="shrink-0" />}
-                      {due.kind} {due.when} · {due.text}
-                    </span>
-                  ) : (
-                    <span className="block text-[12.5px] text-muted-2 mt-1.5">
-                      {l.phone || 'No number'} · added {relDay(l.createdAt).toLowerCase()}
+                  {due && (
+                    <span className={'mt-2 rounded-lg px-2.5 py-1.5 flex items-center gap-2 min-w-0 '
+                      + (late ? 'bg-red-wash text-accent' : 'bg-ground text-ink')}>
+                      <Icon name={late ? 'alert' : 'calendar'} size={13} className="shrink-0" />
+                      <span className="text-sm font-semibold truncate">{due.kind} {due.when} · {due.text}</span>
                     </span>
                   )}
                 </button>
               );
             })}
-          </Card>
+          </div>
         )}
       </div>
 

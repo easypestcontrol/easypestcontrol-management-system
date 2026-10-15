@@ -40,6 +40,33 @@ public class MainActivity extends BridgeActivity {
         createAlertsChannel();
         wireDownloads();
         openAsked(getIntent());
+        askFullScreenOnce();
+    }
+
+    /**
+     * A new lead rings over the lock screen like a call - which Android 14+
+     * only allows once the person has switched on "full-screen notifications"
+     * for the app. Ask once, on a phone that needs it, and take them straight
+     * to the switch. Without it the lead still rings, just not full screen.
+     */
+    private void askFullScreenOnce() {
+        if (Build.VERSION.SDK_INT < 34) return;
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        if (nm == null || nm.canUseFullScreenIntent()) return;
+        android.content.SharedPreferences prefs = getSharedPreferences("pestops-asks", MODE_PRIVATE);
+        if (prefs.getBoolean("full-screen", false)) return;
+        prefs.edit().putBoolean("full-screen", true).apply();
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Let new leads ring like a call")
+                .setMessage("Allow full-screen notifications so a new lead can ring over the lock screen, the way a phone call does.")
+                .setPositiveButton("Allow", (d, w) -> {
+                    try {
+                        startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
+                                Uri.parse("package:" + getPackageName())));
+                    } catch (Exception ignored) { }
+                })
+                .setNegativeButton("Not now", null)
+                .show();
     }
 
     @Override
@@ -57,13 +84,20 @@ public class MainActivity extends BridgeActivity {
         String url = intent.getStringExtra(OPEN_URL);
         intent.removeExtra(OPEN_URL);
         if (url == null || url.isEmpty() || getBridge() == null) return;
+        Ringer.stop(this); // a lead opened from its ring stops ringing
         String site = getBridge().getServerUrl();
         if (site == null || site.isEmpty()) site = getBridge().getAppUrl();
+        // A path ("/leads?open=LD-1") is on this app's own site.
+        if (url.startsWith("/") && site != null) {
+            Uri s = Uri.parse(site);
+            url = s.getScheme() + "://" + s.getEncodedAuthority() + url;
+        }
         Uri want = Uri.parse(url);
         Uri ours = Uri.parse(site == null ? "" : site);
         if (want.getHost() == null || !want.getHost().equals(ours.getHost())) return;
         WebView web = getBridge().getWebView();
-        if (web != null) web.post(() -> web.loadUrl(url));
+        final String go = url;
+        if (web != null) web.post(() -> web.loadUrl(go));
     }
 
     /**

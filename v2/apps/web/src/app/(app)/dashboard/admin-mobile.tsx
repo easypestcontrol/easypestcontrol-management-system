@@ -16,7 +16,7 @@ import Link from 'next/link';
 import { Icon, type IconName } from '@/components/icons';
 import {
   Card, Chip, Row, Screen, Stack, Stat, QuickTiles, Hero, HeroStats,
-  money, compact, niceDate,
+  money, compact, niceDate, whenShort,
 } from '@/components/mobile';
 import type { DashboardStats, SessionUser } from '@/lib/api';
 import NotificationBell from '@/components/notification-bell';
@@ -198,14 +198,14 @@ export default function AdminMobile({ s, me, actions, branchEl }: {
           )}
 
           {/* -------------------------------------------- today's services */}
-          <Card title="Today's services" action="View all" actionHref="/schedule" flush>
+          <Card title="Today's services" action="View all" actionHref="/jobs" flush>
             {s.upcoming.length === 0 ? (
               <p className="px-4 pb-4 text-[14px] text-muted">Nothing scheduled.</p>
             ) : (
               s.upcoming.slice(0, 4).map((j) => (
                 <Row key={j.id} href={'/jobs/' + j.id}
                   title={j.client}
-                  right={j.slot || niceDate(j.date)}
+                  right={whenShort(j.date, j.slot)}
                   /* Two lines, not four. The status chip said "Scheduled" on
                      every row, which is not information, and the crew string
                      carried raw user ids next to the names — "U10, Mohan S".

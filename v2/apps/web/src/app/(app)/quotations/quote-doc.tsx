@@ -21,6 +21,7 @@ import {
   type DocCompany, type QuoteFull,
 } from './lib';
 import { SignArea } from '@/components/sign-area';
+import { DocLogo } from '@/components/doc-logo';
 
 const STAMP: Record<string, string> = {
   draft: 'text-muted-2 border-line',
@@ -60,10 +61,9 @@ export default function QuoteDoc({ q, company }: { q: QuoteFull; company: DocCom
         {/* ------------------------------------------------------- header */}
         <div className="flex flex-wrap justify-between gap-6">
           <div className="min-w-[230px] flex-1">
-            <div className="mb-3">
+            <div className="mb-3 w-fit max-w-full">
               {company.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={company.logo} alt="" className="h-10 max-w-[120px] object-contain" />
+                <DocLogo src={company.logo} />
               ) : (
                 <span className="w-10 h-10 rounded bg-navy text-white flex items-center justify-center font-bold text-[17px]">
                   {(company.name || 'P').charAt(0)}
@@ -236,18 +236,15 @@ export default function QuoteDoc({ q, company }: { q: QuoteFull; company: DocCom
               </div>
             )}
             <div className="text-center min-w-[180px]">
-              <SignArea sign={q.signExec || q.ownerSign || company.sign} seal={company.seal} />
+              <SignArea sign={company.sign} seal={company.seal} />
               <div className="border-t border-line pt-1.5 mt-1 text-[11.5px] font-semibold">
                 For {company.name}
               </div>
-              <div className="text-[10.5px] text-muted">{q.ownerName} · Authorised signatory</div>
+              <div className="text-[10.5px] text-muted">Authorised signatory</div>
             </div>
           </div>
         </div>
 
-        <div className="text-[10px] text-muted-2 mt-8">
-          This is a computer-generated quotation and does not require a signature.
-        </div>
 
         {/* On paper, the sheets are named; on screen, they are shown below. */}
         {(q.sheets?.length || 0) > 0 && (

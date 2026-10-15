@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { getPosition } from '@/lib/geo';
 import { Icon } from '@/components/icons';
+import SignFull from '@/components/sign-full';
 import type { AreaFinding, ExecRecord, JobDetail } from '../format';
 import { selectCls } from '../ui';
 
@@ -69,14 +70,27 @@ export function geoStamp(): Promise<string | undefined> {
 
 export function PhotoBlock({ list, kind, busy, onAdd, onRemove, onZoom, gallery }: {
   list: string[]; kind: string; busy: boolean;
-  onAdd: (f: File) => void; onRemove: (i: number) => void; onZoom: (src: string) => void;
+  /** One photo; awaited, so a batch from the gallery goes up one after another. */
+  onAdd: (f: File) => unknown; onRemove: (i: number) => void; onZoom: (src: string) => void;
   /** Also offer the gallery. Site photos may have been taken minutes ago on
       another app; the uniform photo may not, and never passes this. */
   gallery?: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const pickRef = useRef<HTMLInputElement>(null);
+  // Several photos picked at once from the gallery: "2 of 5" while they go up.
+  const [upl, setUpl] = useState<{ done: number; of: number } | null>(null);
+  async function addMany(files: File[]) {
+    if (!files.length) return;
+    setUpl({ done: 0, of: files.length });
+    for (let k = 0; k < files.length; k++) {
+      try { await onAdd(files[k]); } catch { /* the next one still goes */ }
+      setUpl({ done: k + 1, of: files.length });
+    }
+    setUpl(null);
+  }
   return (
+    <>
     <div className="grid grid-cols-3 gap-2">
       {list.map((p, i) => (
         <span key={i} className="relative">
@@ -89,16 +103,16 @@ export function PhotoBlock({ list, kind, busy, onAdd, onRemove, onZoom, gallery 
           </button>
         </span>
       ))}
-      <button onClick={() => fileRef.current?.click()} disabled={busy}
+      <button onClick={() => fileRef.current?.click()} disabled={busy || !!upl}
         className="h-20 rounded border border-dashed border-line flex flex-col items-center justify-center gap-1 text-muted hover:bg-wash hover:text-ink disabled:opacity-60">
         <Icon name="plus" size={16} />
         <span className="text-[11px] font-semibold">Camera</span>
       </button>
       {gallery && (
-        <button onClick={() => pickRef.current?.click()} disabled={busy}
+        <button onClick={() => pickRef.current?.click()} disabled={busy || !!upl}
           className="h-20 rounded border border-dashed border-line flex flex-col items-center justify-center gap-1 text-muted hover:bg-wash hover:text-ink disabled:opacity-60">
           <Icon name="upload" size={16} />
-          <span className="text-[11px] font-semibold">Gallery</span>
+          <span className="text-[11px] font-semibold">{upl ? 'Uploading…' : 'Gallery'}</span>
         </button>
       )}
       <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden"
@@ -108,25 +122,35 @@ export function PhotoBlock({ list, kind, busy, onAdd, onRemove, onZoom, gallery 
           if (f) onAdd(f);
           e.target.value = '';
         }} />
-      <input ref={pickRef} type="file" accept="image/*" className="hidden" data-kind={kind}
+      {/* multiple: pick as many photos as were taken, in one go */}
+      <input ref={pickRef} type="file" accept="image/*" multiple className="hidden" data-kind={kind}
         onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onAdd(f);
+          const files = Array.from(e.target.files || []);
           e.target.value = '';
+          void addMany(files);
         }} />
     </div>
+    {upl && (
+      <p className="text-[12px] font-semibold text-muted mt-2" data-photo-progress>
+        Uploading {Math.min(upl.done + 1, upl.of)} of {upl.of} photos…
+      </p>
+    )}
+    </>
   );
 }
 
-export function ChemBlock({ j, busy, onAdd, onRemove, onErr }: {
+export function ChemBlock({ j, busy, onAdd, onRemove, onErr, pendingRef }: {
   j: JobDetail; busy: boolean;
   onAdd: (itemId: string, qty: number) => void; onRemove: (i: number) => void;
   onErr: (msg: string) => void;
+  /** What is filled in but not added yet. The runner adds it on Next, so a
+      chemical picked and measured is never lost for want of one more tap. */
+  pendingRef?: React.MutableRefObject<{ itemId: string; qty: number } | null>;
 }) {
   const inv = new Map(j.inventory.map((i) => [i.id, i]));
   const used = j.exec?.chemicals || [];
   const [sel, setSel] = useState('');
-  const [qty, setQty] = useState('50');
+  const [qty, setQty] = useState('');
 
   /*
    * ONLY what is in the technician's own hand. Not the warehouse, not the
@@ -136,7 +160,9 @@ export function ChemBlock({ j, busy, onAdd, onRemove, onErr }: {
    */
   const [hold, setHold] = useState<Record<string, number> | null>(null); // null = loading
   useEffect(() => {
-    api.get<{ holding: Array<{ itemId: string; qty: number }> }>('/techstock')
+    // The head technician's holding - his own when he records, his when the office does.
+    api.get<{ holding: Array<{ itemId: string; qty: number }> }>(
+      '/techstock' + (j.headTechId ? '?userId=' + encodeURIComponent(j.headTechId) : ''))
       .then((r) => {
         const m: Record<string, number> = {};
         (r.holding || []).forEach((h) => { m[h.itemId] = h.qty; });
@@ -147,14 +173,14 @@ export function ChemBlock({ j, busy, onAdd, onRemove, onErr }: {
 
   const usedOf = (id: string) => used.filter((c) => c.id === id).reduce((a, c) => a + c.qty, 0);
   const leftOf = (id: string) => ((hold || {})[id] ?? 0) - usedOf(id);
-  /* Every chemical, not only what the store has issued.
-     Refusing to record anything a technician is not carrying on paper does
-     not stop him using it — it stops him TELLING us he used it, which is the
-     one thing the report exists for. What he is carrying is still shown
-     against each name, and anything beyond it is recorded as owed to the
-     store rather than quietly dropped. */
-  const avail = j.inventory.filter((i) => i.cat === 'Chemical');
+  /* Only what the store has issued to him, and only while some is left.
+     A chemical is collected from the office against his name first; the
+     server refuses anything else, and anything beyond what he holds. */
+  const issued = j.inventory.filter((i) => i.cat === 'Chemical' && ((hold || {})[i.id] ?? 0) > 0
+    || used.some((c) => c.id === i.id));
+  const avail = j.inventory.filter((i) => i.cat === 'Chemical' && leftOf(i.id) > 0);
   const left = sel ? leftOf(sel) : 0;
+  const unit = inv.get(sel)?.unit || '';
 
   // Keep the selection on something actually available as holdings change.
   useEffect(() => {
@@ -165,23 +191,67 @@ export function ChemBlock({ j, busy, onAdd, onRemove, onErr }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hold, used.length]);
 
+  // Filled in, not yet added: the runner picks this up on Next.
+  const n = parseFloat(qty) || 0;
+  useEffect(() => {
+    if (pendingRef) pendingRef.current = sel && n > 0 ? { itemId: sel, qty: n } : null;
+  }, [pendingRef, sel, n]);
+
+  function add() {
+    if (!sel) { onErr('Pick a chemical'); return; }
+    if (!n) { onErr('Enter how much you used'); return; }
+    if (n > left) { onErr('Only ' + left + ' ' + unit + ' of ' + (inv.get(sel)?.name || 'it') + ' is left with you'); return; }
+    onAdd(sel, n);
+    setQty('');
+    if (pendingRef) pendingRef.current = null;
+  }
+
+  const field = 'w-full h-11 px-3 rounded-lg border border-line bg-white text-[13.5px] outline-none transition-colors '
+    + 'focus:border-accent focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
   return (
-    <div>
+    <div className="flex flex-col gap-3">
       {used.length > 0 && (
-        <div className="flex flex-col gap-2 mb-3">
+        <div className="flex flex-col gap-2">
           {used.map((c, i) => {
             const it = inv.get(c.id);
             return (
-              <div key={i} className="flex items-center gap-3 rounded border border-line px-3 py-2">
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[13px] font-medium truncate">{it?.name || c.id}</span>
-                  <span className="block text-[11.5px] text-muted">{it?.note || ''}</span>
+              <div key={i} data-chem-row className="flex items-center gap-3 rounded-lg border border-line bg-white px-3 py-2.5">
+                <span className="w-8 h-8 rounded-full bg-mint text-mint-ink flex items-center justify-center shrink-0">
+                  <Icon name="check" size={14} />
                 </span>
-                <span className="text-[13px] font-semibold whitespace-nowrap">{c.qty} {it?.unit || ''}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] font-semibold truncate">{it?.name || c.id}</span>
+                  <span className="block text-[12px] text-muted">{c.qty} {it?.unit || ''} used</span>
+                </span>
                 <button onClick={() => onRemove(i)} disabled={busy} aria-label="Remove"
-                  className="w-7 h-7 rounded flex items-center justify-center text-muted hover:bg-red-wash hover:text-accent">
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-muted hover:bg-red-wash hover:text-accent">
                   <Icon name="x" size={13} />
                 </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {hold !== null && issued.length > 0 && (
+        <div data-chem-carry className="rounded-lg border border-line bg-white overflow-hidden">
+          <div className="px-3 py-2 bg-wash border-b border-line-soft grid grid-cols-[1fr_auto_auto_auto] gap-x-3
+            text-[10.5px] font-semibold uppercase tracking-wide text-muted">
+            <span>With you</span><span className="text-right">Issued</span>
+            <span className="text-right">Used here</span><span className="text-right">Left</span>
+          </div>
+          {issued.map((c) => {
+            const had = (hold || {})[c.id] ?? 0;
+            const u = usedOf(c.id);
+            const l = had - u;
+            return (
+              <div key={c.id} className="px-3 py-2 grid grid-cols-[1fr_auto_auto_auto] gap-x-3 items-center
+                text-[12.5px] border-t border-line-soft first:border-t-0 tabular-nums">
+                <span className="min-w-0 truncate font-medium">{c.name}</span>
+                <span className="text-right text-muted">{had} {c.unit}</span>
+                <span className="text-right text-muted">{u || '—'}</span>
+                <span className={'text-right font-semibold ' + (l > 0 ? 'text-mint-ink' : 'text-accent')}>
+                  {l > 0 ? l + ' ' + c.unit : 'None'}
+                </span>
               </div>
             );
           })}
@@ -190,39 +260,50 @@ export function ChemBlock({ j, busy, onAdd, onRemove, onErr }: {
       {hold === null ? (
         <p className="text-[12.5px] text-muted">Checking what you are carrying…</p>
       ) : avail.length === 0 ? (
-        <p className="text-[12.5px] text-muted">
-          No chemicals on this service&rsquo;s list. Ask the office to add them to the
-          service, or leave this step empty.
-        </p>
+        <div className="rounded-lg border border-dashed border-line bg-wash px-3.5 py-3">
+          <p className="text-[13px] font-semibold">
+            {issued.length ? 'Nothing left to use' : 'No chemicals issued to you'}
+          </p>
+          <p className="text-[12px] text-muted mt-0.5">
+            Collect chemicals from the office store — they are issued against your name and
+            appear here with the quantity you hold. If none were used, tap Next.
+          </p>
+        </div>
       ) : (
-        <>
+        <div data-chem-add className="rounded-lg border border-line-soft bg-wash p-3 flex flex-col gap-2.5">
+          <span className="text-[11.5px] font-semibold uppercase tracking-wide text-muted">
+            {used.length ? 'Add another chemical' : 'Add a chemical'}
+          </span>
+          <select value={sel} onChange={(e) => setSel(e.target.value)} className={selectCls + ' w-full'}>
+            {avail.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} — {leftOf(c.id)} {c.unit} left
+              </option>
+            ))}
+          </select>
           <div className="flex gap-2">
-            <select value={sel} onChange={(e) => setSel(e.target.value)} className={selectCls + ' flex-1'}>
-              {avail.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} — {leftOf(c.id) > 0 ? leftOf(c.id) + ' ' + c.unit + ' with you' : 'not issued to you'}
-                </option>
-              ))}
-            </select>
-            <input type="number" min={1} value={qty} onChange={(e) => setQty(e.target.value)}
-              className="w-[88px] h-9 px-3 rounded-lg border border-line text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
-            <button disabled={busy}
-              onClick={() => {
-                const n = parseFloat(qty) || 0;
-                if (!n) { onErr('Enter a quantity'); return; }
-                if (!sel) { onErr('Pick a chemical'); return; }
-                onAdd(sel, n);
-              }}
-              className="h-9 px-3.5 rounded bg-navy text-white flex items-center justify-center hover:brightness-110 disabled:opacity-60">
-              <Icon name="plus" size={15} />
+            <label className="relative flex-1">
+              <input type="number" inputMode="decimal" min={1} max={left > 0 ? left : undefined} value={qty}
+                placeholder={left > 0 ? 'Up to ' + left : 'Quantity used'}
+                onChange={(e) => setQty(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') add(); }}
+                className={field + (unit ? ' pr-14' : '')} />
+              {unit && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12.5px] text-muted pointer-events-none">{unit}</span>
+              )}
+            </label>
+            <button type="button" disabled={busy} onClick={add}
+              className="h-11 px-4 rounded-lg bg-accent text-white text-[13.5px] font-bold
+                flex items-center justify-center gap-1.5 active:brightness-90 disabled:opacity-60 shrink-0">
+              <Icon name="plus" size={14} /> Add
             </button>
           </div>
-          <p className="text-[11.5px] text-muted mt-2">
-            {left > 0
-              ? `Comes off your holding when you finish — ${left} ${inv.get(sel)?.unit || ''} of ${inv.get(sel)?.name || ''} with you.`
-              : 'You are not carrying this one on paper — record it anyway and it shows against you as owed to the store.'}
+          <p className={'text-[12px] ' + (n > left ? 'text-accent font-semibold' : 'text-muted')}>
+            {n > left
+              ? `More than you hold — only ${left} ${unit} left with you.`
+              : `You can use up to ${left} ${unit}. It comes off your stock when you finish.`}
           </p>
-        </>
+        </div>
       )}
     </div>
   );
@@ -238,13 +319,12 @@ export function ChemBlock({ j, busy, onAdd, onRemove, onErr }: {
 export function AreaFindingsBlock({ rows, busy, onChange }: {
   rows: AreaFinding[]; busy: boolean; onChange: (next: AreaFinding[]) => void;
 }) {
-  const [draft, setDraft] = useState<AreaFinding[]>(rows.length ? rows : [{ area: '', text: '' }]);
-
   /* Keep a blank row at the bottom so there is always somewhere to type. */
   const norm = (list: AreaFinding[]) => {
     const filled = list.filter((r) => r.area.trim() || r.text.trim());
     return [...filled, { area: '', text: '' }];
   };
+  const [draft, setDraft] = useState<AreaFinding[]>(() => norm(rows));
 
   const edit = (i: number, key: 'area' | 'text', v: string) => {
     const next = draft.map((r, k) => (k === i ? { ...r, [key]: v } : r));
@@ -263,30 +343,39 @@ export function AreaFindingsBlock({ rows, busy, onChange }: {
     onChange(clean);
   };
 
+  /* Each area is its own small box: the area name on top, what was done
+     under it, full width. Three boxes side by side on a phone left the
+     area name cut off and the work squeezed into a sliver. */
+  const field = 'w-full px-3 rounded-lg border border-line text-[13px] outline-none transition-colors '
+    + 'bg-white focus:border-accent focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2.5">
       {draft.map((r, i) => {
         const last = i === draft.length - 1;
         const empty = !r.area.trim() && !r.text.trim();
         return (
-          <div key={i} className="flex gap-2 items-start">
+          <div key={i} data-area-row className="rounded-lg border border-line-soft bg-wash p-2.5 flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11.5px] font-semibold uppercase tracking-wide text-muted">
+                {last && empty ? 'Add an area' : 'Area ' + (i + 1)}
+              </span>
+              {!(last && empty) && (
+                <button type="button" onClick={() => remove(i)} disabled={busy}
+                  aria-label="Remove this area"
+                  className="h-7 px-2 -mr-1 rounded text-[12px] font-semibold text-muted
+                    hover:bg-white disabled:opacity-30 inline-flex items-center gap-1">
+                  <Icon name="x" size={12} /> Remove
+                </button>
+              )}
+            </div>
             <input value={r.area} disabled={busy} onBlur={commit}
               onChange={(e) => edit(i, 'area', e.target.value)}
-              placeholder="Area"
-              className="w-[104px] shrink-0 h-9 px-2.5 rounded-lg border border-line text-[13px]
-                outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
-            <textarea value={r.text} disabled={busy} onBlur={commit}
+              placeholder="Area (kitchen, store room, bay 2…)"
+              className={field + ' h-10'} />
+            <textarea value={r.text} disabled={busy} onBlur={commit} rows={2}
               onChange={(e) => edit(i, 'text', e.target.value)}
               placeholder="What you did here"
-              className="flex-1 min-h-[36px] px-2.5 py-2 rounded-lg border border-line text-[13px]
-                outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]" />
-            <button type="button" onClick={() => remove(i)}
-              disabled={busy || (last && empty)}
-              aria-label="Remove this area"
-              className="h-9 w-9 shrink-0 rounded border border-line text-muted
-                hover:bg-wash disabled:opacity-30 flex items-center justify-center">
-              <Icon name="x" size={14} />
-            </button>
+              className={field + ' py-2 min-h-[60px] resize-none'} />
           </div>
         );
       })}
@@ -313,82 +402,54 @@ export function LiveTimer({ startedAt }: { startedAt: string }) {
 }
 
 
-/** Pointer-events signature pad, dpr-scaled, saved as a PNG data URL. */
+/**
+ * The customer's signature at the end of a visit.
+ *
+ * It used to be a strip drawn on in the middle of the form, in whatever way
+ * the phone was held. It is now the same full-screen pad every signature in
+ * the app uses (components/sign-full.tsx), which signs in landscape: the box
+ * here says "Tap to sign", opens the pad, and then shows what was signed.
+ * Screens talk to it exactly as before - isInked / clear / data.
+ */
 export function SigPad({ apiRef, big }: {
   apiRef: React.MutableRefObject<{ isInked: () => boolean; clear: () => void; data: () => string } | null>;
   big?: boolean;
 }) {
-  const cvRef = useRef<HTMLCanvasElement>(null);
+  const [img, setImg] = useState('');
+  const [open, setOpen] = useState(false);
+  const imgRef = useRef('');
+  imgRef.current = img;
 
   useEffect(() => {
-    const cv = cvRef.current;
-    if (!cv) return;
-    /* A signature is a wide, short thing.
-       Filling the whole height of a phone made the saved PNG portrait — taller
-       than it is wide — so every report showed a name signed across the middle
-       of a tall white box, printed at stamp size to fit. The pad is now a
-       landscape strip, and what comes out of it is the shape of the line
-       somebody actually signs on. */
-    const h = big ? Math.min(240, Math.max(150, Math.round(window.innerHeight * 0.32))) : 168;
-    cv.style.height = h + 'px';
-    const rect = cv.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    cv.width = Math.max(280, rect.width) * dpr;
-    cv.height = h * dpr;
-    const g = cv.getContext('2d');
-    if (!g) return;
-    g.scale(dpr, dpr);
-    g.lineWidth = 2.2;
-    g.lineCap = 'round';
-    g.lineJoin = 'round';
-    g.strokeStyle = '#141414';
-
-    let drawing = false;
-    const state = { inked: false };
-    const pt = (e: PointerEvent) => {
-      const r = cv.getBoundingClientRect();
-      return { x: e.clientX - r.left, y: e.clientY - r.top };
-    };
-    const down = (e: PointerEvent) => {
-      e.preventDefault();
-      cv.setPointerCapture(e.pointerId);
-      drawing = true;
-      state.inked = true;
-      const p = pt(e);
-      g.beginPath();
-      g.moveTo(p.x, p.y);
-    };
-    const move = (e: PointerEvent) => {
-      if (!drawing) return;
-      e.preventDefault();
-      const p = pt(e);
-      g.lineTo(p.x, p.y);
-      g.stroke();
-    };
-    const up = () => { drawing = false; };
-
-    cv.addEventListener('pointerdown', down);
-    cv.addEventListener('pointermove', move);
-    cv.addEventListener('pointerup', up);
-    cv.addEventListener('pointercancel', up);
-
     apiRef.current = {
-      isInked: () => state.inked,
-      clear: () => { g.clearRect(0, 0, cv.width, cv.height); state.inked = false; },
-      data: () => cv.toDataURL('image/png'),
+      isInked: () => !!imgRef.current,
+      clear: () => setImg(''),
+      data: () => imgRef.current,
     };
-
-    return () => {
-      cv.removeEventListener('pointerdown', down);
-      cv.removeEventListener('pointermove', move);
-      cv.removeEventListener('pointerup', up);
-      cv.removeEventListener('pointercancel', up);
-      apiRef.current = null;
-    };
-  }, [apiRef, big]);
+    return () => { apiRef.current = null; };
+  }, [apiRef]);
 
   return (
-    <canvas ref={cvRef} style={{ height: big ? 220 : 168 }}
-      className="w-full rounded border border-line bg-white touch-none" />
+    <>
+      <button type="button" data-sig-pad onClick={() => setOpen(true)}
+        style={{ height: big ? 200 : 160 }}
+        className={'w-full rounded border bg-white flex items-center justify-center overflow-hidden '
+          + (img ? 'border-line' : 'border-dashed border-accent/50 bg-[#fff7f7]')}>
+        {img ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={img} alt="Customer signature" className="max-h-full max-w-full object-contain p-2" />
+        ) : (
+          <span className="text-center">
+            <span className="block text-[15px] font-bold text-accent">Tap to sign</span>
+            <span className="block text-[12px] text-muted mt-1">Opens a full-screen pad - sign with the phone sideways</span>
+          </span>
+        )}
+      </button>
+      {open && (
+        <SignFull title="Customer signature" who="Customer"
+          onCancel={() => setOpen(false)}
+          onDone={(url) => { setImg(url); setOpen(false); }} />
+      )}
+    </>
   );
 }

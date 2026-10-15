@@ -13,7 +13,7 @@
 
 import Link from 'next/link';
 import { Icon } from '@/components/icons';
-import { BackBar, Card, Chip, Fold, Row, Screen, money, niceDate, type Tone } from '@/components/mobile';
+import { BackBar, Card, Chip, Fold, Row, Screen, money, niceDate, type Tone, whenShort } from '@/components/mobile';
 import PortalCard from '@/components/portal-card';
 import ActionMenu, { type Action } from '@/components/action-menu';
 
@@ -155,7 +155,7 @@ export default function CustomerMobile({ c, actions, note, portal }: {
               return (
                 <Row key={j.id} href={'/jobs/' + j.id}
                   title={j.type || 'Service'}
-                  right={j.slot || ''}
+                  right={whenShort(j.date, j.slot)}
                   meta={niceDate(j.date)}
                   chip={<Chip tone={st.tone}>{st.label}</Chip>} />
               );

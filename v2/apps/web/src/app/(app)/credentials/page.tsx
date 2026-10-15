@@ -22,6 +22,7 @@
    key. Nothing secret is rendered here.
    ========================================================================== */
 
+import { BackBar } from '@/components/mobile';
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '@/components/icons';
@@ -195,10 +196,12 @@ export default function Credentials() {
   const current = editing ? data.items.find((x) => x.id === editing) : undefined;
 
   return (
-    <div className="p-4 lg:p-6 max-w-[1000px] flex flex-col gap-4">
-      <div>
+    <div className="lg:p-6 max-w-[1000px] max-lg:bg-ground max-lg:min-h-full max-lg:pb-[calc(env(safe-area-inset-bottom)+96px)]">
+      <BackBar title="Credentials" sub="Every key the business runs on · stored encrypted" fallback="/settings" />
+      <div className="flex flex-col gap-3 lg:gap-4 max-lg:px-4 max-lg:pt-3">
+      <div className="max-lg:hidden">
         <h1 className="text-[19px] lg:text-[20px] font-semibold">Credentials</h1>
-        <p className="max-lg:hidden text-muted text-[13px] mt-0.5">
+        <p className="text-muted text-[13px] mt-0.5">
           Every key the business runs on, stored encrypted — masked here, revealed
           only when you press the eye. Green is stable, orange is worth a look,
           red needs you.
@@ -219,10 +222,10 @@ export default function Credentials() {
             foot: s.accounts.length ? s.accounts[0] : 'none recorded',
           },
         ].map((t) => (
-          <div key={t.label} className="rounded-xl border border-line bg-white p-4 shadow-card max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{t.label}</p>
-            <p className="mt-1.5 text-[20px] font-bold leading-none text-navy">{t.value}</p>
-            <p className="mt-1.5 text-[11.5px] text-muted-2 truncate">{t.foot}</p>
+          <div key={t.label} className="rounded-xl border border-[#cfd4de] bg-white px-3.5 py-3 lg:p-4 shadow-[0_1px_3px_rgba(20,20,20,0.06)]">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t.label}</p>
+            <p className="mt-1 text-lg lg:text-[20px] font-bold leading-tight text-navy truncate">{t.value}</p>
+            <p className="mt-0.5 text-xs text-muted-2 truncate">{t.foot}</p>
           </div>
         ))}
       </div>
@@ -250,13 +253,13 @@ export default function Credentials() {
         </section>
       )}
 
-      <div className="flex items-center justify-between">
-        <h2 className="text-[14px] font-bold">Every service</h2>
+      <div className="flex items-center justify-between pt-1">
+        <h2 className="text-base font-bold">Every service <span className="text-muted font-semibold">· {data.items.length}</span></h2>
         {/* No "add". The four services are what this app runs on — the app
             knows them, and a list somebody curates by hand only drifts from
             what is actually being paid for. */}
         <button onClick={syncAll} disabled={!!syncing}
-          className="h-10 lg:h-9 px-3.5 rounded border border-line text-[13px] font-semibold hover:bg-wash disabled:opacity-60">
+          className="h-[32px] lg:h-9 px-3 rounded-lg border border-line bg-white text-sm font-semibold hover:bg-wash disabled:opacity-60">
           {syncing === 'all' ? 'Reading…' : 'Refresh all'}
         </button>
       </div>
@@ -273,9 +276,9 @@ export default function Credentials() {
           {data.items.map((c) => {
             const r = renewalTone(c.daysToRenewal);
             return (
-              <section key={c.id}
-                className={'rounded-xl border bg-white shadow-card overflow-hidden '
-                  + (c.active ? 'border-line' : 'border-line-soft opacity-60')}>
+              <section key={c.id} data-row-card
+                className={'rounded-xl border bg-white overflow-hidden shadow-[0_1px_3px_rgba(20,20,20,0.08),0_4px_12px_rgba(20,20,20,0.08)] '
+                  + (c.active ? 'border-[#cfd4de]' : 'border-line-soft opacity-60')}>
                 <header className="px-4 py-3 border-b border-line-soft flex items-start justify-between gap-3">
                   <span className="min-w-0">
                     <span className="flex items-center gap-2 flex-wrap">
@@ -526,6 +529,7 @@ export default function Credentials() {
           </div>
         </Modal>
       )}
+      </div>
     </div>
   );
 }
@@ -643,55 +647,62 @@ function OperationalKeys() {
     );
 
   return (
-    <section className="rounded-xl border border-line bg-white shadow-card overflow-hidden max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
+    <section className="rounded-xl border border-[#cfd4de] bg-white overflow-hidden shadow-[0_1px_3px_rgba(20,20,20,0.08),0_4px_12px_rgba(20,20,20,0.08)]">
       <header className="px-4 py-3 border-b border-line-soft flex items-center justify-between gap-3">
-        <span>
-          <span className="text-[14px] font-bold text-navy">Operational keys</span>
-          <span className="block text-[11.5px] text-muted">
-            What the app itself runs with — encrypted at rest, masked here.
+        <span className="min-w-0 flex items-center gap-2.5">
+          <span className="w-9 h-9 rounded-lg bg-navy text-white flex items-center justify-center shrink-0">
+            <Icon name="lock" size={15} />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-base font-bold text-navy">Operational keys</span>
+            <span className="block text-xs text-muted truncate">
+              {flags ? [flags.ola, flags.razorpay, !!flags.webhook, !!flags.razorpayx].filter(Boolean).length + ' of 4 connected · ' : ''}encrypted, masked here
+            </span>
           </span>
         </span>
-        <span className="flex items-center gap-2">
-          <button onClick={toggleReveal} title={revealed ? 'Hide' : 'Reveal'}
-            className="w-8 h-8 rounded border border-line flex items-center justify-center hover:bg-wash">
-            {revealed ? '🙈' : '👁'}
+        <span className="flex items-center gap-1.5 shrink-0">
+          <button onClick={toggleReveal}
+            className="h-[30px] px-2.5 rounded-md border border-line bg-white text-xs font-semibold hover:bg-wash">
+            {revealed ? 'Hide' : 'Show'}
           </button>
           <button onClick={() => setEditing((v) => !v)}
-            className="h-8 px-3 rounded border border-line text-[12.5px] font-semibold hover:bg-wash">
+            className="h-[30px] px-2.5 rounded-md border border-line bg-white text-xs font-semibold hover:bg-wash">
             {editing ? 'Close' : 'Edit'}
           </button>
         </span>
       </header>
 
-      <div className="px-4 py-3 flex flex-col gap-2.5 text-[12.5px]">
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {flags && dot(flags.ola)}
-          <span className="font-semibold w-[90px]">Ola Maps</span>
-          {masked(revealed?.olaKey, !!flags?.ola)}
-          <span className="text-[11px] text-muted-2">— live map & navigation</span>
-        </div>
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {flags && dot(flags.razorpay)}
-          <span className="font-semibold w-[90px]">Razorpay</span>
-          {masked(revealed ? revealed.rzpKeyId + (revealed.rzpKeySecret ? '  ·  ' + revealed.rzpKeySecret : '') : '', !!flags?.razorpay)}
-          <span className="text-[11px] text-muted-2">— UPI QR collections</span>
-        </div>
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {flags && dot(!!flags.webhook)}
-          <span className="font-semibold w-[90px]">Webhook</span>
-          <span className="text-[12px] text-muted">
-            {flags?.webhook ? 'set — payments report themselves' : 'not set'}
-          </span>
-          <span className="text-[11px] text-muted-2">
-            — without it no online payment is ever recorded
-          </span>
-        </div>
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {flags && dot(!!flags.razorpayx)}
-          <span className="font-semibold w-[90px]">RazorpayX</span>
-          {masked(revealed?.rzpxAccount, !!flags?.razorpayx)}
-          <span className="text-[11px] text-muted-2">— account no. for expense payouts</span>
-        </div>
+      <div className="divide-y divide-line-soft">
+        {([
+          { name: 'Ola Maps', on: !!flags?.ola, what: 'Live map, routes and navigation',
+            value: revealed?.olaKey },
+          { name: 'Razorpay', on: !!flags?.razorpay, what: 'UPI QR and online payments',
+            value: revealed ? revealed.rzpKeyId + (revealed.rzpKeySecret ? '  ·  ' + revealed.rzpKeySecret : '') : '' },
+          { name: 'Webhook', on: !!flags?.webhook, what: 'Records online payments by itself',
+            value: flags?.webhook ? 'set' : '', plain: true },
+          { name: 'RazorpayX', on: !!flags?.razorpayx, what: 'Account for expense payouts',
+            value: revealed?.rzpxAccount },
+        ]).map((k) => (
+          <div key={k.name} className="px-4 py-3 flex items-start gap-3">
+            <span className={'w-9 h-9 rounded-lg flex items-center justify-center shrink-0 '
+              + (k.on ? 'bg-mint text-mint-ink' : 'bg-red-wash text-accent')}>
+              <Icon name={k.on ? 'check' : 'alert'} size={15} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="flex-1 min-w-0 text-sm font-bold truncate">{k.name}</span>
+                <span className={'shrink-0 inline-flex items-center h-[22px] px-2 rounded-full text-xs font-semibold '
+                  + (k.on ? 'bg-mint text-mint-ink' : 'bg-red-wash text-accent')}>
+                  {k.on ? 'Connected' : 'Not set'}
+                </span>
+              </span>
+              <span className="block text-xs text-muted truncate mt-0.5">{k.what}</span>
+              {k.on && !k.plain && (
+                <span className="mt-1.5 block rounded-md bg-ground px-2 py-1">{masked(k.value || '', k.on)}</span>
+              )}
+            </span>
+          </div>
+        ))}
       </div>
 
       {editing && (
@@ -726,7 +737,7 @@ function OperationalKeys() {
           </label>
           <div className="sm:col-span-3">
             <button onClick={save}
-              className="h-9 px-4 rounded bg-navy text-white text-[13px] font-semibold hover:brightness-110">
+              className="h-[36px] px-4 rounded-lg bg-navy text-white text-sm font-semibold hover:brightness-110 max-sm:w-full">
               Save keys
             </button>
           </div>

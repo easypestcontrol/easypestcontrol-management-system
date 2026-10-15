@@ -30,6 +30,7 @@
 
 import { SignArea } from '@/components/sign-area';
 import { fmtDate, type DocCompany } from '../quotations/lib';
+import { DocLogo } from '@/components/doc-logo';
 
 export interface PoDocLine {
   id: number; itemId: string; name: string; cat: string; baseUnit: string;
@@ -102,10 +103,9 @@ export default function PoDoc({ po, company, branchName, branchAddr }: {
         {/* ------------------------------------------------------- header */}
         <div className="flex flex-wrap justify-between gap-6">
           <div className="min-w-[230px] flex-1">
-            <div className="mb-3">
+            <div className="mb-3 w-fit max-w-full">
               {company.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={company.logo} alt="" className="h-10 max-w-[120px] object-contain" />
+                <DocLogo src={company.logo} />
               ) : (
                 <span className="w-10 h-10 rounded bg-navy text-white flex items-center justify-center font-bold text-[17px]">
                   {(company.name || 'P').charAt(0)}
@@ -301,7 +301,7 @@ export default function PoDoc({ po, company, branchName, branchAddr }: {
         </div>
 
         <div className="text-[10px] text-muted-2 mt-8">
-          This is a computer-generated purchase order and does not require a signature.
+          Signed with the company signature and seal.
           {po.receivedAt && <> Goods received {fmtDate(po.receivedAt.slice(0, 10))}.</>}
         </div>
       </div>

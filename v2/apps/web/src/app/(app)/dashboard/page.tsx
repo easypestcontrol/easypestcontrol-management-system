@@ -1,5 +1,6 @@
 'use client';
 
+import { ampm, whenShort } from '@/components/mobile';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, type DashboardStats, type SessionUser } from '@/lib/api';
@@ -230,7 +231,7 @@ export default function Dashboard() {
                         <span className="flex-1 min-w-0">
                           <span className="block text-[13px] font-semibold truncate">{j.client}</span>
                           <span className="block text-[11.5px] text-muted truncate">
-                            {j.slot} · {j.type}{j.techs ? ' · ' + j.techs : ' · no technician yet'}
+                            {ampm(j.slot)} · {j.type}{j.techs ? ' · ' + j.techs : ' · no technician yet'}
                           </span>
                         </span>
                         <span className="text-[11.5px] text-muted-2 shrink-0">{j.id}</span>

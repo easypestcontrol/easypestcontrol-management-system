@@ -4,19 +4,32 @@
    The service report — a proper document, like the quotation and the invoice.
    Opens from the Share link or the "View service report" button once a
    service is completed: what was done, by whom, when, with which chemicals,
-   the photos, and the customer's own signature. No login, phone-first.
+   the photos, what was paid and how, the customer's own signature, and the
+   company's signature and seal. No login, phone-first.
+
+   While the service is still in progress it opens as a PREVIEW: the
+   technician shows it to the customer before they sign (the service
+   steps open it full screen with ?embed=1, which drops the back bar).
    ========================================================================== */
 
 import { useEffect, useState } from 'react';
 import DocBack from '@/components/doc-back';
 import { DownloadPdfCard } from '@/components/download-pdf-card';
+import { SignArea } from '@/components/sign-area';
 import { usePaperFit } from '@/components/paper-fit';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { waLink } from 'shared';
+import { DocLogo } from '@/components/doc-logo';
 
 interface Doc {
   id: string; date: string; slot: string; contractId: string;
   visitNo: number; ofVisits: number;
+  /** Still in progress: a preview, not yet signed or finished. */
+  draft?: boolean;
+  payment: {
+    invoiceId: string; total: number; paid: number; balance: number;
+    rows: Array<{ id: string; amount: number; mode: string; via: string; date: string; at: string; by: string }>;
+  } | null;
   services: Array<{ name: string; warranty: string }>;
   crew: Array<{ name: string; title: string; head: boolean }>;
   exec: {
@@ -31,7 +44,7 @@ interface Doc {
   client: { name: string; contact: string; phone: string; addr: string; city: string } | null;
   company: {
     name: string; tagline: string; logo: string; addr: string; city: string; pin: string;
-    phone: string; email: string; gstin: string;
+    phone: string; email: string; gstin: string; sign?: string; seal?: string;
     docTerms?: { quotation?: string[]; invoice?: string[]; contract?: string[]; service?: string[] };
   };
 }
@@ -46,12 +59,20 @@ const fmtT = (stamp: string) => {
   const h = Number(m[1]);
   return `${((h + 11) % 12) + 1}:${m[2]} ${h >= 12 ? 'PM' : 'AM'}`;
 };
+const inr = (n: number) => '₹' + Math.round(n || 0).toLocaleString('en-IN');
+const hhmm12 = (t: string) => {
+  const m = /^(\d{1,2}):(\d{2})/.exec(t || '');
+  if (!m) return '';
+  const h = Number(m[1]);
+  return `${((h + 11) % 12) + 1}:${m[2]} ${h >= 12 ? 'PM' : 'AM'}`;
+};
 const dur = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60 ? (m % 60) + 'm' : ''}` : `${m} min`);
 
 const LABEL = 'text-[10.5px] uppercase tracking-wider text-gray-400 font-semibold';
 
 export default function PublicReport() {
   const { id } = useParams<{ id: string }>();
+  const embed = useSearchParams()?.get('embed') === '1';
   const [doc, setDoc] = useState<Doc | null>(null);
   const [missing, setMissing] = useState(false);
   const [zoom, setZoom] = useState('');
@@ -87,19 +108,29 @@ export default function PublicReport() {
 
   return (
     <div className="paper-page min-h-screen bg-wash">
-      <DocBack title="Service report" sub={doc.id} fallback={'/jobs/' + doc.id} />
+      {!embed && <DocBack title="Service report" sub={doc.id} fallback={'/jobs/' + doc.id} />}
       <div className="max-w-[860px] mx-auto px-4 py-8 max-sm:py-4 print:p-0 print:max-w-none">
 
       {/* The same three things the quotation preview opens with: where it
           stands, how to keep a copy, then the document itself. */}
-      <div data-doc-banner="completed" className="no-print rounded border border-line bg-white p-4 mb-4">
-        <p className="text-[14px] font-semibold text-navy">Service completed</p>
-        <p className="text-[13px] text-muted mt-1">
-          {co.name} completed {doc.services.map((s) => s.name).join(', ') || 'the service'} on {fmtD(doc.date)}
-          {head?.name ? ', by ' + head.name : ''}. What was done, the photos and the signed
-          acknowledgement are below.
-        </p>
-      </div>
+      {doc.draft ? (
+        <div data-doc-banner="preview" className="no-print rounded border border-accent/40 bg-red-wash p-4 mb-4">
+          <p className="text-[14px] font-semibold text-accent">Report preview</p>
+          <p className="text-[13px] text-ink-2 mt-1">
+            This is the report {doc.client?.name || 'the customer'} will receive. Check it together —
+            after the customer signs and the service is finished, it is sent as it reads here.
+          </p>
+        </div>
+      ) : (
+        <div data-doc-banner="completed" className="no-print rounded border border-line bg-white p-4 mb-4">
+          <p className="text-[14px] font-semibold text-navy">Service completed</p>
+          <p className="text-[13px] text-muted mt-1">
+            {co.name} completed {doc.services.map((s) => s.name).join(', ') || 'the service'} on {fmtD(doc.date)}
+            {head?.name ? ', by ' + head.name : ''}. What was done, the photos, the payment and the signed
+            acknowledgement are below.
+          </p>
+        </div>
+      )}
       <DownloadPdfCard label="The full service report, as a PDF" shareHref={share || undefined}
         fileName={'Service report ' + doc.id + (doc.client?.name ? ' - ' + doc.client.name : '')} />
 
@@ -110,10 +141,9 @@ export default function PublicReport() {
           {/* head */}
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="mb-2.5">
+              <div className="mb-2.5 w-fit max-w-full">
                 {co.logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={co.logo} alt="" className="h-10 w-auto object-contain" />
+                  <DocLogo src={co.logo} />
                 ) : (
                   <span className="w-10 h-10 rounded bg-[#141414] text-white flex items-center justify-center font-bold text-[16px]">
                     {(co.name || 'P').charAt(0)}
@@ -128,7 +158,7 @@ export default function PublicReport() {
             </div>
             <span className="inline-block border-2 border-[#141414] text-[#141414] rounded px-3 py-1
               text-[12px] font-bold uppercase tracking-[0.18em] shrink-0">
-              Completed
+              {doc.draft ? 'Preview' : 'Completed'}
             </span>
           </div>
 
@@ -186,8 +216,8 @@ export default function PublicReport() {
             {[
               ['Checked in', fmtT(x.checkinAt)],
               ['Work started', fmtT(x.startedAt)],
-              ['Completed', fmtT(x.finishedAt)],
-              ['Time on site', dur(x.durationMins)],
+              ['Completed', doc.draft ? 'In progress' : fmtT(x.finishedAt)],
+              ['Time on site', doc.draft ? 'In progress' : dur(x.durationMins)],
             ].map(([l, v]) => (
               <div key={l} className="rounded border border-[#e3e6ee] px-3 py-2.5">
                 <div className={LABEL}>{l}</div>
@@ -273,30 +303,66 @@ export default function PublicReport() {
             </div>
           )}
 
+          {/* payment */}
+          {doc.payment && (
+            <div className="mt-5" data-report-payment>
+              <div className={LABEL + ' mb-1.5'}>Payment — invoice {doc.payment.invoiceId}</div>
+              <div className="rounded border border-[#e3e6ee] divide-y divide-[#eef0f5]">
+                {doc.payment.rows.map((p) => (
+                  <div key={p.id} className="flex items-start justify-between gap-3 px-3.5 py-2">
+                    <div className="min-w-0">
+                      <div className="text-[12.5px] font-semibold">Received via {p.via}</div>
+                      <div className="text-[11px] text-gray-500">
+                        {fmtD(p.date)}{p.at ? ', ' + hhmm12(p.at) : ''} · receipt {p.id}
+                        {p.by ? ' · collected by ' + p.by : ''}
+                      </div>
+                    </div>
+                    <span className="text-[13px] font-bold shrink-0">{inr(p.amount)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between px-3.5 py-2 bg-[#fafbfc]">
+                  <span className="text-[12px] text-gray-600">
+                    Invoice total {inr(doc.payment.total)} (incl. GST)
+                  </span>
+                  <span className={'text-[12.5px] font-bold ' + (doc.payment.balance > 0 ? 'text-[#c62828]' : 'text-[#1b7a3e]')}>
+                    {doc.payment.balance > 0 ? 'Balance due ' + inr(doc.payment.balance) : 'Fully paid'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="border-t border-[#e3e6ee] my-6" />
 
-          {/* acknowledgement */}
-          <div className="ack flex items-center justify-between gap-4 flex-wrap">
+          {/* acknowledgement: the customer's signature, the company's signature and seal */}
+          <div className="ack flex items-end justify-between gap-6 flex-wrap">
             <div>
               <div className={LABEL + ' mb-1'}>Customer acknowledgement</div>
-              {x.signatureImage && (
+              {x.signatureImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={x.signatureImage} alt="Signature"
                   className="sign h-[68px] w-[210px] max-w-full object-contain border border-[#e3e6ee]
                     rounded bg-white p-1" />
+              ) : (
+                <div className="h-[68px] w-[210px] max-w-full border border-dashed border-[#d5d9e2] rounded
+                  flex items-center justify-center text-[11px] text-gray-400">
+                  {doc.draft ? 'Customer signs after this preview' : 'Not signed'}
+                </div>
               )}
               <div className="text-[12.5px] font-semibold mt-1">{x.signedBy || doc.client?.contact || '—'}</div>
-              <div className="text-[10.5px] text-gray-500">Digitally signed on completion</div>
-            </div>
-            {x.rating > 0 && (
-              <div className="text-right">
-                <div className={LABEL + ' mb-1'}>Customer rating</div>
-                <div className="text-[18px] tracking-wide">
+              {x.rating > 0 ? (
+                <div className="text-[14px] tracking-wide leading-tight">
                   <span className="text-[#FF0000]">{'★'.repeat(x.rating)}</span>
                   <span className="text-gray-300">{'★'.repeat(5 - x.rating)}</span>
                 </div>
-              </div>
-            )}
+              ) : null}
+              {x.signatureImage && <div className="text-[10.5px] text-gray-500">Digitally signed on completion</div>}
+            </div>
+            <div className="text-center min-w-[180px]">
+              <SignArea sign={co.sign} seal={co.seal} />
+              <div className="border-t border-[#e3e6ee] pt-2 text-[11.5px] font-semibold">For {co.name}</div>
+              <div className="text-[10.5px] text-gray-500">Authorised signatory</div>
+            </div>
           </div>
 
           <p className="text-[10.5px] text-gray-400 leading-relaxed mt-6">

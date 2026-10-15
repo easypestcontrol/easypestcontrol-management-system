@@ -34,8 +34,10 @@ import { useEffect, useRef } from 'react';
  * to fix the address should not mean pressing Back four times — and steps
  * ahead are not, because they are the ones being counted down.
  */
-export function FormSteps({ steps, at, onGo, className = '' }: {
+export function FormSteps({ steps, at, onGo, className = '', belowBar = false }: {
   steps: string[]; at: number; onGo: (n: number) => void; className?: string;
+  /** The page has a sticky title bar (BackBar, 54px): stick just under it. */
+  belowBar?: boolean;
 }) {
   const pct = steps.length < 2 ? 100 : (at / (steps.length - 1)) * 100;
   /* `className` exists so a page can pull the bar out to the screen edges with
@@ -43,7 +45,8 @@ export function FormSteps({ steps, at, onGo, className = '' }: {
      only travels inside its parent's box, so wrapping it in a div its own
      height would pin it in place and it would never stick to anything. */
   return (
-    <div className={'lg:hidden sticky top-0 z-20 bg-white border-b border-line px-4 pt-3 pb-2.5 ' + className}>
+    <div className={'lg:hidden sticky z-20 bg-white border-b border-line px-4 pt-3 pb-2.5 '
+      + (belowBar ? 'top-[54px] ' : 'top-0 ') + className}>
       <div className="flex items-baseline justify-between mb-2.5">
         <span className="text-[13px] font-bold truncate min-w-0">{steps[at]}</span>
         <span className="text-[12px] text-muted tabular-nums whitespace-nowrap shrink-0">
@@ -123,22 +126,22 @@ export function StepNav({ steps, at, onBack, onNext, onSave, saving, saveLabel, 
 }) {
   const last = at >= steps - 1;
   return (
-    <div className="lg:hidden fixed left-0 right-0 z-30 bottom-[calc(max(12px,env(safe-area-inset-bottom))+70px)]
-      bg-white border-t border-line px-4 pt-2.5 pb-2.5">
-      {err && <p className="text-accent text-[13px] mb-2 leading-snug">{err}</p>}
+    <div className="lg:hidden fixed left-0 right-0 z-30 bottom-[calc(env(safe-area-inset-bottom)+60px+var(--trip-gap,0px))]
+      bg-white border-t border-[#e3e6ee] px-4 py-2 shadow-[0_-4px_14px_rgba(20,20,20,0.06)]">
+      {err && <p className="text-accent text-sm font-medium mb-2 leading-snug">{err}</p>}
       {/* Medium, not monumental. A 52px slab of red with 16px bold on it was
           shouting the word Next at somebody who had already decided to press
           it; 44px and a normal label is a button. */}
       <div className="flex gap-2.5">
         {at > 0 && (
           <button type="button" onClick={onBack} disabled={saving}
-            className="h-11 px-5 rounded-lg border border-line bg-white font-semibold text-[14.5px]
+            className="h-[42px] px-5 rounded-lg border border-line bg-white font-semibold text-sm
               active:bg-wash disabled:opacity-60">
             Back
           </button>
         )}
         <button type="button" onClick={last ? onSave : onNext} disabled={saving}
-          className="flex-1 h-11 rounded-lg bg-accent text-white font-semibold text-[14.5px]
+          className="flex-1 h-[42px] rounded-lg bg-accent text-white font-bold text-sm
             active:brightness-90 disabled:opacity-60">
           {saving ? 'Saving…' : last ? saveLabel : 'Next'}
         </button>

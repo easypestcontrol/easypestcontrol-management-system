@@ -149,7 +149,7 @@ export default function ItemMobile({ item, branchName, onIssue, onMove, onEdit, 
       </div>
 
       {canManage && (
-        <div className="lg:hidden fixed left-0 right-0 z-30 bottom-[calc(max(12px,env(safe-area-inset-bottom))+70px)] bg-white border-t border-line
+        <div className="lg:hidden fixed left-0 right-0 z-30 bottom-[calc(env(safe-area-inset-bottom)+60px+var(--trip-gap,0px))] bg-white border-t border-line
           px-4 pt-2.5 pb-2.5 flex gap-2">
           <button onClick={onIssue}
             className="flex-1 h-[52px] rounded-xl bg-accent text-white font-bold text-[15.5px]

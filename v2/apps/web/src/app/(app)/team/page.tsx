@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { isFieldTech } from 'shared';
-import { ListScreen } from '@/components/mobile';
+import { ListScreen, fullDate } from '@/components/mobile';
 
 interface TechPerf {
   total: number; done: number; today: number; todayDone: number;
@@ -77,10 +77,18 @@ export default function Team() {
           href: '/team/' + m.id,
           avatar: m.name,
           title: m.name,
-          right: m.phone,
-          meta: [ROLE_LABEL[m.role] || m.role, m.branches.length
-            ? m.branches.length + (m.branches.length === 1 ? ' branch' : ' branches') : 'No branch']
-            .filter(Boolean).join(' \u00b7 '),
+          meta: ROLE_LABEL[m.role] || m.title || m.role,
+          stats: m.branches.length
+            ? m.branches.map((b) => branches.find((x) => x.id === b)?.name || b).join(', ')
+            : 'Not posted to a branch',
+          right: m.phone || undefined,
+          rightIcon: 'phone' as const,
+          detailLabel: m.skills.length ? 'Skills' : undefined,
+          detail: m.skills.length ? m.skills.join(', ') : undefined,
+          foot: m.perf
+            ? m.perf.today + ' today \u00b7 ' + m.perf.done + ' done \u00b7 ' + m.perf.open + ' open'
+              + (m.perf.ratedN ? ' \u00b7 \u2605 ' + m.perf.rating.toFixed(1) : '')
+            : (m.joined ? 'Joined ' + fullDate(m.joined) : undefined),
           tone: (m.active ? 'good' : 'plain') as 'good' | 'plain',
           state: m.active ? 'Working' : 'Not active',
         }))}

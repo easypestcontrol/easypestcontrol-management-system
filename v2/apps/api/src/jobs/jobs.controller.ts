@@ -159,6 +159,24 @@ export class JobsController {
     return FINDINGS_CATALOG;
   }
 
+  /* The service I have started and not finished - for the floating "Service
+     in progress" bar on every screen. Small on purpose: it is asked every
+     30 seconds. Declared before ':id' so the literal path wins. */
+  @Get('in-progress')
+  async inProgress(@Req() req: AuthedRequest) {
+    const me = req?.user?.sub || '';
+    if (!me) return null;
+    const j = await this.prisma.job.findFirst({
+      where: { status: 'inprogress', techIds: { has: me } },
+      orderBy: [{ date: 'desc' }, { slot: 'desc' }],
+      select: { id: true, clientId: true, exec: true },
+    });
+    if (!j) return null;
+    const cl = await this.prisma.client.findUnique({ where: { id: j.clientId }, select: { name: true } });
+    const x = (j.exec || {}) as { startedAt?: string };
+    return { id: j.id, clientName: cl?.name || j.clientId, startedAt: x.startedAt || '' };
+  }
+
   /* ---------------------------------------------------------------- list */
   // Tabs, filters and sort are v1 jobs.js:35-60. Counts are computed over the
   // SAME filtered set as the rows (minus the tab), so a technician's tabs
@@ -187,11 +205,14 @@ export class JobsController {
       this.prisma.job.findMany({
         where: { ...(mine ? { techIds: { has: mine } } : {}), ...branchWhere(scope) },
       }),
-      this.prisma.client.findMany({ select: { id: true, name: true, area: true } }),
+      this.prisma.client.findMany({
+        select: { id: true, name: true, area: true, contact: true, phone: true, addr: true, city: true },
+      }),
       this.prisma.service.findMany({ select: { id: true, name: true } }),
     ]);
     const cname = new Map(clients.map((c) => [c.id, c.name]));
     const carea = new Map(clients.map((c) => [c.id, c.area]));
+    const cof = new Map(clients.map((c) => [c.id, c]));
     const sname = new Map(services.map((s) => [s.id, s.name]));
     const title = (j: { serviceIds: string[]; type: string }) =>
       j.serviceIds.map((id) => sname.get(id) || id).join(' + ') || j.type;
@@ -213,11 +234,14 @@ export class JobsController {
     });
 
     const live = (j: { status: string }) => j.status !== 'cancelled';
+    /* Still to happen: not cancelled and not done. A visit finished ahead of
+       its date is Done, not Upcoming - and needs nobody assigned. */
+    const ahead = (j: { status: string }) => live(j) && j.status !== 'completed';
     const counts = {
       today: base.filter((j) => live(j) && j.date === today).length,
-      upcoming: base.filter((j) => live(j) && daysBetween(today, j.date) > 0).length,
-      open: base.filter((j) => live(j) && j.status !== 'completed').length,
-      unassigned: base.filter((j) => live(j) && j.techIds.length === 0).length,
+      upcoming: base.filter((j) => ahead(j) && daysBetween(today, j.date) > 0).length,
+      open: base.filter((j) => ahead(j)).length,
+      unassigned: base.filter((j) => ahead(j) && j.techIds.length === 0).length,
       completed: base.filter((j) => j.status === 'completed').length,
     };
 
@@ -226,10 +250,10 @@ export class JobsController {
         // a cancelled visit only lives on the contract page, not in anyone's list
         if (j.status === 'cancelled' && tab !== 'completed') return false;
         if (tab === 'today' && j.date !== today) return false;
-        if (tab === 'upcoming' && !(daysBetween(today, j.date) > 0)) return false;
+        if (tab === 'upcoming' && (j.status === 'completed' || !(daysBetween(today, j.date) > 0))) return false;
         if (tab === 'open' && j.status === 'completed') return false;
         if (tab === 'completed' && j.status !== 'completed') return false;
-        if (tab === 'unassigned' && j.techIds.length) return false;
+        if (tab === 'unassigned' && (j.techIds.length || j.status === 'completed')) return false;
         return true;
       })
       .sort((a, b) => (a.date + a.slot) < (b.date + b.slot)
@@ -239,6 +263,11 @@ export class JobsController {
         ...j,
         clientName: cname.get(j.clientId) || j.clientId,
         clientArea: carea.get(j.clientId) || '',
+        // For the phone's service card: who to ask for, how to reach them, where.
+        clientContact: cof.get(j.clientId)?.contact || '',
+        clientPhone: cof.get(j.clientId)?.phone || '',
+        clientAddr: [cof.get(j.clientId)?.addr, cof.get(j.clientId)?.city].filter(Boolean).join(', '),
+        serviceNames: j.serviceIds.map((id) => sname.get(id) || id),
         title: title(j),
       }));
 
@@ -402,6 +431,9 @@ export class JobsController {
         slot: String(body.slot || '10:00'),
         mins,
         techIds: techId ? [techId] : defaultCrew,
+        // Whoever is booked on it leads it: without a head nobody may record
+        // the work, and a one-person visit was left that way.
+        headTechId: (techId ? [techId] : defaultCrew)[0] || '',
         crewNeed: 1,
         status: 'scheduled',
         priority,
@@ -793,16 +825,25 @@ export class JobsController {
     if (!item) throw new BadRequestException('No such inventory item');
 
     /*
-     * What was used is recorded, whether or not the store logged it out.
-     *
-     * This used to refuse anything beyond the recorder's holding, which does
-     * not stop a technician using a chemical — it stops him telling us he
-     * used it, and the service report is the one place that has to be true.
-     * The shortfall is not lost: the finish still decrements his holding, so
-     * a chemical nobody issued leaves that holding negative, which is exactly
-     * the flag the office needs to go and fix the paperwork.
+     * Only what the store has issued to the technician, and only up to what
+     * is left of it. A chemical used is a chemical collected from the office
+     * against his name first; what he holds, less what this service already
+     * recorded, is the limit. The finish takes it off his holding.
      */
     const x = execOf(j);
+    const who = j.headTechId || req.user?.sub || '';
+    const held = await this.prisma.techStock.findUnique({
+      where: { userId_itemId: { userId: who, itemId } },
+    });
+    const usedHere = x.chemicals.filter((c) => c.id === itemId).reduce((a, c) => a + c.qty, 0);
+    const left = (held?.qty || 0) - usedHere;
+    if (left <= 0) {
+      throw new BadRequestException(
+        `${item.name} is not issued to you — collect it from the office store first`);
+    }
+    if (qty > left) {
+      throw new BadRequestException(`Only ${left} ${item.unit} of ${item.name} is left with you`);
+    }
     x.chemicals.push({ id: itemId, qty });
     return this.prisma.job.update({ where: { id }, data: { exec: x as never } });
   }
@@ -1009,10 +1050,10 @@ export class JobsController {
     const job = await this.prisma.job.findUnique({ where: { id } });
     if (!job) throw new NotFoundException('No such job');
 
-    // The technician sees the invoice only once "Finish service & send
-    // report" is pressed — that click is what raises/links it. The office
-    // sees it whenever it exists.
-    const hideFromTech = isFieldTech(req?.user?.role) && job.status !== 'completed';
+    // The technician sees the invoice from the payment step on (it is raised
+    // there, before the signature). The office sees it whenever it exists.
+    const hideFromTech = isFieldTech(req?.user?.role)
+      && job.status !== 'completed' && job.status !== 'inprogress';
 
     const inv = hideFromTech ? null : await this.prisma.invoice.findFirst({
       where: { jobId: id }, include: { payments: true },
@@ -1055,6 +1096,18 @@ export class JobsController {
     return { mode, note: collectionNote(mode, amount || undefined), amount, invoice, trip };
   }
 
+  /* The payment step, before the signature: the visit's invoice is raised
+     now so the technician can collect it on site - cash, UPI QR or bank
+     transfer - before the service is finished. */
+  @Post(':id/exec/bill')
+  @Roles('admin', 'ops', 'tech', 'senior_tech')
+  async bill(@Param('id') id: string, @Req() req: AuthedRequest) {
+    const j = await this.mustBeMine(id, req);
+    if (j.status !== 'inprogress') throw new BadRequestException('Start the work first');
+    await this.raiseVisitBill(j);
+    return this.jobBilling(id, req);
+  }
+
   @Post(':id/exec/finish')
   @Roles('admin', 'ops', 'tech', 'senior_tech')
   async finish(
@@ -1067,6 +1120,14 @@ export class JobsController {
     const x = execOf(j);
     if (!x.photosAfter.length || !x.signature) {
       throw new BadRequestException('Add after-photos and the customer signature first');
+    }
+    // Collected before finished: a visit with its own invoice is not closed
+    // by a technician while money is still due on it.
+    if (isFieldTech(req.user?.role)) {
+      const due = await this.jobBilling(id, req);
+      if (due.invoice && due.invoice.balance > 0) {
+        throw new BadRequestException('Collect the payment first - ' + due.invoice.balance + ' is still due on ' + due.invoice.id);
+      }
     }
     if (typeof body.observations === 'string') x.observations = body.observations.trim();
     x.finishedAt = nowStamp();
@@ -1124,90 +1185,9 @@ export class JobsController {
        otherwise leave one counting against a service that is over. */
     await this.trips.endForJob(id).catch(() => {});
 
-    // The finish click is what raises the service's invoice — and the answer
-    // the technician sees. If the office raised it earlier (any screen, any
-    // criteria), that one is reported as "already created" — never a second.
-    let billing: { invoiceId: string; existed: boolean; planBilled: boolean } | null = null;
-    const already = await this.prisma.invoice.findFirst({ where: { jobId: job.id } });
-    if (already) {
-      billing = { invoiceId: already.id, existed: true, planBilled: false };
-    } else if (job.contractId) {
-      const ct = await this.prisma.contract.findUnique({
-        where: { id: job.contractId }, include: { plan: true },
-      });
-      if (ct && (ct as { billingMode?: string }).billingMode === 'pervisit') {
-        // Per-visit billing: the completed visit raises its own invoice, once.
-        // The technician collects on site; unpaid, it rides forward as arrears.
-        const svcs = await this.prisma.service.findMany({
-          where: { id: { in: job.serviceIds } }, select: { id: true, name: true },
-        });
-        let lines = job.serviceIds.map((sid) => ({
-          desc: (svcs.find((sv) => sv.id === sid)?.name || sid) +
-            (job.visitNo ? ' — visit ' + job.visitNo + ' of ' + job.ofVisits : ''),
-          qty: 1,
-          rate: (ct.plan.find((l) => l.svId === sid) as { rate?: number } | undefined)?.rate || 0,
-        }));
-        let sum = lines.reduce((a, l) => a + l.rate, 0);
-        if (sum <= 0) {
-          const per = Math.round((ct.value || 0) / Math.max(1, ct.totalVisits || 1));
-          lines = [{ desc: 'Service ' + job.id, qty: 1, rate: per }];
-          sum = per;
-        }
-        if (sum > 0) {
-          const made = await this.prisma.invoice.create({
-            data: {
-              id: await mintInvoiceId(this.prisma),
-              clientId: job.clientId,
-              contractId: ct.id,
-              branch: job.branch || ct.branch || '',
-              kind: 'visit',
-              jobId: job.id,
-              date: todayISO(),
-              due: addDays(todayISO(), 15),
-              period: 'Visit ' + job.id,
-              status: 'sent',
-              placeOfSupply: ct.placeOfSupply || '',
-              items: lines as never,
-            },
-          });
-          billing = { invoiceId: made.id, existed: false, planBilled: false };
-        }
-      } else if (ct) {
-        // MRR / upfront: the billing plan owns the invoices. Make sure
-        // anything due by today exists, and tell the technician it is
-        // plan-billed rather than per-service.
-        await raiseDueBilling(this.prisma, ct.id).catch(() => {});
-        billing = { invoiceId: '', existed: false, planBilled: true };
-      }
-    } else {
-      // Standalone booking: finishing IS the billing moment — one invoice
-      // from the catalogue rates of what was done.
-      const svcs = await this.prisma.service.findMany({
-        where: { id: { in: job.serviceIds } }, select: { id: true, name: true, price: true },
-      });
-      const lines = job.serviceIds.map((sid) => {
-        const sv = svcs.find((s) => s.id === sid);
-        return { desc: sv?.name || sid, qty: 1, rate: sv?.price || 0 };
-      });
-      if (lines.reduce((a, l) => a + l.rate, 0) > 0) {
-        const made = await this.prisma.invoice.create({
-          data: {
-            id: await mintInvoiceId(this.prisma),
-            clientId: job.clientId,
-            contractId: '',
-            branch: job.branch || '',
-            kind: 'visit',
-            jobId: job.id,
-            date: todayISO(),
-            due: addDays(todayISO(), 15),
-            period: 'Service ' + job.id,
-            status: 'sent',
-            items: lines as never,
-          },
-        });
-        billing = { invoiceId: made.id, existed: false, planBilled: false };
-      }
-    }
+    // The visit's invoice: normally already raised by the payment step
+    // (exec/bill); if not, finishing raises it - never a second one.
+    const billing = await this.raiseVisitBill(job);
 
     /*
      * The report goes out on completion — to the office, and recorded against
@@ -1252,6 +1232,100 @@ export class JobsController {
         reportSentTo: x.reportSentTo,
       },
     };
+  }
+
+  /**
+   * Raise the visit's invoice, once.
+   *
+   * Per-visit contracts and standalone bookings bill each visit; a plan-billed
+   * contract (monthly / upfront) does not - its plan owns the invoices. If an
+   * invoice for this visit already exists (raised by the payment step, or by
+   * the office on any screen), that one is the answer - never a second.
+   */
+  private async raiseVisitBill(job: { id: string; clientId: string; contractId: string | null; branch: string | null;
+    serviceIds: string[]; visitNo: number | null; ofVisits: number | null }):
+    Promise<{ invoiceId: string; existed: boolean; planBilled: boolean } | null> {
+    const already = await this.prisma.invoice.findFirst({ where: { jobId: job.id } });
+    if (already) {
+      return { invoiceId: already.id, existed: true, planBilled: false };
+    } else if (job.contractId) {
+      const ct = await this.prisma.contract.findUnique({
+        where: { id: job.contractId }, include: { plan: true },
+      });
+      if (ct && (ct as { billingMode?: string }).billingMode === 'pervisit') {
+        // Per-visit billing: the completed visit raises its own invoice, once.
+        // The technician collects on site; unpaid, it rides forward as arrears.
+        const svcs = await this.prisma.service.findMany({
+          where: { id: { in: job.serviceIds } }, select: { id: true, name: true },
+        });
+        let lines = job.serviceIds.map((sid) => ({
+          desc: (svcs.find((sv) => sv.id === sid)?.name || sid) +
+            (job.visitNo ? ' — visit ' + job.visitNo + ' of ' + job.ofVisits : ''),
+          qty: 1,
+          rate: (ct.plan.find((l) => l.svId === sid) as { rate?: number } | undefined)?.rate || 0,
+        }));
+        let sum = lines.reduce((a, l) => a + l.rate, 0);
+        if (sum <= 0) {
+          const per = Math.round((ct.value || 0) / Math.max(1, ct.totalVisits || 1));
+          lines = [{ desc: 'Service ' + job.id, qty: 1, rate: per }];
+          sum = per;
+        }
+        if (sum > 0) {
+          const made = await this.prisma.invoice.create({
+            data: {
+              id: await mintInvoiceId(this.prisma),
+              clientId: job.clientId,
+              contractId: ct.id,
+              branch: job.branch || ct.branch || '',
+              kind: 'visit',
+              jobId: job.id,
+              date: todayISO(),
+              due: addDays(todayISO(), 15),
+              period: 'Visit ' + job.id,
+              status: 'sent',
+              placeOfSupply: ct.placeOfSupply || '',
+              items: lines as never,
+            },
+          });
+          return { invoiceId: made.id, existed: false, planBilled: false };
+        }
+      } else if (ct) {
+        // MRR / upfront: the billing plan owns the invoices. Make sure
+        // anything due by today exists, and tell the technician it is
+        // plan-billed rather than per-service.
+        await raiseDueBilling(this.prisma, ct.id).catch(() => {});
+        return { invoiceId: '', existed: false, planBilled: true };
+      }
+    } else {
+      // Standalone booking: finishing IS the billing moment — one invoice
+      // from the catalogue rates of what was done.
+      const svcs = await this.prisma.service.findMany({
+        where: { id: { in: job.serviceIds } }, select: { id: true, name: true, price: true },
+      });
+      const lines = job.serviceIds.map((sid) => {
+        const sv = svcs.find((s) => s.id === sid);
+        return { desc: sv?.name || sid, qty: 1, rate: sv?.price || 0 };
+      });
+      if (lines.reduce((a, l) => a + l.rate, 0) > 0) {
+        const made = await this.prisma.invoice.create({
+          data: {
+            id: await mintInvoiceId(this.prisma),
+            clientId: job.clientId,
+            contractId: '',
+            branch: job.branch || '',
+            kind: 'visit',
+            jobId: job.id,
+            date: todayISO(),
+            due: addDays(todayISO(), 15),
+            period: 'Service ' + job.id,
+            status: 'sent',
+            items: lines as never,
+          },
+        });
+        return { invoiceId: made.id, existed: false, planBilled: false };
+      }
+    }
+    return null;
   }
 
   /* --------------------------------------------------------------- guard */

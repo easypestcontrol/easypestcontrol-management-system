@@ -5,6 +5,7 @@
    the money position, their contracts, their visit history, their invoices.
    ========================================================================== */
 
+import { ampm, whenShort } from '@/components/mobile';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -449,7 +450,7 @@ export default function CustomerDetail() {
                   {c.jobs.slice(0, 12).map((j) => (
                     <tr key={j.id} className="zrow" onClick={() => router.push('/jobs/' + j.id)}>
                       <td className="font-medium text-navy">{j.id}</td>
-                      <td className="text-muted">{j.date} · {j.slot}</td>
+                      <td className="text-muted">{whenShort(j.date, j.slot)}</td>
                       <td>
                         <span className="flex gap-1 flex-wrap">
                           {j.serviceIds.map((s) => <span key={s} className="zpill">{svcName(s)}</span>)}

@@ -160,26 +160,38 @@ export default function TrainingMobile({ rows, onOpen, onNew }: {
               const k = kindOf(l);
               const files = l.files?.length || 0;
               return (
-                <button key={l.id} type="button" onClick={() => onOpen(l)} data-lesson-card
-                  className="w-full text-left bg-white rounded-[20px] border border-line p-3.5 flex items-start gap-3.5
-                    active:bg-wash">
-                  <span className={'w-[52px] h-[52px] rounded-2xl flex items-center justify-center shrink-0 ' + k.tile}>
-                    <Icon name={k.icon} size={22} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[11px] font-bold uppercase tracking-[0.06em] text-accent">
-                      {k.label} · {ROLE_LABEL[l.role] || l.role}
+                <button key={l.id} type="button" onClick={() => onOpen(l)} data-lesson-card data-row-card
+                  className="w-full text-left rounded-xl bg-white border border-[#cfd4de] overflow-hidden active:bg-wash
+                    shadow-[0_1px_3px_rgba(20,20,20,0.08),0_4px_12px_rgba(20,20,20,0.08)]">
+                  <span className="flex items-start gap-3 px-3.5 pt-3 pb-2.5">
+                    <span className={'w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ' + k.tile}>
+                      <Icon name={k.icon} size={19} />
                     </span>
-                    <span className="block text-[15.5px] font-semibold leading-snug mt-0.5 line-clamp-2">{l.title}</span>
-                    {l.body?.trim() && (
-                      <span className="block text-[13px] text-muted mt-0.5 truncate">{l.body.trim()}</span>
-                    )}
-                    <span className="block text-[12px] text-muted-2 mt-1">
-                      {[l.by, niceDay(l.createdAt), files ? files + (files === 1 ? ' file' : ' files') : '']
-                        .filter(Boolean).join(' · ')}
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <span className="flex-1 min-w-0 text-base font-bold truncate">{l.title}</span>
+                        <span className="shrink-0 inline-flex items-center h-[22px] px-2 rounded-full text-xs font-semibold bg-sky text-sky-ink">
+                          {k.label}
+                        </span>
+                      </span>
+                      <span className="block text-sm text-ink-2 truncate mt-0.5">
+                        {l.body?.trim() || (l.hasVideo ? 'A video lesson' : l.link ? 'Opens a link' : 'No notes')}
+                      </span>
+                      <span className="block text-xs text-muted truncate mt-0.5">
+                        For {(ROLE_LABEL[l.role] || l.role).toLowerCase()}
+                        {files ? ' · ' + files + (files === 1 ? ' file' : ' files') : ''}
+                        {l.hasVideo ? ' · video' : ''}
+                      </span>
                     </span>
                   </span>
-                  <Icon name="chevRight" size={16} className="text-muted-2 shrink-0 mt-4" />
+                  <span className="px-3.5 py-2 border-t border-line-soft bg-[#fafbfc] flex items-center gap-2">
+                    <span className="flex-1 min-w-0 text-sm text-ink-2 truncate">
+                      {l.by ? 'By ' + l.by : 'Lesson'}{l.createdAt ? ' · ' + niceDay(l.createdAt) : ''}
+                    </span>
+                    <span className="text-xs font-semibold text-accent shrink-0 inline-flex items-center gap-0.5">
+                      Open <Icon name="chevRight" size={12} />
+                    </span>
+                  </span>
                 </button>
               );
             })}

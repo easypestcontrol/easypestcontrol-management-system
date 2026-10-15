@@ -15,6 +15,8 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { api, type SessionUser } from '@/lib/api';
 import { Icon } from '@/components/icons';
+import { BackBar } from '@/components/mobile';
+import { TripStats } from '@/components/trip-live';
 import { usePager } from '@/components/pager';
 import { decodePolyline } from '@/lib/polyline';
 import { getPosition, geoHint } from '@/lib/geo';
@@ -281,13 +283,32 @@ export default function TripPage() {
   const canSeeAll = !!me && ['admin', 'ops'].includes(me.role);
 
   return (
-    <div className="p-4 lg:p-6 max-w-[1320px] max-lg:bg-ground max-lg:min-h-full">
+    <div className="lg:p-6 max-w-[1320px] max-lg:bg-ground max-lg:min-h-full max-lg:pb-[calc(env(safe-area-inset-bottom)+96px)]">
+      {/* phone: the same title bar every list wears, Add trip in it */}
+      <BackBar title={all ? 'Everyone’s trips' : 'My trips'} fallback="/dashboard"
+        right={(
+          <span className="flex items-center gap-1.5 mr-1">
+            {canSeeAll && (
+              <button onClick={() => { setAll(!all); load(!all); }}
+                className="h-[32px] px-2.5 rounded-lg border border-line text-xs font-semibold">
+                {all ? 'Only mine' : 'Everyone'}
+              </button>
+            )}
+            {!active && (
+              <button onClick={() => setAdding(true)}
+                className="h-[32px] px-3 rounded-lg bg-accent text-white text-sm font-semibold inline-flex items-center gap-1">
+                <Icon name="plus" size={13} /> Add trip
+              </button>
+            )}
+          </span>
+        )} />
+      <div className="max-lg:px-4 max-lg:pt-3">
       {/* The title and the one button, on one line.
           The paragraph under the heading explained what a trip is to the
           people who drive them for a living, and it pushed Add trip onto a
           line of its own — so the screen opened with two rows of words before
           anything you could act on. */}
-      <div className="flex items-center justify-between gap-3 mb-4">
+      <div className="max-lg:hidden flex items-center justify-between gap-3 mb-4">
         <h1 className="text-[20px] font-semibold">Trips</h1>
         {!active && (
           <button onClick={() => setAdding(true)}
@@ -329,7 +350,7 @@ export default function TripPage() {
                 <p className="text-[12.5px] text-ink-2 mt-0.5">→ {active.dest}</p>
               )}
               <p className="text-[12px] text-muted mt-0.5">
-                Started {when(active.startAt)} · {active.points} GPS points
+                Started {when(active.startAt)}
                 {gpsState === 'on' && <span className="text-navy font-medium"> · GPS live</span>}
                 {gpsState === 'idle' && <span className="text-muted"> · waiting for GPS…</span>}
                 {gpsState === 'denied' && (
@@ -337,11 +358,10 @@ export default function TripPage() {
                 )}
               </p>
             </div>
-            <div className="text-right">
-              <span className="block text-[30px] font-bold text-navy leading-none">{km(active.distanceM)}</span>
-              <span className="block text-[11.5px] text-muted mt-1">{dur(active.mins)} on the move</span>
-            </div>
           </div>
+          {/* The clock runs from the moment the trip started; distance and
+              GPS points recorded climb as the tracker sends them. */}
+          <div className="mt-3 lg:max-w-[460px]"><TripStats trip={active} /></div>
           {road && (
             <p className="text-[13px] font-semibold text-navy mt-2">
               By road: {road.km} km · about {road.mins} min <span className="text-muted font-normal">(Ola Maps)</span>
@@ -352,7 +372,8 @@ export default function TripPage() {
               the one thing they want is the next turn — not the map preview,
               and certainly not the button that ends the trip, which used to be
               the loudest thing here. */}
-          <div className="flex gap-2 mt-4 flex-wrap" data-trip-actions>
+          {/* Phone: Start trip across the full width, the rest in an even 2 x 2 grid. */}
+          <div className="mt-4 grid grid-cols-2 gap-2 lg:flex lg:flex-wrap" data-trip-actions>
             {/* Start trip: one tap from "I have a trip" to "I am being guided".
                 It opens the map with the route and begins the turn-by-turn. With
                 no map key connected it opens the same destination in Google
@@ -360,38 +381,41 @@ export default function TripPage() {
             {active.dest && (olaOn ? (
               <button onClick={() => setNavOpen('start')}
                 className="h-12 lg:h-9 px-5 rounded bg-accent text-white text-[14px] lg:text-[13px] font-bold
-                  hover:brightness-90 flex items-center justify-center gap-1.5 max-lg:w-full">
+                  hover:brightness-90 flex items-center justify-center gap-1.5 col-span-2">
                 <Icon name="play" size={15} /> Start trip
               </button>
             ) : (
               <a href={googleMapsDirections(active.dest)} target="_blank" rel="noreferrer"
                 className="h-12 lg:h-9 px-5 rounded bg-accent text-white text-[14px] lg:text-[13px] font-bold
-                  hover:brightness-90 flex items-center justify-center gap-1.5 max-lg:w-full">
+                  hover:brightness-90 flex items-center justify-center gap-1.5 col-span-2">
                 <Icon name="play" size={15} /> Start trip
               </a>
             ))}
             {olaOn && active.dest && (
               <button onClick={() => setNavOpen('directions')}
-                className="h-12 lg:h-9 px-4 rounded border border-line text-[13px] font-semibold
+                className="h-11 lg:h-9 px-3 lg:px-4 rounded border border-line bg-white text-[13px] font-semibold
                   hover:bg-wash flex items-center justify-center gap-1.5">
                 <Icon name="branch" size={15} /> Directions
               </button>
             )}
             {olaOn && (
               <button onClick={openRoute} disabled={roadBusy}
-                className="h-12 lg:h-9 px-4 rounded border border-line text-[13px] font-semibold hover:bg-wash disabled:opacity-60">
+                className="h-11 lg:h-9 px-3 lg:px-4 rounded border border-line bg-white text-[13px] font-semibold hover:bg-wash disabled:opacity-60
+                  flex items-center justify-center gap-1.5 whitespace-nowrap">
+                <Icon name="road" size={15} />
                 {roadBusy ? 'Loading route…' : showMap ? 'Refresh route & map' : 'Preview on map'}
               </button>
             )}
             {active.dest && (
               <a href={googleMapsDirections(destLL || active.dest)} target="_blank" rel="noreferrer" data-gmaps
-                className="h-12 lg:h-9 px-4 rounded border border-line text-[13px] font-semibold hover:bg-wash
-                  inline-flex items-center justify-center gap-1.5">
+                className="h-11 lg:h-9 px-3 lg:px-4 rounded border border-line bg-white text-[13px] font-semibold hover:bg-wash
+                  flex items-center justify-center gap-1.5">
                 Google Maps ↗
               </a>
             )}
             <button onClick={end} disabled={ending}
-              className="h-12 lg:h-9 px-5 rounded border border-line text-accent text-[13px] font-semibold hover:bg-red-wash disabled:opacity-60">
+              className="h-11 lg:h-9 px-3 lg:px-5 rounded border border-accent/40 bg-white text-accent text-[13px] font-semibold hover:bg-red-wash disabled:opacity-60
+                flex items-center justify-center gap-1.5">
               {ending ? 'Ending…' : 'End trip'}
             </button>
           </div>
@@ -486,8 +510,7 @@ export default function TripPage() {
           below already label what follows. The desk keeps the heading; the
           phone keeps only the office's own/everyone toggle, and a technician
           — who has no toggle — gets no row at all. */}
-      <div className={'flex items-center justify-between mb-2 max-lg:justify-end '
-        + (canSeeAll ? '' : 'max-lg:hidden')}>
+      <div className="max-lg:hidden flex items-center justify-between mb-2">
         <h2 className="max-lg:hidden text-[13.5px] font-semibold">
           {all ? 'Everyone’s trips' : 'My trips'}
         </h2>
@@ -498,7 +521,7 @@ export default function TripPage() {
           </button>
         )}
       </div>
-      <section className="card overflow-hidden max-lg:rounded-2xl max-lg:border-0 max-lg:bg-white max-lg:shadow-none">
+      <section className="card overflow-hidden max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent max-lg:shadow-none">
         {/* phones: a day at a time.
             Every row used to lead with "Service SER-1003 — Mr. Arun VK",
             which truncates to "Service SER-1003 — Mr. Arun…" — the id is the
@@ -506,7 +529,7 @@ export default function TripPage() {
             said the same first two words. The name leads now, the id is a
             quiet mark beside the time, and the trips sit under the day they
             happened on. */}
-        <div className="lg:hidden flex flex-col">
+        <div className="lg:hidden flex flex-col gap-2.5">
           {!rows ? (
             <p className="text-muted text-[13px] px-4 py-6 text-center">Loading…</p>
           ) : rows.length === 0 ? (
@@ -514,17 +537,16 @@ export default function TripPage() {
               No trips yet — the first one starts above.
             </p>
           ) : byDay(pg.pageRows).map((day) => (
-            <div key={day.label}>
-              <p className="px-4 pt-4 pb-1.5 text-[12px] font-bold uppercase tracking-[0.06em] text-muted">
+            <div key={day.label} className="flex flex-col gap-2.5">
+              <p className="px-1 pt-2 text-[12px] font-bold uppercase tracking-[0.06em] text-muted">
                 {day.label}
               </p>
               {day.trips.map((t) => {
                 const n = tripName(t.purpose);
                 return (
                   <button key={t.id} type="button" onClick={() => router.push('/trips/' + t.id)}
-                    className="w-full text-left flex items-start gap-3 px-4 py-3.5
-                    border-b border-line-soft last:border-b-0 active:bg-wash">
-                    <span className={'w-10 h-10 rounded-full shrink-0 flex items-center justify-center '
+                    data-row-card className="row-card flex items-start gap-3 active:bg-wash">
+                    <span className={'w-9 h-9 rounded-full shrink-0 flex items-center justify-center '
                       + (t.status === 'active' ? 'bg-accent text-white' : 'bg-rose text-accent')}>
                       <Icon name="road" size={18} />
                     </span>
@@ -613,6 +635,7 @@ export default function TripPage() {
           onStart={async (purpose, dest) => { setAdding(false); await startTrip(purpose, dest); }}
         />
       )}
+      </div>
     </div>
   );
 }

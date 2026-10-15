@@ -19,14 +19,22 @@ export class ApiError extends Error {
 }
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch('/api' + path, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(getToken() ? { Authorization: 'Bearer ' + getToken() } : {}),
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch('/api' + path, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(getToken() ? { Authorization: 'Bearer ' + getToken() } : {}),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    /* No answer at all - no signal, or the server is restarting. The
+       browser's own words for this ("Failed to fetch") mean nothing to a
+       technician at a site; say what happened and what to do. */
+    throw new ApiError(0, 'Could not reach the server - network error. Check your connection and try again.');
+  }
 
   if (res.status === 401 && typeof window !== 'undefined' && !path.startsWith('/auth/login')) {
     clearToken();

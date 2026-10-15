@@ -15,7 +15,7 @@
 import { useMemo, useState } from 'react';
 import {
   Card, Chip, Row, Screen, Filters, ScreenTitle, IconButton, Fab,
-  money, niceDate, type Tone,
+  money, niceDate, type Tone, RowCards, fullDate,
 } from '@/components/mobile';
 import type { InvoiceRow, ListResponse } from './ui';
 
@@ -121,18 +121,20 @@ export default function InvoicesMobile({ data, tab, onTab, q, onQ, newHref }: {
             </div>
           )}
 
-          <Card flush className="mb-4">
+          <RowCards className="mb-4">
             {rows.map((r) => {
               const st = stateOf(r);
               return (
                 <Row key={r.id} href={'/invoice/' + r.id}
                   title={r.clientName || r.clientId}
                   amount={money(r.total)}
-                  meta={`${niceDate(r.date)} · ${r.id}`}
+                  meta={[r.id, r.period].filter(Boolean).join(' · ')}
+                  stats={r.paid > 0 && r.balance > 0 ? money(r.paid) + ' paid · ' + money(r.balance) + ' left' : undefined}
+                  right={'Dated ' + fullDate(r.date) + (r.due && r.status !== 'paid' ? ' · Due ' + niceDate(r.due) : '')}
                   chip={<Chip tone={st.tone}>{st.label}</Chip>} />
               );
             })}
-          </Card>
+          </RowCards>
         </div>
       )}
 

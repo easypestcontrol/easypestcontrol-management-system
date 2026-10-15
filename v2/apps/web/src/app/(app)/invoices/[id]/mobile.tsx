@@ -248,7 +248,7 @@ export default function InvoiceMobile({ inv, t, onPay, canPay, shareHref }: {
 
       {/* The one button this screen exists for, where the thumb already is. */}
       {canPay && owed && (
-        <div className="lg:hidden fixed left-0 right-0 z-30 bottom-[calc(max(12px,env(safe-area-inset-bottom))+70px)] bg-white border-t border-line
+        <div className="lg:hidden fixed left-0 right-0 z-30 bottom-[calc(env(safe-area-inset-bottom)+60px+var(--trip-gap,0px))] bg-white border-t border-line
           px-4 pt-2.5 pb-2.5">
           <button onClick={onPay}
             className="w-full h-[52px] rounded-xl bg-accent text-white font-bold text-[16px]

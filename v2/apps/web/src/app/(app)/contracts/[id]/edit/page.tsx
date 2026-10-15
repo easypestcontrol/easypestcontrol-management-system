@@ -8,6 +8,8 @@
    how to regenerate the schedule without touching completed work.
    ========================================================================== */
 
+import { BackBar } from '@/components/mobile';
+import { ampm, whenShort } from '@/components/mobile';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -17,6 +19,7 @@ import { STATES, fmtDate, type Boot, type ContractDetail } from '../../lib';
 import TimePicker from '@/components/time-picker';
 import TimeRangePicker from '@/components/time-range';
 import SignatureField from '@/components/signature-field';
+import { CompanySignNote } from '@/components/sign-area';
 import PlanDialog from '../plan-dialog';
 
 const CYCLES = ['Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'];
@@ -138,19 +141,21 @@ export default function EditContract() {
 
   if (!c || !boot) return <p className="p-4 lg:p-6 text-muted text-[13px]">{err || 'Loading…'}</p>;
 
-  const label = 'block text-[12px] font-semibold text-ink-2 mb-1.5';
+  const label = 'block text-xs lg:text-[12px] font-semibold text-ink-2 mb-1';
   /* Same two sizes as the create form — 44px and 16px on a phone so the
      control can be hit and Safari does not zoom the page on focus, back to
      the compact desktop row from `lg` up. */
-  const input = 'w-full h-11 lg:h-9 px-3 rounded-lg border border-line text-[16px] lg:text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
-  const area = 'w-full px-3 py-2 rounded-lg border border-line text-[16px] lg:text-[13.5px] leading-relaxed outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)] resize-none';
+  const input = 'w-full h-[42px] lg:h-9 px-3 rounded-lg border border-line text-[15px] lg:text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
+  const area = 'w-full px-3 py-2 rounded-lg border border-line text-[15px] lg:text-[13.5px] leading-relaxed outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)] resize-none';
 
   return (
-    <div className="p-4 lg:p-6 max-w-[920px] max-lg:pb-[calc(env(safe-area-inset-bottom)+92px)]">
-      <Link href={'/contracts/' + c.id} className="text-[12.5px] text-muted hover:text-navy">
+    <div className="lg:p-6 max-w-[920px] max-lg:bg-ground max-lg:min-h-full max-lg:pb-[calc(env(safe-area-inset-bottom)+140px)]">
+      <BackBar title="Edit contract" sub={c.id + ' · ' + money(c.value) + ' + GST'} fallback={'/contracts/' + c.id} />
+      <div className="max-lg:px-4 max-lg:pt-3">
+      <Link href={'/contracts/' + c.id} className="max-lg:hidden text-[12.5px] text-muted hover:text-navy">
         ← Back to {c.id}
       </Link>
-      <div className="mt-2 mb-5 flex items-start justify-between flex-wrap gap-3">
+      <div className="max-lg:hidden mt-2 mb-5 flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-[20px] font-semibold">Edit contract</h1>
           <p className="text-muted text-[13px] mt-0.5">
@@ -173,8 +178,8 @@ export default function EditContract() {
       {err && <p className="max-lg:hidden mb-4 text-[13px] font-medium text-accent">{err}</p>}
       {flash && <p className="mb-4 text-[13px] font-medium text-navy">{flash}</p>}
 
-      <section className="card p-5 mb-5">
-        <h2 className="text-[13.5px] font-semibold mb-4">The agreement</h2>
+      <section className="card p-5 mb-5 max-lg:p-4 max-lg:mb-3 max-lg:rounded-xl max-lg:border-[#cfd4de] max-lg:shadow-[0_1px_3px_rgba(20,20,20,0.06)]">
+        <h2 className="text-[13.5px] max-lg:text-base font-semibold max-lg:font-bold mb-4">The agreement</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <label className="block lg:col-span-2">
             <span className={label}>Subject / description *</span>
@@ -225,8 +230,8 @@ export default function EditContract() {
         </div>
       </section>
 
-      <section className="card p-5 mb-5">
-        <h2 className="text-[13.5px] font-semibold mb-4">Addresses & tax</h2>
+      <section className="card p-5 mb-5 max-lg:p-4 max-lg:mb-3 max-lg:rounded-xl max-lg:border-[#cfd4de] max-lg:shadow-[0_1px_3px_rgba(20,20,20,0.06)]">
+        <h2 className="text-[13.5px] max-lg:text-base font-semibold max-lg:font-bold mb-4">Addresses & tax</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <label className="block">
             <span className={label}>Billing address</span>
@@ -258,29 +263,27 @@ export default function EditContract() {
         </div>
       </section>
 
-      <section className="card p-5 mb-5">
+      <section className="card p-5 mb-5 max-lg:p-4 max-lg:mb-3 max-lg:rounded-xl max-lg:border-[#cfd4de] max-lg:shadow-[0_1px_3px_rgba(20,20,20,0.06)]">
         {/* Both open the full-screen pad. A signature taken here is saved with
             the rest of the edit - and kept as the customer's own, so the next
             agreement written for them starts with it. */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <div>
-            <h2 className="text-[13.5px] font-semibold mb-3">Customer signature</h2>
+            <h2 className="text-[13.5px] max-lg:text-base font-semibold max-lg:font-bold mb-3">Customer signature</h2>
             <SignatureField value={signCustomer} onChange={setSignCustomer}
               title="Customer signature" who={c.client?.contact || c.client?.name || 'Customer'}
               note={signCustomer ? undefined
                 : 'Not signed yet. Sign here on the spot, or share the contract link - the customer can sign from it.'} />
           </div>
           <div>
-            <h2 className="text-[13.5px] font-semibold mb-3">For {boot.company.name}</h2>
-            <SignatureField value={signExec} onChange={setSignExec}
-              title={'Sign for ' + boot.company.name}
-              who={boot.users.find((u) => u.id === owner)?.name} />
+            <h2 className="text-[13.5px] max-lg:text-base font-semibold max-lg:font-bold mb-3">For {boot.company.name}</h2>
+            <CompanySignNote company={boot.company} />
           </div>
         </div>
       </section>
 
-      <section className="card p-5 mb-5">
-        <h2 className="text-[13.5px] font-semibold mb-1">How is this billed?</h2>
+      <section className="card p-5 mb-5 max-lg:p-4 max-lg:mb-3 max-lg:rounded-xl max-lg:border-[#cfd4de] max-lg:shadow-[0_1px_3px_rgba(20,20,20,0.06)]">
+        <h2 className="text-[13.5px] max-lg:text-base font-semibold max-lg:font-bold mb-1">How is this billed?</h2>
         <p className="text-muted text-[12.5px] mb-4">
           Changing the mode reshapes the plan for what has NOT been invoiced yet — issued invoices stay as they are.
         </p>
@@ -289,7 +292,10 @@ export default function EditContract() {
             ['upfront', 'Everything upfront', 'One invoice at signing — the office collects'],
             ['pervisit', 'Pay per service', 'Each completed service invoices itself — the technician collects on site'],
             ['interval', 'Fixed cycle (MRR)', 'Equal installments, raised automatically — the office collects'],
-          ] as const).map(([v, t, d]) => (
+          ] as const)
+            // One-time: upfront or per service (a monthly cycle only shows if it is already on one).
+            .filter(([v]) => !(c.mode === 'onetime' && v === 'interval' && billingMode !== 'interval'))
+            .map(([v, t, d]) => (
             <label key={v}
               className={'flex items-start gap-2.5 rounded-md border p-3 cursor-pointer ' +
                 (billingMode === v ? 'border-accent bg-red-wash' : 'border-line hover:bg-wash')}>
@@ -314,8 +320,8 @@ export default function EditContract() {
         </div>
       </section>
 
-      <section className="card p-5 mb-5">
-        <h2 className="text-[13.5px] font-semibold mb-4">Notes & terms</h2>
+      <section className="card p-5 mb-5 max-lg:p-4 max-lg:mb-3 max-lg:rounded-xl max-lg:border-[#cfd4de] max-lg:shadow-[0_1px_3px_rgba(20,20,20,0.06)]">
+        <h2 className="text-[13.5px] max-lg:text-base font-semibold max-lg:font-bold mb-4">Notes & terms</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <label className="block">
             <span className={label}>Customer notes</span>
@@ -332,10 +338,10 @@ export default function EditContract() {
       {/* Services, their rate and how many visits — the plan the schedule and
           the value are built from. Editing regenerates the schedule without
           touching completed work; office-only, which the API also enforces. */}
-      <section className="card p-5 mb-5">
+      <section className="card p-5 mb-5 max-lg:p-4 max-lg:mb-3 max-lg:rounded-xl max-lg:border-[#cfd4de] max-lg:shadow-[0_1px_3px_rgba(20,20,20,0.06)]">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0">
-            <h2 className="text-[13.5px] font-semibold">Services &amp; pricing</h2>
+            <h2 className="text-[13.5px] max-lg:text-base font-semibold max-lg:font-bold">Services &amp; pricing</h2>
             <p className="text-muted text-[12.5px] mt-0.5">
               The services on this contract, their rate, and how many visits each has.
               Editing regenerates the schedule without touching completed work.
@@ -354,7 +360,7 @@ export default function EditContract() {
 
       <section className="card mb-5 overflow-hidden">
         <div className="px-5 py-4 border-b border-line-soft">
-          <h2 className="text-[13.5px] font-semibold">Service schedule</h2>
+          <h2 className="text-[13.5px] max-lg:text-base font-semibold max-lg:font-bold">Service schedule</h2>
           <p className="text-muted text-[12.5px] mt-0.5">
             Move any service to a new date or time window. Completed services are locked — they already happened.
           </p>
@@ -387,7 +393,7 @@ export default function EditContract() {
                 </div>
                 {done ? (
                   <p className="text-[13.5px] text-ink-2 mt-2 pl-[38px]">
-                    {fmtDate(jx.date)} · {jx.slot}{jx.slotEnd ? ' – ' + jx.slotEnd : ''}
+                    {fmtDate(jx.date)} · {ampm(jx.slot)}{jx.slotEnd ? ' – ' + ampm(jx.slotEnd) : ''}
                   </p>
                 ) : (
                   <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-2.5 mt-3">
@@ -431,7 +437,7 @@ export default function EditContract() {
                   {done ? (
                     <>
                       <td className="text-[12.5px]">{fmtDate(jx.date)}</td>
-                      <td className="text-[12.5px]" colSpan={2}>{jx.slot}{jx.slotEnd ? ' – ' + jx.slotEnd : ''}</td>
+                      <td className="text-[12.5px]" colSpan={2}>{ampm(jx.slot)}{jx.slotEnd ? ' – ' + ampm(jx.slotEnd) : ''}</td>
                       <td><span className="zpill navy">Completed</span></td>
                     </>
                   ) : (
@@ -457,17 +463,19 @@ export default function EditContract() {
         Cancelling one service outright: the × in the schedule on the contract page.
       </p>
 
-      <div className="lg:hidden fixed left-0 right-0 z-30 bottom-[calc(max(12px,env(safe-area-inset-bottom))+70px)]
-        bg-white border-t border-line px-4 pt-2.5 pb-2.5">
-        {err && <p className="text-accent text-[13px] mb-2 leading-snug">{err}</p>}
+      </div>
+
+      <div className="lg:hidden fixed left-0 right-0 z-30 bottom-[calc(env(safe-area-inset-bottom)+60px+var(--trip-gap,0px))]
+        bg-white border-t border-[#e3e6ee] px-4 py-2 shadow-[0_-4px_14px_rgba(20,20,20,0.06)]">
+        {err && <p className="text-accent text-sm font-medium mb-2 leading-snug">{err}</p>}
         <div className="flex gap-2.5">
           <Link href={'/contracts/' + c.id}
-            className="h-11 px-5 rounded-lg border border-line bg-white font-semibold text-[14.5px]
+            className="h-[42px] px-5 rounded-lg border border-line bg-white font-semibold text-sm
               inline-flex items-center active:bg-wash">
             Cancel
           </Link>
           <button type="button" onClick={save} disabled={busy}
-            className="flex-1 h-11 rounded-lg bg-accent text-white font-semibold text-[14.5px]
+            className="flex-1 h-[42px] rounded-lg bg-accent text-white font-bold text-sm
               active:brightness-90 disabled:opacity-60">
             {busy ? 'Saving…' : 'Save changes'}
           </button>

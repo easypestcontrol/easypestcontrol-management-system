@@ -123,6 +123,27 @@ const FALLBACK_TERMS = [
   'Service warranty valid for 30 days after each treatment.',
 ];
 
+function isISODate(v: unknown): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
+}
+
+/**
+ * A one-time service's own appointment: its date (else the contract's) and
+ * the window picked for it (else the contract's window). A window that ends
+ * before it starts is refused, naming nothing - the form checks first.
+ */
+function oneWhen(
+  l: { startAt?: string; times?: unknown; timeEnds?: unknown },
+  start: string, slot: string, slotEnd: string,
+): { date: string; slot: string; slotEnd: string } {
+  const hhmm = (v: unknown) => (/^\d{2}:\d{2}$/.test(String(v || '')) ? String(v) : '');
+  const from = hhmm(Array.isArray(l.times) ? l.times[0] : '') || slot;
+  const to = hhmm(Array.isArray(l.timeEnds) ? l.timeEnds[0] : '')
+    || (from === slot ? slotEnd : addMinsHHMM(from, 120));
+  if (toMin(to) <= toMin(from)) throw new BadRequestException('A service time window ends before it starts');
+  return { date: isISODate(l.startAt) ? String(l.startAt) : start, slot: from, slotEnd: to };
+}
+
 function addMinsHHMM(hhmm: string, mins: number): string {
   return toHHMM((toMin(hhmm) + mins) % 1440);
 }
@@ -600,7 +621,7 @@ export class ContractsController {
     const lines = (draft.lines || []).filter((l) => l.svId);
     if (!lines.length) throw new BadRequestException('Add at least one service');
 
-    const start = draft.start || todayISO();
+    let start = draft.start || todayISO();
     let end: string;
     /*
      * The window a one-time service is booked for.
@@ -625,9 +646,12 @@ export class ContractsController {
       if (wantEnd && toMin(wantEnd) <= toMin(slot)) {
         throw new BadRequestException('The time window ends before it starts');
       }
-      // The visit lands on the start date; the agreement can cover a longer
-      // window (fetched from the quotation's validity when converted).
-      end = draft.end && draft.end >= start ? draft.end : start;
+      // Each service may carry its own date; the agreement runs from the
+      // earliest to the latest of them (or longer, when one was given).
+      const lineDays = lines.map((l) => (isISODate(l.startAt) ? String(l.startAt) : start)).sort();
+      if (lineDays.length && lineDays[0] < start) start = lineDays[0];
+      const lastDay = lineDays[lineDays.length - 1] || start;
+      end = draft.end && draft.end >= lastDay ? draft.end : lastDay;
       slotEnd = wantEnd || addMinsHHMM(slot, 120);
     } else {
       end = draft.end || addMonths(start, 12);
@@ -656,8 +680,9 @@ export class ContractsController {
     const planRows = lines.map((l, i) => {
       const qty = Math.max(1, Math.round(l.qty || 1));
       const lineMonths = isOne ? 1 : Math.max(1, l.months || monthsTerm);
-      const startAt = isOne ? start : l.startAt || start;
-      const lslot = isOne ? slot : l.slot || '10:00';
+      const one = isOne ? oneWhen(l, start, slot, slotEnd) : null;
+      const startAt = one ? one.date : l.startAt || start;
+      const lslot = one ? one.slot : l.slot || '10:00';
       const term = Math.max(1, daysBetween(startAt, addMonths(startAt, lineMonths)));
       return {
         svId: l.svId,
@@ -667,7 +692,7 @@ export class ContractsController {
         dayRule: 'dom:' + dayOfMonth(startAt),
         startAt,
         slot: lslot,
-        slotEnd: /^\d{2}:\d{2}$/.test(String(l.slotEnd || '')) ? String(l.slotEnd) : '',
+        slotEnd: one ? one.slotEnd : /^\d{2}:\d{2}$/.test(String(l.slotEnd || '')) ? String(l.slotEnd) : '',
         freq: cadenceLabel(term / qty, qty),
         crew: Math.min(9, Math.max(1, l.crew || 1)),
         rate: Math.max(0, Math.round(l.rate || 0)),
@@ -734,7 +759,9 @@ export class ContractsController {
           : (['Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'].includes(String(draft.billing))
               ? String(draft.billing) : 'Quarterly'),
         // How the money moves — the one decision that kills invoice confusion.
+        // A one-time contract has no monthly cycle: upfront or per service only.
         billingMode: ['upfront', 'pervisit', 'interval'].includes(String(draft.billingMode))
+          && !(isOne && String(draft.billingMode) === 'interval')
           ? String(draft.billingMode)
           : (isOne ? 'pervisit' : 'interval'),
         billingAmount: Math.max(0, Math.round(Number(draft.billingAmount) || 0)),
@@ -773,33 +800,45 @@ export class ContractsController {
     /* ------------------------------------------------------ the visits */
     let visitsCreated = 0;
     if (isOne) {
-      // One dated service rather than a generated series. The booked window
-      // is what the technician's day actually loses.
-      const win = toMin(slotEnd) - toMin(slot);
-      const jv = await this.takeSeq('job');
-      await this.prisma.job.create({
-        data: {
-          id: 'SER-' + String(jv).padStart(4, '0'),
-          type: 'One-Time',
-          contractId: id,
-          clientId: client.id,
-          branch: draft.branch || client.branch || '',
-          serviceIds: lines.map((l) => l.svId),
-          date: start,
-          slot,
-          slotEnd,
-          mins: win > 0 ? win : 120,
-          techIds: [],
-          crewNeed: planRows.reduce((a, l) => Math.max(a, l.crew), 1),
-          status: 'scheduled',
-          priority: 'normal',
-          visitNo: 1,
-          ofVisits: 1,
-          notes: subject,
-        },
-      });
-      visitsCreated = 1;
-      await this.prisma.contract.update({ where: { id }, data: { totalVisits: 1 } });
+      /* A dated visit per date and time rather than a generated series.
+         Services booked for the same date and time are done in one visit -
+         one trip; a service on another day (or at another hour) is a visit
+         of its own. The booked window is what the technician's day loses. */
+      const groups: Array<{ date: string; slot: string; slotEnd: string; svIds: string[]; crew: number }> = [];
+      for (const r of planRows) {
+        const g = groups.find((x) => x.date === r.startAt && x.slot === r.slot && x.slotEnd === r.slotEnd);
+        if (g) { g.svIds.push(r.svId); g.crew = Math.max(g.crew, r.crew); }
+        else groups.push({ date: r.startAt, slot: r.slot, slotEnd: r.slotEnd || addMinsHHMM(r.slot, 120), svIds: [r.svId], crew: r.crew });
+      }
+      groups.sort((a, b) => (a.date + a.slot < b.date + b.slot ? -1 : 1));
+      for (let k = 0; k < groups.length; k++) {
+        const g = groups[k];
+        const win = toMin(g.slotEnd) - toMin(g.slot);
+        const jv = await this.takeSeq('job');
+        await this.prisma.job.create({
+          data: {
+            id: 'SER-' + String(jv).padStart(4, '0'),
+            type: 'One-Time',
+            contractId: id,
+            clientId: client.id,
+            branch: draft.branch || client.branch || '',
+            serviceIds: g.svIds,
+            date: g.date,
+            slot: g.slot,
+            slotEnd: g.slotEnd,
+            mins: win > 0 ? win : 120,
+            techIds: [],
+            crewNeed: Math.max(1, g.crew),
+            status: 'scheduled',
+            priority: 'normal',
+            visitNo: k + 1,
+            ofVisits: groups.length,
+            notes: subject,
+          },
+        });
+      }
+      visitsCreated = groups.length;
+      await this.prisma.contract.update({ where: { id }, data: { totalVisits: groups.length } });
     } else {
       visitsCreated = await this.generateVisits(
         created, created.plan as DbPlanLine[], created.notes,
@@ -911,6 +950,11 @@ export class ContractsController {
     if ('terms' in data) data.terms = cleanTerms(data.terms);
     if ('billingMode' in data && !['upfront', 'pervisit', 'interval'].includes(String(data.billingMode))) {
       delete data.billingMode;
+    }
+    // A one-time contract cannot be moved ONTO a monthly cycle (one already on it may stay).
+    if (data.billingMode === 'interval') {
+      const was = await this.prisma.contract.findUnique({ where: { id }, select: { mode: true, billingMode: true } });
+      if (was?.mode === 'onetime' && was.billingMode !== 'interval') delete data.billingMode;
     }
     if ('billing' in data && !['Monthly', 'Quarterly', 'Half-Yearly', 'Yearly', 'On completion'].includes(String(data.billing))) {
       delete data.billing;

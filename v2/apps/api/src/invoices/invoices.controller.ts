@@ -23,7 +23,7 @@ import {
   Post, Query, Req, UseGuards,
 } from '@nestjs/common';
 import { InvoiceStatus } from '@prisma/client';
-import { addDays, billingPlan, daysBetween, docTotals, visitAmount } from 'shared';
+import { addDays, billingPlan, daysBetween, docTotals, isFieldTech, visitAmount } from 'shared';
 import { PrismaService } from '../prisma.service';
 import { raiseDueBilling } from '../billing.util';
 import { AuthGuard, Roles } from '../auth/auth.guard';
@@ -729,16 +729,25 @@ export class InvoicesController {
   async recordPayment(
     @Param('id') id: string,
     @Body() body: Record<string, unknown>,
-    @Req() req?: { user?: { sub?: string } },
+    @Req() req?: { user?: { sub?: string; role?: string } },
   ) {
     const collector = String(req?.user?.sub || '');
-    const inv = await this.prisma.invoice.findUnique({ where: { id } });
+    const inv = await this.prisma.invoice.findUnique({ where: { id }, include: { payments: true } });
     if (!inv) throw new NotFoundException('No such invoice');
 
     const amount = Math.round(Number(body.amount) || 0);
     if (amount <= 0) throw new BadRequestException('Enter an amount');
 
     const co = await this.company();
+    /* A technician on site collects the whole amount, in cash or by UPI -
+       never a part-payment, never a bank transfer (that is the office's). */
+    if (isFieldTech(req?.user?.role)) {
+      const m = String(body.mode || 'UPI');
+      if (m !== 'Cash' && m !== 'UPI') throw new BadRequestException('Collect by cash or UPI');
+      const due = Math.max(0, Math.round(this.totalsFor(inv, inv.payments, co).total
+        - inv.payments.reduce((a, p) => a + p.amount, 0)));
+      if (amount !== due) throw new BadRequestException('Collect the full amount - ' + due + ' is due on ' + id);
+    }
     const date = String(body.date || todayISO());
     const mode = String(body.mode || 'UPI');
 

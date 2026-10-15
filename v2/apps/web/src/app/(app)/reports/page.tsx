@@ -41,7 +41,7 @@ export default function ReportsIndex() {
       <Screen>
         <BackBar title="Reports" sub="View on screen · export PDF, Excel, CSV" fallback="/dashboard" />
         <div className="px-4 pt-3 flex flex-col gap-3">
-          <Link href="/reports/overview" className="card p-4 flex items-center gap-3 active:bg-wash">
+          <Link href="/reports/overview" data-row-card className="row-card flex items-center gap-3 active:bg-wash">
             <span className="chipbox bg-sky"><Icon name="dashboard" size={20} className="text-sky-ink" /></span>
             <span className="min-w-0 flex-1">
               <span className="block text-[15px] font-semibold">{overview.title}</span>
@@ -52,14 +52,14 @@ export default function ReportsIndex() {
           {!cat && !err && [0, 1, 2].map((i) => <div key={i} className="h-24 rounded-2xl bg-white animate-pulse" />)}
           {err && <p className="text-rose-ink text-[13.5px] px-1">{err}</p>}
           {cat?.sections.map((s) => (
-            <section key={s.name} className="card overflow-hidden">
-              <h2 className="px-4 pt-3.5 pb-2 text-[12px] font-bold uppercase tracking-[0.06em] text-muted-2">{s.name}</h2>
+            <section key={s.name} className="flex flex-col gap-2.5">
+              <h2 className="px-1 pt-2 text-[12px] font-bold uppercase tracking-[0.06em] text-muted">{s.name}</h2>
               {s.reports.map((r) => (
                 <Link key={r.key} href={'/reports/' + r.key}
-                  className="flex items-center gap-3 px-4 py-3 border-t border-line-soft active:bg-wash">
+                  data-row-card className="row-card flex items-center gap-3 active:bg-wash">
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-medium">{r.title}</span>
-                    <span className="block text-[12.5px] text-muted leading-snug">{r.description}</span>
+                    <span className="block text-[15px] font-bold truncate">{r.title}</span>
+                    <span className="block text-[12.5px] text-muted truncate mt-0.5">{r.description}</span>
                   </span>
                   <Icon name="chevRight" size={18} className="text-muted-2 shrink-0" />
                 </Link>

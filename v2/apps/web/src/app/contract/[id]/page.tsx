@@ -24,6 +24,7 @@ import { usePaperFit } from '@/components/paper-fit';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { money } from 'shared';
+import { DocLogo } from '@/components/doc-logo';
 
 interface Doc {
   id: string; mode: string; billing: string; value: number;
@@ -167,10 +168,9 @@ export default function PublicContract() {
               does not. */}
           <div className="flex items-start justify-between gap-6">
             <div className="min-w-0">
-              <div className="mb-3">
+              <div className="mb-3 w-fit max-w-full">
                 {co.logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={co.logo} alt="" className="h-10 w-auto object-contain" />
+                  <DocLogo src={co.logo} />
                 ) : (
                   <span className="w-10 h-10 rounded bg-[#141414] text-white flex items-center justify-center font-bold text-[16px]">
                     {(co.name || 'P').charAt(0)}
@@ -388,7 +388,7 @@ export default function PublicContract() {
               </div>
             </div>
             <div className="text-center min-w-[180px]">
-              <SignArea sign={doc.signExec || co.sign} seal={co.seal} />
+              <SignArea sign={co.sign} seal={co.seal} />
               <div className="border-t border-[#e3e6ee] pt-2 text-[11.5px] font-semibold">For {co.name}</div>
               <div className="text-[10.5px] text-gray-400">Authorised signatory</div>
             </div>

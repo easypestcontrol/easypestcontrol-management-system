@@ -15,6 +15,7 @@ import { SignArea } from '@/components/sign-area';
 import { amountInWords, fmtDate, type InvoiceDetail } from '../ui';
 import { PdfButton } from '@/components/pdf-button';
 import { downloadPdfOf } from '@/lib/sheet-pdf';
+import { DocLogo } from '@/components/doc-logo';
 
 const PRINT_CSS = `
 @media print {
@@ -115,10 +116,9 @@ function InvoiceSheet({ inv, co }: { inv: InvoiceDetail; co: Company }) {
         {/* head */}
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="mb-2.5">
+            <div className="mb-2.5 w-fit max-w-full">
               {co.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={co.logo} alt="" className="h-10 w-auto object-contain" />
+                <DocLogo src={co.logo} />
               ) : (
                 <span className="w-10 h-10 rounded bg-navy text-white flex items-center justify-center font-bold text-[16px]">
                   {(co.name || 'P').charAt(0)}

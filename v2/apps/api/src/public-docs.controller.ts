@@ -195,8 +195,12 @@ export class PublicDocsController {
   @Get('report/:id')
   async report(@Param('id') id: string) {
     const j = await this.prisma.job.findUnique({ where: { id } });
-    // The report exists the moment the service is finished — not before.
-    if (!j || j.status !== 'completed') throw new NotFoundException('No report for this service');
+    // The report exists once the work has started: while it is in progress
+    // it is a draft the technician previews with the customer before they
+    // sign; once finished it is the report.
+    if (!j || (j.status !== 'completed' && j.status !== 'inprogress')) {
+      throw new NotFoundException('No report for this service');
+    }
     const x = (j.exec || {}) as {
       checkinAt?: string; startedAt?: string; finishedAt?: string; durationMins?: number;
       geo?: string; photosBefore?: string[]; photosAfter?: string[];
@@ -224,8 +228,43 @@ export class PublicDocsController {
       this.companyBlock(),
     ]);
     const itemOf = new Map(items.map((i) => [i.id, i]));
+
+    /* What was paid for this visit, and how - so the report says plainly
+       "₹2,950 collected in cash on 15/10/2026, receipt RCT-881". Razorpay
+       payments are stored as UPI with a "Razorpay <id>" reference. */
+    const inv = await this.prisma.invoice.findFirst({
+      where: { jobId: j.id, status: { not: 'cancelled' } },
+      include: { payments: { orderBy: [{ date: 'asc' }, { id: 'asc' }] } },
+    });
+    let payment: {
+      invoiceId: string; total: number; paid: number; balance: number;
+      rows: Array<{ id: string; amount: number; mode: string; via: string; date: string; at: string; by: string }>;
+    } | null = null;
+    if (inv) {
+      const items2 = (Array.isArray(inv.items) ? inv.items : []) as Array<{ qty?: number; rate?: number }>;
+      const t = docTotals(items2 as never, inv.discount, inv.placeOfSupply || co.state, co.state, co.gstRate);
+      const paid = inv.payments.reduce((a, p) => a + p.amount, 0);
+      const who = await this.prisma.user.findMany({
+        where: { id: { in: inv.payments.map((p) => p.by).filter(Boolean) } }, select: { id: true, name: true },
+      });
+      const viaOf = (mode: string, ref: string) =>
+        /^Razorpay /i.test(ref || '') ? 'UPI (Razorpay)'
+          : mode === 'Transfer' ? 'Bank transfer'
+          : mode === 'Advance' ? 'Advance on the contract'
+          : mode || 'Payment';
+      payment = {
+        invoiceId: inv.id, total: Math.round(t.total), paid,
+        balance: Math.max(0, Math.round(t.total - paid)),
+        rows: inv.payments.map((p) => ({
+          id: p.id, amount: p.amount, mode: p.mode, via: viaOf(p.mode, p.ref),
+          date: p.date, at: p.at || '', by: who.find((u) => u.id === p.by)?.name || '',
+        })),
+      };
+    }
+
     return {
       id: j.id, date: j.date, slot: j.slot, contractId: j.contractId,
+      draft: j.status !== 'completed', payment,
       visitNo: j.visitNo, ofVisits: j.ofVisits,
       services: j.serviceIds.map((sid) => {
         const sv = services.find((s) => s.id === sid);

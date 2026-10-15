@@ -9,7 +9,7 @@ import { api } from '@/lib/api';
 import { Icon } from '@/components/icons';
 import { usePager } from '@/components/pager';
 import { useBranchFilter } from '@/components/branch-filter';
-import { ListScreen, niceDate } from '@/components/mobile';
+import { ListScreen, fullDate, niceDate } from '@/components/mobile';
 
 interface Row {
   id: string; vendorId: string; vendorName: string; date: string; expected: string;
@@ -79,9 +79,15 @@ export default function PurchaseOrders() {
           id: r.id,
           href: '/purchase-orders/' + r.id,
           title: r.vendorName || r.vendorId,
-          right: r.packsReceived + '/' + r.packsOrdered,
-          meta: niceDate(r.date) + ' \u00b7 ' + r.id + ' \u00b7 ' + r.lines
-            + (r.lines === 1 ? ' item' : ' items'),
+          meta: r.lines + (r.lines === 1 ? ' item' : ' items') + ' \u00b7 '
+            + r.packsOrdered + (r.packsOrdered === 1 ? ' pack' : ' packs') + ' ordered',
+          right: 'Ordered ' + fullDate(r.date)
+            + (r.expected && r.status !== 'received' ? ' \u00b7 expected ' + niceDate(r.expected) : ''),
+          detailLabel: 'Received',
+          detail: r.packsReceived + ' of ' + r.packsOrdered + ' packs'
+            + (r.packsOrdered ? ' (' + Math.round((r.packsReceived / r.packsOrdered) * 100) + '%)' : ''),
+          foot: r.branch ? 'For ' + bName(r.branch) : undefined,
+          footId: r.id,
           tone: (r.status === 'received' ? 'good'
             : r.status === 'cancelled' ? 'plain'
             : r.packsReceived > 0 ? 'warn' : 'info') as 'good' | 'plain' | 'warn' | 'info',

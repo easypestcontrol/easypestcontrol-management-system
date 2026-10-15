@@ -2,8 +2,8 @@
    The one allocator.
 
    Every rupee this business receives — cash handed over at a door, a UPI QR
-   scanned on a technician's phone, a payment link paid at midnight, a mandate
-   debited automatically — comes through this function and nowhere else.
+   scanned on a technician's phone, a payment link paid at midnight
+   — comes through this function and nowhere else.
 
    That is not tidiness. Before this existed the QR path wrote straight to the
    invoice it was raised from while cash went through a first-open-first-cleared

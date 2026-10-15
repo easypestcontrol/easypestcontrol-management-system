@@ -13,6 +13,8 @@ import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { initials } from '../contracts/lib';
 import { useBranchFilter } from '@/components/branch-filter';
+import { BackBar } from '@/components/mobile';
+import { Icon } from '@/components/icons';
 
 interface Row {
   id: string; userId: string; userName: string; userColor: string;
@@ -85,8 +87,125 @@ export default function TripsDashboard() {
     { l: 'Needs review', v: String(K.needsReview), x: 'flagged as unusual', alert: K.needsReview > 0 },
   ];
 
+  const todayLong = new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+
   return (
-    <div className="p-4 lg:p-6">
+    <>
+    {/* ------------------------------------------------------------ phone */}
+    <div className="lg:hidden bg-ground min-h-full pb-[calc(env(safe-area-inset-bottom)+96px)]">
+      <BackBar title="Trips today" sub={todayLong} fallback="/dashboard"
+        right={(
+          <button onClick={() => router.push('/trips/report')}
+            className="h-[32px] px-3 mr-1 rounded-lg bg-accent text-white text-sm font-semibold shrink-0">
+            Daily report
+          </button>
+        )} />
+      {bf.el && <div className="bg-white px-4 py-2 border-b border-line [&_select]:w-full">{bf.el}</div>}
+      <div className="px-4 pt-3 flex flex-col gap-2.5">
+        {err && <p className="text-sm text-accent">{err}</p>}
+
+        {/* the day in figures */}
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { l: 'Trips', v: String(K.trips), x: 'started' },
+            { l: 'On the road', v: String(K.onRoad), x: 'live now', live: K.onRoad > 0 },
+            { l: 'To review', v: String(K.needsReview), x: 'flagged', alert: K.needsReview > 0 },
+          ].map((t) => (
+            <div key={t.l} className={'rounded-xl border px-3 py-2.5 bg-white '
+              + (t.alert ? 'border-red-line bg-red-wash' : 'border-[#cfd4de]')}>
+              <p className="text-xs font-semibold text-muted truncate">{t.l}</p>
+              <p className={'text-lg font-bold leading-tight mt-0.5 ' + (t.alert ? 'text-accent' : '')}>{t.v}</p>
+              <p className="text-xs text-muted-2 truncate">
+                {t.live && <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent align-middle mr-1" />}{t.x}
+              </p>
+            </div>
+          ))}
+        </div>
+        <div className="rounded-xl border border-[#cfd4de] bg-white px-3.5 py-2.5 flex items-center gap-3">
+          <Icon name="road" size={16} className="text-muted shrink-0" />
+          <p className="flex-1 min-w-0 text-sm truncate">
+            <span className="font-bold">{K.distanceKm} km</span>
+            <span className="text-muted"> driven today · </span>
+            <span className="font-bold">{money(K.cost)}</span>
+            <span className="text-muted"> at {money(d.rate)}/km</span>
+          </p>
+        </div>
+
+        <p className="text-xs font-bold uppercase tracking-[0.06em] text-muted px-1 pt-1">
+          Every trip today · {d.rows.length}
+        </p>
+        {d.rows.length === 0 ? (
+          <div className="row-card text-center py-8">
+            <p className="text-base font-bold">No trips today yet</p>
+            <p className="text-sm text-muted mt-1">They appear here the moment somebody starts one.</p>
+          </div>
+        ) : d.rows.map((r) => {
+          const c = chipFor(r);
+          return (
+            <div key={r.id} data-row-card
+              className="rounded-xl bg-white border border-[#cfd4de] overflow-hidden
+                shadow-[0_1px_3px_rgba(20,20,20,0.08),0_4px_12px_rgba(20,20,20,0.08)]">
+              <button onClick={() => router.push('/trips/' + r.id)} className="w-full text-left px-3.5 pt-3 pb-2.5 active:bg-wash">
+                <span className="flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    style={{ background: r.userColor || '#141414' }}>{initials(r.userName)}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-base font-bold truncate">{r.userName}</span>
+                    <span className="block text-sm text-ink-2 truncate">{r.purpose || 'Trip'}</span>
+                  </span>
+                  <span className={'shrink-0 inline-flex items-center gap-1 h-[22px] px-2 rounded-full text-xs font-semibold whitespace-nowrap ' + c.cls}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-current" />{c.label}
+                  </span>
+                </span>
+                <span className="mt-2 flex items-center gap-2 text-sm min-w-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-mint-ink shrink-0" />
+                  <span className="truncate">{r.startPlace || 'Start not known'}</span>
+                </span>
+                <span className="mt-0.5 flex items-center gap-2 text-sm min-w-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                  <span className="truncate">{r.endPlace || r.dest || (r.status === 'active' ? 'On the way…' : '—')}</span>
+                </span>
+                <span className="mt-2 rounded-lg bg-ground px-2.5 py-1.5 flex items-center gap-3 text-sm whitespace-nowrap">
+                  <span className={r.flagged ? 'font-bold text-amber-ink' : 'font-bold'}>{km(r.distanceM)}</span>
+                  {r.plannedM > 0 && <span className="text-muted">plan {km(r.plannedM)}</span>}
+                  <span className="text-muted">{r.status === 'active' ? 'running' : dur(r.mins)}</span>
+                  <span className="ml-auto font-bold">{money(r.cost)}</span>
+                </span>
+                {r.flagged && r.flagReason && (
+                  <span className="mt-1.5 block text-xs font-semibold text-amber-ink truncate">⚑ {r.flagReason}</span>
+                )}
+              </button>
+              {(r.status === 'active' || r.review === 'pending' || r.claimId) && (
+                <div className="px-3.5 py-2 border-t border-line-soft bg-[#fafbfc] flex items-center gap-2">
+                  <span className="flex-1 text-xs font-mono text-muted-2">{r.id}</span>
+                  {r.status === 'active' ? (
+                    <button disabled={!!busy} onClick={() => cancel(r.id)}
+                      className="h-[28px] px-3 rounded-md border border-red-line bg-white text-accent text-xs font-semibold">
+                      Cancel trip
+                    </button>
+                  ) : r.review === 'pending' ? (
+                    <>
+                      <button disabled={!!busy} onClick={() => reject(r.id)}
+                        className="h-[28px] px-3 rounded-md border border-red-line bg-white text-accent text-xs font-semibold">Reject</button>
+                      <button disabled={!!busy} onClick={() => approve(r.id)}
+                        className="h-[28px] px-3 rounded-md bg-accent text-white text-xs font-semibold">Approve</button>
+                    </>
+                  ) : (
+                    <span className="text-xs text-muted">In claim {r.claimId}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <p className="text-xs text-muted px-1 pb-2">
+          Tap a trip for its route and the planned-vs-driven distance. The ₹/km rate is set per branch and person.
+        </p>
+      </div>
+    </div>
+
+    {/* ------------------------------------------------------------- desk */}
+    <div className="max-lg:hidden p-4 lg:p-6">
       <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-[20px] font-semibold">Trips — today</h1>
@@ -236,5 +355,6 @@ export default function TripsDashboard() {
         Settings → Organisation.
       </p>
     </div>
+    </>
   );
 }

@@ -12,6 +12,7 @@
    (bedrooms, tanks, square feet). Amount = qty × rate in both modes.
    ========================================================================== */
 
+import { BackBar } from '@/components/mobile';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -24,6 +25,7 @@ import { FormSteps, Step, StepNav, useStepScroll } from '@/components/form-steps
 import TimePicker from '@/components/time-picker';
 import TimeRangePicker, { windowLabel } from '@/components/time-range';
 import SignatureField from '@/components/signature-field';
+import { CompanySignNote } from '@/components/sign-area';
 import {
   addMinsHHMM, fmtDate, fmtShort, fmtTime, slotLabel, todayISO,
   SLOTS, STATES,
@@ -40,8 +42,8 @@ const COPY = {
     cta: 'Create contract',
   },
   onetime: {
-    title: 'Create one-time service',
-    cta: 'Create service',
+    title: 'Create one-time contract',
+    cta: 'Create contract',
   },
 };
 
@@ -177,7 +179,8 @@ function NewContractForm() {
           const m = d.mode === 'onetime' ? 'onetime' : 'amc';
           setMode(m);
           setDraft({
-            billingMode: 'interval',
+            // One-time: each service bills when it is done; AMC: a fixed monthly cycle.
+            billingMode: m === 'onetime' ? 'pervisit' : 'interval',
             billing: 'Monthly',
             billingAmount: 0,
             mode: m,
@@ -205,7 +208,8 @@ function NewContractForm() {
           const meBoot = b.users.find((u) => u.id === meRow.id);
           const start = todayISO();
           setDraft({
-            billingMode: 'interval',
+            // One-time: each service bills when it is done; AMC: a fixed monthly cycle.
+            billingMode: m === 'onetime' ? 'pervisit' : 'interval',
             billing: 'Monthly',
             billingAmount: 0,
             mode: m,
@@ -382,6 +386,28 @@ function NewContractForm() {
     set({ lines: [...draft.lines, newLine('')] });
   }
 
+  /* One-time: a service's own date and time (its line), falling back to the
+     contract's for a line that has none yet. */
+  function oneDate(l: { startAt?: string } | undefined): string {
+    return (l && l.startAt) || draft?.start || '';
+  }
+  function oneFrom(l: unknown): string {
+    const x = l as { times?: string[] } | undefined;
+    return x?.times?.[0] || draft?.slot || '10:00';
+  }
+  function oneTo(l: unknown): string {
+    const x = l as { timeEnds?: string[] } | undefined;
+    return x?.timeEnds?.[0] || draft?.slotEnd || addMinsHHMM(oneFrom(l), 120);
+  }
+  /** The contract's own start and end around every service's date. */
+  function oneSpan(): { start: string; end: string } {
+    const ds = (draft?.lines || []).filter((l) => l.svId).map((l) => oneDate(l)).filter(Boolean).sort();
+    const start = ds[0] || draft?.start || '';
+    const last = ds[ds.length - 1] || start;
+    const end = draft?.end && draft.end > last ? draft.end : last;
+    return { start, end };
+  }
+
   function moveStart(start: string) {
     if (!draft || !start) return;
     if (isOne) {
@@ -410,11 +436,15 @@ function NewContractForm() {
     if (n === 2) {
       if (isOne) {
         if (!draft.start) return 'Pick a service date';
-        const l0 = draft.lines[0] as { times?: string[]; timeEnds?: string[] } | undefined;
-        const from = l0?.times?.[0] || draft.slot || '10:00';
-        const to = l0?.timeEnds?.[0] || draft.slotEnd || '';
-        if (to && toMin(to) <= toMin(from)) {
-          return 'The appointment ends before it starts — set a finish later than ' + fmtTime(from);
+        for (const l of draft.lines) {
+          if (!l.svId) continue;
+          const name = svcOf[l.svId]?.name || 'a service';
+          if (!oneDate(l)) return 'Pick a service date for ' + name;
+          const from = oneFrom(l);
+          const to = (l as { timeEnds?: string[] }).timeEnds?.[0] || '';
+          if (to && toMin(to) <= toMin(from)) {
+            return name + ': the appointment ends before it starts — set a finish later than ' + fmtTime(from);
+          }
         }
         if (draft.end && daysBetween(draft.start, draft.end) < 0) {
           return 'The end date is before the start date';
@@ -448,8 +478,11 @@ function NewContractForm() {
       const made = await api.post<{ id: string; totalVisits: number }>('/contracts', {
         ...draft,
         mode,
+        // One-time: every service keeps its own date and time; the contract
+        // runs from the earliest to the latest of them.
+        ...(isOne ? oneSpan() : {}),
         lines: draft.lines.map((l) => (isOne
-          ? { ...l, startAt: draft.start, slot: draft.slot } // one visit, one window
+          ? { ...l, startAt: oneDate(l), slot: oneFrom(l) }
           : l)),
       });
       // Unsigned by choice: land on the contract with the link ready to send.
@@ -478,7 +511,6 @@ function NewContractForm() {
 
   const client = clients.find((c) => c.id === draft.clientId) || null;
   const staff = boot.users.filter((u) => ['sales', 'ops', 'admin'].indexOf(u.role) >= 0);
-  const ownerSign = boot.users.find((u) => u.id === draft.owner)?.sign || '';
   const ownerName = boot.users.find((u) => u.id === draft.owner)?.name || '—';
   const appointments = draft.lines.reduce((a, l) => a + (l.svId ? l.qty || 0 : 0), 0);
   const peak = peakCrew(asContract().plan, visits);
@@ -498,14 +530,17 @@ function NewContractForm() {
      Appending `w-[90px]` to a class that already says w-full is a coin toss
      decided by stylesheet order — which is how a description box ended up
      narrower than the quantity beside it. */
-  const field = 'h-11 lg:h-9 px-3 rounded-lg border border-line text-[16px] lg:text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
+  const field = 'h-[42px] lg:h-9 px-3 rounded-lg border border-line text-[15px] lg:text-[13.5px] outline-none transition-colors bg-wash focus:border-accent focus:bg-white focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]';
   const input = 'w-full ' + field;
   const card = 'card';
 
   return (
-    <div className="p-4 lg:p-6 max-w-[1180px] max-lg:pb-[calc(env(safe-area-inset-bottom)+92px)]">
-      <Link href="/contracts" className="text-[12.5px] text-muted hover:text-navy">← All contracts</Link>
-      <div className="mt-2 mb-4 lg:mb-5">
+    <>
+    <BackBar title={COPY[mode].title} sub={mode === 'amc' ? 'Recurring services over a period' : 'Services on dates you choose'}
+      fallback="/contracts" />
+    <div className="p-4 lg:p-6 max-w-[1180px] max-lg:bg-ground max-lg:min-h-full max-lg:pt-0 max-lg:pb-[calc(env(safe-area-inset-bottom)+140px)]">
+      <Link href="/contracts" className="max-lg:hidden text-[12.5px] text-muted hover:text-navy">← All contracts</Link>
+      <div className="max-lg:hidden mt-2 mb-4 lg:mb-5">
         <h1 className="text-[17px] lg:text-[20px] font-semibold">{COPY[mode].title}</h1>
       </div>
 
@@ -514,7 +549,7 @@ function NewContractForm() {
           widget sitting on the form rather than the frame around it. The
           margins go on the sticky element itself; a wrapper its own height
           would leave it nothing to travel inside. */}
-      <FormSteps steps={STEPS} at={step} onGo={setStep} className="-mx-4 -mt-1 mb-4" />
+      <FormSteps steps={STEPS} at={step} onGo={setStep} className="-mx-4 mb-3" belowBar />
 
       {/* --------------------------------------- stage 1 · the header card */}
       <Step n={0} at={step}>
@@ -890,15 +925,20 @@ function NewContractForm() {
             <span className="font-semibold text-[14px]">Total amount</span>
             <span className="font-semibold text-[19px] tracking-tight">{money(totals.total)}</span>
           </div>
-          {isOne ? null : (
-            <div className="mt-3 pt-3 border-t border-line-soft">
+          {/* How the money moves - asked when the contract is made, for a
+              one-time service as much as an AMC. A one-time contract has no
+              monthly cycle to spread over, so it offers upfront or per service. */}
+          {(
+            <div className="mt-3 pt-3 border-t border-line-soft" data-billing-choice>
               <p className="text-[12px] font-semibold text-ink-2 mb-2">How is this billed?</p>
               <div className="flex flex-col gap-1.5">
                 {([
                   ['upfront', 'Everything upfront', 'One invoice at signing — the office collects'],
-                  ['pervisit', 'Pay per service', 'Each completed service invoices itself — the technician collects on site'],
+                  ['pervisit', 'Pay per service', isOne
+                    ? 'Each service invoices itself when it is done — the technician collects on site'
+                    : 'Each completed service invoices itself — the technician collects on site'],
                   ['interval', 'Fixed cycle (MRR)', 'Equal installments, raised automatically — the office collects'],
-                ] as Array<[string, string, string]>).map(([m, t, sub]) => (
+                ] as Array<[string, string, string]>).filter(([m]) => !(isOne && m === 'interval')).map(([m, t, sub]) => (
                   <label key={m}
                     className={'flex items-start gap-2.5 rounded border p-2.5 cursor-pointer transition-colors ' +
                       (draft.billingMode === m ? 'border-accent bg-red-wash' : 'border-line hover:border-navy/40')}>
@@ -989,33 +1029,37 @@ function NewContractForm() {
                 Pick a service in the step before this one and its dates appear here.
               </p>
             ) : isOne ? (() => {
-              /* One visit: one date, one window. Every service on the form
-                 is done in it, so the hours are set once for all of them. */
-              const l0 = draft.lines[0];
-              const from = l0?.times?.[0] || draft.slot || '10:00';
-              const to = l0?.timeEnds?.[0] || draft.slotEnd || addMinsHHMM(from, 120);
+              /* Each service has its own date and time. Services on the same
+                 date and time are one visit - one trip; a service on another
+                 day is its own visit. The card on top sets every service at
+                 once, for the usual case of doing them all together. */
+              const l0 = draft.lines.find((l) => l.svId) || draft.lines[0];
+              const from0 = oneFrom(l0);
+              const to0 = oneTo(l0);
+              const days = Array.from(new Set(draft.lines.filter((l) => l.svId).map((l) => oneDate(l))));
               return (
                 <div className="p-3 flex flex-col gap-3">
-                  <div data-when-card className="rounded-xl border border-line p-3">
+                  <div data-when-card className="rounded-xl border border-line bg-wash/60 p-3">
                     <p className="text-[12px] font-bold uppercase tracking-[0.06em] text-muted mb-2.5">
-                      When
+                      Same for all services
                     </p>
                     <label className="block">
                       <span className={label}>Service date</span>
-                      <input className={input} type="date" value={draft.start}
+                      <input className={input} type="date" value={oneDate(l0)}
                         onChange={(e) => moveStart(e.target.value)} />
                     </label>
                     <div className="mt-3">
                       <span className={label}>Time</span>
-                      <TimeRangePicker from={from} to={to}
+                      <TimeRangePicker from={from0} to={to0}
                         onChange={(f, t) => draft.lines.forEach((_, i) => {
                           setLineTime(i, 0, f); setLineTimeEnd(i, 0, t);
                         })}
                         className={input + ' flex items-center'} />
                     </div>
                     <p className="text-[12.5px] text-muted mt-2.5 leading-relaxed">
-                      {fmtDate(draft.start)}, {windowLabel(from, to)} — everything below is
-                      done in this one visit.
+                      {days.length > 1
+                        ? 'The services below are on ' + days.length + ' different days - ' + days.length + ' visits. Change any one below.'
+                        : 'Applies to every service. Need one on another day or time? Change it below.'}
                     </p>
                   </div>
                   {draft.lines.map((l, i) => (l.svId ? (
@@ -1023,6 +1067,17 @@ function NewContractForm() {
                       <p className="text-[14.5px] font-bold leading-snug">
                         {svcOf[l.svId]?.name || l.svId}
                       </p>
+                      <label className="block mt-2.5">
+                        <span className={label}>Service date</span>
+                        <input className={input} type="date" value={oneDate(l)} data-line-date
+                          onChange={(e) => setLine(i, { startAt: e.target.value || draft.start })} />
+                      </label>
+                      <div className="mt-2.5">
+                        <span className={label}>Time</span>
+                        <TimeRangePicker from={oneFrom(l)} to={oneTo(l)}
+                          onChange={(f, t) => { setLineTime(i, 0, f); setLineTimeEnd(i, 0, t); }}
+                          className={input + ' flex items-center'} />
+                      </div>
                       <div className="mt-2.5">
                         <span className={label}>Technicians needed</span>
                         <Stepper value={l.crew || 1} min={1} max={9} name="technicians"
@@ -1194,7 +1249,7 @@ function NewContractForm() {
                 </td></tr>
               ) : draft.lines.map((l, i) => {
                 if (!l.svId) return null; // pick the service in the table above first
-                const dates = isOne ? [draft.start] : lineDates(i);
+                const dates = isOne ? [oneDate(l)] : lineDates(i);
                 const sp = spreadOf(l);
                 return (
                   <FragmentRow key={i}>
@@ -1203,7 +1258,9 @@ function NewContractForm() {
                       <td className="font-medium">{svcOf[l.svId]?.name || l.svId}</td>
                       <td>
                         {isOne ? (
-                          <span className="text-[12.5px]">{fmtDate(draft.start)}</span>
+                          <input className={field + ' h-8 w-[140px] text-[12.5px]'} type="date"
+                            value={oneDate(l)}
+                            onChange={(e) => setLine(i, { startAt: e.target.value || draft.start })} />
                         ) : (
                           <input className={field + ' h-8 w-[140px] text-[12.5px]'} type="date"
                             value={l.startAt}
@@ -1300,8 +1357,10 @@ function NewContractForm() {
                                       ? 'bg-red-wash text-accent border-transparent font-medium'
                                       : 'border-line text-ink-2')}>
                                 <span className="text-muted-2 font-semibold">{n + 1}</span>
-                                <input type="date" value={d} min={draft.start} max={draft.end}
-                                  onChange={(e) => setLineDate(i, n, e.target.value)}
+                                <input type="date" value={d} min={isOne ? undefined : draft.start} max={isOne ? undefined : draft.end}
+                                  onChange={(e) => (isOne
+                                    ? setLine(i, { startAt: e.target.value || draft.start })
+                                    : setLineDate(i, n, e.target.value))}
                                   className="bg-transparent outline-none w-[108px] cursor-pointer text-inherit" />
                                 {/* ------------------------------ and the hour
 
@@ -1429,17 +1488,8 @@ function NewContractForm() {
               )}
             </SignatureField>
           )}
-          <span className={label + ' mt-5'}>For {boot.company.name} — {ownerName}</span>
-          {ownerSign ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={ownerSign} alt="Signature on file"
-                className="h-[72px] rounded border border-line bg-white object-contain" />
-            </>
-          ) : (
-            <SignatureField value={draft.signExec} onChange={(d) => set({ signExec: d })}
-              title={'Sign for ' + boot.company.name} who={ownerName} />
-          )}
+          <span className={label + ' mt-5'}>For {boot.company.name}</span>
+          <CompanySignNote company={boot.company} />
         </section>
 
         <section className={card + ' p-4'}>
@@ -1477,6 +1527,7 @@ function NewContractForm() {
         onBack={() => { setErr(''); setStep((n) => Math.max(0, n - 1)); }}
         onNext={next} onSave={create} saveLabel={COPY[mode].cta} />
     </div>
+    </>
   );
 }
 
