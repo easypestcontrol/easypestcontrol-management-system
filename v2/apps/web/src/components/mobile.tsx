@@ -1081,7 +1081,7 @@ export function BackBar({ title, sub, fallback = '/dashboard', right, onBack }: 
         }}
         aria-label="Back"
         className="w-11 h-11 rounded-full flex items-center justify-center active:bg-wash shrink-0">
-        <Icon name="chevRight" size={22} className="rotate-180" />
+        <Icon name="chevRight" size={24} className="rotate-180" />
       </button>
       <span className="min-w-0 flex-1">
         <span className="block text-[1.1rem] font-semibold truncate leading-tight">{title}</span>
