@@ -716,7 +716,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                           + (t.active ? 'bg-rose text-accent' : 'text-muted')}>
                           <Icon name={t.icon} size={19} />
                         </span>
-                        <span className={'text-[10.5px] leading-none whitespace-nowrap '
+                        <span data-tab-label className={'text-[10.5px] leading-none whitespace-nowrap '
                           + (t.active ? 'font-bold text-accent' : 'font-medium text-muted')}>
                           {t.label}
                         </span>

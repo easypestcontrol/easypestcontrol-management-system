@@ -188,10 +188,11 @@ function ServiceCard({ j, techName, canAssign }: {
         {/* when: the date, the start and end, which visit - one line */}
         <div className="mt-2.5 rounded-lg bg-ground px-2.5 py-2 flex items-center gap-2 min-w-0">
           <Icon name="calendar" size={14} className="text-muted shrink-0" />
-          <p className="min-w-0 flex-1 text-sm truncate whitespace-nowrap">
-            <span className="font-semibold">{day}</span>
+          {/* Wraps rather than cuts: the end time matters more than one line. */}
+          <p className="min-w-0 flex-1 text-sm">
+            <span className="font-semibold whitespace-nowrap">{day}</span>
             {time && <span className="text-muted"> · </span>}
-            {time && <span className="font-bold tabular-nums">{time}</span>}
+            {time && <span className="font-bold tabular-nums whitespace-nowrap">{time}</span>}
           </p>
           {j.ofVisits > 1 && (
             <span className="shrink-0 text-xs font-semibold text-muted whitespace-nowrap">

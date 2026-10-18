@@ -17,9 +17,10 @@
 
 import { useState } from 'react';
 import { money, moneyShort } from 'shared';
+import { api } from '@/lib/api';
 import { Icon } from '@/components/icons';
-import { BackBar, Card, Fab, PickChip, Screen, SearchBox, fullDate } from '@/components/mobile';
-import { STAGES, dueState, isOpen, dayDelta, commitment, relDay, localDay, type Lead } from './lib';
+import { BackBar, Card, Fab, PickChip, Screen, SearchBox } from '@/components/mobile';
+import { STAGES, dueState, isOpen, dayDelta, commitment, relDay, fmtTime, type Lead, type LogEntry } from './lib';
 
 /* The stage, in the words people use out loud, with the tone it deserves.
    A lead in Contract is nearly money; a lost one is history. */
@@ -41,6 +42,186 @@ function urgency(l: Lead): number {
   if (c) return dayDelta(c.date);           // overdue is negative, today is 0
   if (!isOpen(l)) return 9999;              // won and lost sit at the bottom
   return 500;                               // open, nothing promised
+}
+
+/** "35 min ago", "3 h ago", "Yesterday", "12 Oct" - how fresh a lead is. */
+function age(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return '';
+  const min = Math.floor((Date.now() - t) / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return min + ' min ago';
+  if (min < 24 * 60 && relDay(iso) === 'Today') return Math.floor(min / 60) + ' h ago';
+  return relDay(iso);
+}
+
+const initials = (name: string) => String(name || '?')
+  .replace(/^(mr|mrs|ms|dr|miss)\.?\s+/i, '').split(/\s+/).filter(Boolean)
+  .slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join('') || '?';
+
+/** The latest "Contacted" note in the lead's history, if any. */
+const contactedAt = (log: LogEntry[] | undefined) =>
+  (log || []).slice().reverse().find((e) => /^Contacted\b/.test(e.text))?.at || '';
+
+/** "2026-10-19T17:00" or "2026-10-19 17:00" -> "5:00 PM"; a bare date has no time. */
+const timeOf = (stamp: string) => {
+  const m = /[T ](\d{2}:\d{2})/.exec(stamp || '');
+  return m ? fmtTime(m[1]) : '';
+};
+
+/* ------------------------------------------------------------- the card
+
+   One lead, the way a salesperson works it: who and what they are worth at
+   the top, how to reach them and where, then the job itself in a tinted box
+   - the pest they called about, what they said, and the visit or call-back
+   that is booked - and at the bottom where it came from, whose it is, and
+   the three things done next: call, WhatsApp, mark contacted. */
+function LeadCard({ l, ownerName, onOpen }: { l: Lead; ownerName: string; onOpen: () => void }) {
+  const [contacted, setContacted] = useState(contactedAt(l.log));
+  const [busy, setBusy] = useState(false);
+  const due = dueState(l);
+  const late = !!due && dayDelta(due.date) <= 0;
+  const digits = (l.phone || '').replace(/\D/g, '');
+  const wa = digits ? 'https://wa.me/' + (digits.length === 10 ? '91' + digits : digits) : '';
+  const live = isOpen(l);
+  // What the customer said - not the automatic "New lead captured." every lead starts with.
+  const lastNote = (l.notes || '').trim().split('\n')
+    .filter((t) => t.trim() && !/^New lead captured\.?$/i.test(t.trim())).pop() || '';
+  const dueTime = due ? timeOf(l.followUp) : '';
+
+  async function markContacted(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await api.post<{ log: LogEntry[] }>('/leads/' + l.id + '/log', { text: 'Contacted the customer' });
+      setContacted(contactedAt(r.log) || new Date().toISOString());
+    } catch { /* the button stays; the next tap tries again */ }
+    setBusy(false);
+  }
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
+
+  return (
+    <div role="button" tabIndex={0} onClick={onOpen} data-lead-card
+      onKeyDown={(e) => { if (e.key === 'Enter') onOpen(); }}
+      className="w-full text-left rounded-[20px] bg-white border border-[#e5c9cc] px-4 pt-3.5 pb-4
+        shadow-[0_1px_3px_rgba(20,20,20,0.06),0_6px_16px_rgba(20,20,20,0.07)] active:bg-wash cursor-pointer">
+      {/* ref and age · stage */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[12px] font-semibold text-muted tracking-[0.02em] truncate">
+          {l.id} · {age(l.createdAt)}
+        </span>
+        <span className={'inline-flex items-center h-[22px] px-2.5 rounded-full text-[11.5px] font-bold shrink-0 '
+          + (l.stage === 'new' ? 'bg-accent text-white' : (TONE[l.stage] || 'bg-wash text-muted'))}>
+          {l.stage === 'new' ? 'New' : label(l.stage)}
+        </span>
+      </div>
+
+      {/* who, and what it is worth */}
+      <div className="flex items-center gap-3 mt-2.5">
+        <span className="w-11 h-11 rounded-full bg-[#5c0f14] text-white text-[14px] font-bold
+          flex items-center justify-center shrink-0">
+          {initials(l.name)}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[17px] font-bold leading-tight truncate">{l.name}</span>
+          {l.type && <span className="block text-[12.5px] text-muted italic truncate">{l.type}</span>}
+        </span>
+        {l.value > 0 && (
+          <span className="text-[17px] font-bold tabular-nums shrink-0">{money(l.value)}</span>
+        )}
+      </div>
+
+      {/* how to reach them, and where */}
+      <div className="mt-2.5 flex flex-col gap-1">
+        {l.phone && (
+          <span className="flex items-center gap-2 text-[13.5px] font-semibold">
+            <Icon name="phone" size={13} className="text-accent shrink-0" /> {l.phone}
+          </span>
+        )}
+        {l.area && (
+          <span className="flex items-center gap-2 text-[13.5px] text-ink-2 min-w-0">
+            <Icon name="branch" size={13} className="text-accent shrink-0" />
+            <span className="truncate">{l.area}</span>
+          </span>
+        )}
+      </div>
+
+      {/* the job: what they called about, what they said, what is booked */}
+      {(l.interest.length > 0 || lastNote || due) && (
+        <div className="mt-3 rounded-2xl bg-red-wash border border-accent/15 p-3">
+          {l.interest.length > 0 && (
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-3.5 h-3.5 rounded-full bg-accent shrink-0" />
+              <span className="text-[13px] font-bold uppercase tracking-[0.03em] truncate">
+                {l.interest.join(' + ')}
+              </span>
+            </div>
+          )}
+          {lastNote && (
+            <p className={'text-[13px] italic text-ink-2 leading-snug line-clamp-2 '
+              + (l.interest.length ? 'mt-1.5' : '')}>
+              &ldquo;{lastNote}&rdquo;
+            </p>
+          )}
+          {due && (
+            <div className={'mt-2.5 rounded-xl px-3 py-2 flex items-center justify-between gap-2 '
+              + (late ? 'bg-accent text-white' : 'bg-white text-ink border border-line')}>
+              <span className="text-[11.5px] font-bold uppercase tracking-[0.04em]">
+                {due.kind === 'Inspect' ? 'Inspection' : 'Call back'}
+              </span>
+              <span className="text-[13px] font-bold whitespace-nowrap">
+                {relDay(due.date)}{dueTime ? ' · ' + dueTime : ''}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* where it came from, whose it is, and when it was last touched */}
+      <div className="mt-3 flex items-center justify-between gap-2 text-[12.5px]">
+        <span className="text-muted truncate">
+          {l.source || 'Lead'}{ownerName ? <> · <b className="text-ink font-semibold">{ownerName}</b></> : null}
+        </span>
+        {contacted ? (
+          <span className="font-semibold text-mint-ink whitespace-nowrap">
+            Contacted {relDay(contacted).toLowerCase() === 'today' ? timeOf(contacted.replace('Z', '')) || 'today' : relDay(contacted)}
+          </span>
+        ) : due ? (
+          <span className={'font-bold whitespace-nowrap ' + (late ? 'text-accent' : 'text-ink')}>{due.text}</span>
+        ) : null}
+      </div>
+
+      {/* call, WhatsApp, and the one thing to record */}
+      <div className="mt-3 flex items-center gap-2.5">
+        {digits && (
+          <a href={'tel:' + digits} onClick={stop} aria-label={'Call ' + l.name}
+            className="w-12 h-12 rounded-2xl border border-accent/30 text-accent flex items-center justify-center shrink-0 active:bg-red-wash">
+            <Icon name="phone" size={17} />
+          </a>
+        )}
+        {wa && (
+          <a href={wa} target="_blank" rel="noreferrer" onClick={stop} aria-label={'WhatsApp ' + l.name}
+            className="w-12 h-12 rounded-2xl border border-accent/30 text-accent flex items-center justify-center shrink-0 active:bg-red-wash">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3Z" />
+            </svg>
+          </a>
+        )}
+        {live ? (
+          <button type="button" onClick={markContacted} disabled={busy}
+            className={'flex-1 h-12 rounded-2xl text-[14.5px] font-bold active:brightness-95 disabled:opacity-60 '
+              + (contacted ? 'bg-white border border-line text-ink' : 'bg-accent text-white')}>
+            {busy ? 'Saving…' : contacted ? 'Contacted again' : 'Mark contacted'}
+          </button>
+        ) : (
+          <span className="flex-1 h-12 rounded-2xl bg-wash text-muted text-[14px] font-semibold flex items-center justify-center">
+            Open lead
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function LeadsMobile({ rows, owners, onOpen, onNew }: {
@@ -136,47 +317,11 @@ export default function LeadsMobile({ rows, owners, onOpen, onNew }: {
             </p>
           </Card>
         ) : (
-          <div className="flex flex-col gap-2.5 mb-4">
-            {shown.map((l) => {
-              const due = dueState(l);
-              const late = due && dayDelta(due.date) <= 0;
-              return (
-                <button key={l.id} type="button" onClick={() => onOpen(l.id)} data-row-card
-                  className="w-full text-left rounded-xl bg-white border border-[#cfd4de] px-3.5 py-3
-                    shadow-[0_1px_3px_rgba(20,20,20,0.08),0_4px_12px_rgba(20,20,20,0.08)] active:bg-wash">
-                  <span className="flex items-center gap-2 min-w-0">
-                    <span className="flex-1 min-w-0 text-base font-bold truncate">{l.name}</span>
-                    {l.value > 0 && (
-                      <span className="text-base font-bold tabular-nums shrink-0">{money(l.value)}</span>
-                    )}
-                  </span>
-
-                  <span className="flex items-center gap-2 mt-1 min-w-0">
-                    <span className={'inline-flex items-center h-[22px] px-2 rounded-full text-xs '
-                      + 'font-bold shrink-0 ' + (TONE[l.stage] || 'bg-wash text-muted')}>
-                      {label(l.stage)}
-                    </span>
-                    <span className="text-sm text-ink-2 truncate">
-                      {[l.area, l.source].filter(Boolean).join(' · ')}
-                    </span>
-                  </span>
-
-                  <span className="block text-xs text-muted truncate mt-0.5">
-                    {l.phone || 'No number'} · added {fullDate(localDay(l.createdAt)) || relDay(l.createdAt).toLowerCase()}
-                  </span>
-
-                  {/* What was promised, and whether it has already gone past.
-                      This is the line that decides who gets rung next. */}
-                  {due && (
-                    <span className={'mt-2 rounded-lg px-2.5 py-1.5 flex items-center gap-2 min-w-0 '
-                      + (late ? 'bg-red-wash text-accent' : 'bg-ground text-ink')}>
-                      <Icon name={late ? 'alert' : 'calendar'} size={13} className="shrink-0" />
-                      <span className="text-sm font-semibold truncate">{due.kind} {due.when} · {due.text}</span>
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          <div className="flex flex-col gap-3.5 mb-4">
+            {shown.map((l) => (
+              <LeadCard key={l.id} l={l} onOpen={() => onOpen(l.id)}
+                ownerName={(owners.find((u) => u.id === l.owner)?.name || '').split(' ')[0]} />
+            ))}
           </div>
         )}
       </div>

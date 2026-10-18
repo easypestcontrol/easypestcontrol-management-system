@@ -172,7 +172,7 @@ export function HeroStats({ items }: {
             <span className="block text-[19px] font-bold leading-none tabular-nums mt-1.5">
               {it.value}
             </span>
-            <span className="block text-[10.5px] font-semibold uppercase tracking-[0.06em]
+            <span data-hero-label className="block text-[10.5px] font-semibold uppercase tracking-[0.06em]
               text-white/70 mt-1 leading-tight">
               {it.label}
             </span>

@@ -606,3 +606,114 @@ html, body {
 @media (max-width: 1023px) {
   select { font-size: 15px; }
 }
+
+/* ----------------------------------------------------------- phone type +4
+   The client reads the app on a phone in a hand, often outdoors, and asked
+   for every text on the phone to be 4px larger than it was (Oct 2026). Only
+   the phone (under 1024px) and only the screen: the printable documents -
+   contract, invoice, report, quotation and purchase-order sheets - keep the
+   sizes they were drawn at, so their previews and PDFs do not change.
+   Generated from the size classes the code uses (scratchpad gen_plus4.py);
+   spacing is untouched - only type grows. */
+@media screen and (max-width: 1023px) {
+  body { font-size: 18px; }
+  :is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) { font-size: 14px; }
+  .zpill:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 16px; height: auto; min-height: 24px; padding-top: 2px; padding-bottom: 2px; }
+  select:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 19px; }
+  .ztable td:first-child:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 19.5px; }
+  .ztable td ~ td:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 17.5px; }
+  .text-2xl:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 25px; }
+  .text-\[10\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 15px; }
+  .text-\[10px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 15px; }
+  .text-\[11\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 16px; }
+  .text-\[11px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 15.5px; }
+  .text-\[12\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 17px; }
+  .text-\[12px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 16.5px; }
+  .text-\[13\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 17.5px; }
+  .text-\[13px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 17.5px; }
+  .text-\[14\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 18.5px; }
+  .text-\[14px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 18px; }
+  .text-\[15\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 19px; }
+  .text-\[15px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 18.5px; }
+  .text-\[16\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 19.5px; }
+  .text-\[16px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 19.5px; }
+  .text-\[17px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 20px; }
+  .text-\[18px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 20.5px; }
+  .text-\[19px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 21px; }
+  .text-\[20px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 21.5px; }
+  .text-\[21px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 25px; }
+  .text-\[22px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 22.5px; }
+  .text-\[23px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 27px; }
+  .text-\[24px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 23.5px; }
+  .text-\[26px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 25px; }
+  .text-\[27px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 31px; }
+  .text-\[28px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 26px; }
+  .text-\[32px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 36px; }
+  .text-\[38px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 42px; }
+  .text-\[8\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 12.5px; }
+  .text-\[9\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 13.5px; }
+  .text-\[9px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 13px; }
+  .text-base:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 18px; }
+  .text-lg:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 19.75px; }
+  .text-sm:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 16.25px; }
+  .text-xl:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 21.5px; }
+  .text-xs:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 14.5px; }
+  .max-lg\:text-\[13\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 17.5px; }
+  .max-lg\:text-\[14\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 18.5px; }
+  .max-lg\:text-base:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 18px; }
+  [data-row-card] .text-2xl:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 25px; }
+  [data-row-card] .text-\[10\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 13.52px; }
+  [data-row-card] .text-\[10px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 13.52px; }
+  [data-row-card] .text-\[11\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 14.5px; }
+  [data-row-card] .text-\[11px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 14.5px; }
+  [data-row-card] .text-\[12\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 14.5px; }
+  [data-row-card] .text-\[12px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 14.5px; }
+  [data-row-card] .text-\[13\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 16.25px; }
+  [data-row-card] .text-\[13px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 16.25px; }
+  [data-row-card] .text-\[14\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 16.25px; }
+  [data-row-card] .text-\[14px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 16.25px; }
+  [data-row-card] .text-\[15\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 18px; }
+  [data-row-card] .text-\[15px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 18px; }
+  [data-row-card] .text-\[16\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 18px; }
+  [data-row-card] .text-\[16px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 18px; }
+  [data-row-card] .text-\[17px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 18px; }
+  [data-row-card] .text-\[18px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 20.5px; }
+  [data-row-card] .text-\[19px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 21px; }
+  [data-row-card] .text-\[20px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 21.5px; }
+  [data-row-card] .text-\[21px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 25px; }
+  [data-row-card] .text-\[22px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 22.5px; }
+  [data-row-card] .text-\[23px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 27px; }
+  [data-row-card] .text-\[24px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 23.5px; }
+  [data-row-card] .text-\[26px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 25px; }
+  [data-row-card] .text-\[27px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 31px; }
+  [data-row-card] .text-\[28px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 26px; }
+  [data-row-card] .text-\[32px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 36px; }
+  [data-row-card] .text-\[38px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 42px; }
+  [data-row-card] .text-\[8\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 12.5px; }
+  [data-row-card] .text-\[9\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 13.5px; }
+  [data-row-card] .text-\[9px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 13.52px; }
+  [data-row-card] .text-base:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 18px; }
+  [data-row-card] .text-lg:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 19.75px; }
+  [data-row-card] .text-sm:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 16.25px; }
+  [data-row-card] .text-xl:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 21.5px; }
+  [data-row-card] .text-xs:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 14.5px; }
+  [data-row-card] .max-lg\:text-\[13\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 17.5px; }
+  [data-row-card] .max-lg\:text-\[14\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 18.5px; }
+  [data-row-card] .max-lg\:text-base:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 18px; }
+  [data-tab-label][data-tab-label] { font-size: 13px; }
+  [data-hero-label][data-hero-label] { font-size: 12.5px; letter-spacing: 0.02em; }
+}
+@media screen and (min-width: 640px) and (max-width: 1023px) {
+  .sm\:text-\[11\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 15.5px; }
+  [data-row-card] .sm\:text-\[11\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 15.5px; }
+  .sm\:text-\[12px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 16px; }
+  [data-row-card] .sm\:text-\[12px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 16px; }
+  .sm\:text-\[13px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 17px; }
+  [data-row-card] .sm\:text-\[13px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 17px; }
+  .sm\:text-\[14\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 18.5px; }
+  [data-row-card] .sm\:text-\[14\.5px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 18.5px; }
+  .sm\:text-\[16px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 20px; }
+  [data-row-card] .sm\:text-\[16px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 20px; }
+  .sm\:text-\[20px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 24px; }
+  [data-row-card] .sm\:text-\[20px\]:not(:is(.paper, .qdoc, .print-doc, .inv-page, .contract-doc) *) { font-size: 24px; }
+}
